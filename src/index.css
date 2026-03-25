@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+@theme {
+  /* JW.org brand palette */
+  --color-primary: #4a6da7;
+  --color-primary-light: #5a7db7;
+  --color-primary-dark: #3b5a8a;
+  --color-accent: #5b3c88;
+  --color-sidebar: #f7f8fa;
+  --color-border: #dde1e7;
+  --color-header-bg: #36516e;
+}
+
