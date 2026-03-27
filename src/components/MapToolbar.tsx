@@ -117,7 +117,7 @@ export default function MapToolbar({
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center rounded-full border border-white/60 bg-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.10),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl will-change-transform"
+      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
     >
       {/* Left fade edge */}
       {canScrollLeft && (
@@ -127,7 +127,7 @@ export default function MapToolbar({
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="scrollbar-hide flex items-center gap-1 overflow-x-auto overscroll-x-contain px-1.5 py-1.5"
+        className="flex items-center gap-1 px-1.5 py-1.5"
       >
         {/* ── History group ── */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
@@ -223,10 +223,6 @@ export default function MapToolbar({
                 }`}
               >
                 <Icon size={17} strokeWidth={isActive ? 2.2 : 2} />
-                {/* Active indicator dot */}
-                {isActive && (
-                  <span className="absolute -bottom-0.5 left-1/2 h-[3px] w-[3px] -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
-                )}
                 <Tip label={label} shortcut={shortcut} />
               </button>
             )
@@ -240,7 +236,7 @@ export default function MapToolbar({
             <button
               onClick={onClearBoundary}
               aria-label="Clear boundary"
-              className={`${btnBase} ${btnSize} ${btnFocusRing} shrink-0 text-slate-400 hover:bg-red-500/10 hover:text-red-500`}
+              className={`${btnBase} ${btnSize} ${btnFocusRing} shrink-0 text-slate-400 hover:text-red-500`}
             >
               <Trash2 size={17} strokeWidth={2} />
               <Tip label="Clear" shortcut="Del" />
