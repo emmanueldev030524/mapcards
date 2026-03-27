@@ -45,6 +45,7 @@ interface MapCardsStore {
   snapToGrid: boolean
   gridSpacingMeters: number
   selectedHouseId: string | null
+  selectedTreeId: string | null
   selectedRoadId: string | null
   mapMode: 'satellite' | 'street' | 'clean' | 'auto' // auto = satellite before boundary, clean after
 
@@ -77,6 +78,7 @@ interface MapCardsStore {
   addTreePoint: (lng: number, lat: number) => void
   removeTreePoint: (id: string) => void
   clearAllTrees: () => void
+  moveTreePoint: (id: string, lng: number, lat: number) => void
   addCustomStatus: (label: string, color: string) => void
   removeCustomStatus: (id: string) => void
   updateCustomStatus: (id: string, label: string, color: string) => void
@@ -89,6 +91,7 @@ interface MapCardsStore {
   setHouseIconSize: (size: number) => void
   setBadgeIconSize: (size: number) => void
   setSelectedHouseId: (id: string | null) => void
+  setSelectedTreeId: (id: string | null) => void
   setSelectedRoadId: (id: string | null) => void
   setSnapToGrid: (snap: boolean) => void
   setGridSpacing: (meters: number) => void
@@ -161,6 +164,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   snapToGrid: false,
   gridSpacingMeters: 20,
   selectedHouseId: null,
+  selectedTreeId: null,
   selectedRoadId: null,
   mapMode: 'auto' as const,
 
@@ -337,6 +341,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setHouseIconSize: (size) => set({ houseIconSize: size }),
   setBadgeIconSize: (size) => set({ badgeIconSize: size }),
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
+  setSelectedTreeId: (id) => set({ selectedTreeId: id }),
   setSelectedRoadId: (id) => set({ selectedRoadId: id }),
   setSnapToGrid: (snap) => set({ snapToGrid: snap }),
   setGridSpacing: (meters) => set({ gridSpacingMeters: meters }),
@@ -357,6 +362,28 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     } else {
       set((st) => ({
         housePoints: st.housePoints.map((p) =>
+          p.id === id
+            ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
+            : p,
+        ),
+      }))
+    }
+  },
+  moveTreePoint: (id, lng, lat) => {
+    const s = get()
+    const isFirstMove = !s._lastMoveId || s._lastMoveId !== id
+    if (isFirstMove) {
+      setWithUndo(get, set, (st) => ({
+        treePoints: st.treePoints.map((p) =>
+          p.id === id
+            ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
+            : p,
+        ),
+        _lastMoveId: id,
+      }))
+    } else {
+      set((st) => ({
+        treePoints: st.treePoints.map((p) =>
           p.id === id
             ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
             : p,

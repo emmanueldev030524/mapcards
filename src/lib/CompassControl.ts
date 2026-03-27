@@ -2,44 +2,49 @@ import type maplibregl from 'maplibre-gl'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-function createNeedleSvg(size = 22): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg')
-  svg.setAttribute('width', String(size))
-  svg.setAttribute('height', String(size))
-  svg.setAttribute('viewBox', '0 0 22 22')
-  svg.setAttribute('fill', 'none')
+/** Brand color from @theme */
+const BRAND = '#4B6CA7'
+const BRAND_LIGHT = '#5A7DB8'
 
-  // North (red diamond)
-  const north = document.createElementNS(SVG_NS, 'path')
-  north.setAttribute('d', 'M11 1.5 L13.5 11 L11 9.8 L8.5 11 Z')
-  north.setAttribute('fill', '#dc2626')
-  svg.appendChild(north)
+/** Helper to create an SVG element with attributes */
+function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {
+  const el = document.createElementNS(SVG_NS, tag)
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+  return el
+}
 
-  // South (dark)
-  const south = document.createElementNS(SVG_NS, 'path')
-  south.setAttribute('d', 'M11 20.5 L13.5 11 L11 12.2 L8.5 11 Z')
-  south.setAttribute('fill', '#475569')
-  svg.appendChild(south)
+/** Modern compass SVG — thin outer ring, tapered diamond needle, pivot dot */
+function createCompassSvg(size = 28): SVGSVGElement {
+  const svg = svgEl('svg', { width: String(size), height: String(size), viewBox: '0 0 28 28', fill: 'none' })
 
-  // Center dot
-  const dot = document.createElementNS(SVG_NS, 'circle')
-  dot.setAttribute('cx', '11')
-  dot.setAttribute('cy', '11')
-  dot.setAttribute('r', '1.5')
-  dot.setAttribute('fill', '#94a3b8')
-  svg.appendChild(dot)
+  // Outer ring
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '12.5', stroke: '#d1d5db', 'stroke-width': '0.75', fill: 'none' }))
+
+  // Cardinal ticks (N thicker)
+  svg.appendChild(svgEl('line', { x1: '14', y1: '2.5', x2: '14', y2: '4.5', stroke: '#9ca3af', 'stroke-width': '1', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '14', y1: '23.5', x2: '14', y2: '25.5', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '2.5', y1: '14', x2: '4.5', y2: '14', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '23.5', y1: '14', x2: '25.5', y2: '14', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
+
+  // North needle (red, tapered diamond)
+  svg.appendChild(svgEl('path', { d: 'M14 3.5 L15.6 13 L14 12 L12.4 13 Z', fill: '#dc2626' }))
+  // South needle (soft gray)
+  svg.appendChild(svgEl('path', { d: 'M14 24.5 L15.6 15 L14 16 L12.4 15 Z', fill: '#cbd5e1' }))
+
+  // Center pivot
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '1.8', fill: 'white', stroke: '#d1d5db', 'stroke-width': '0.75' }))
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '0.8', fill: '#9ca3af' }))
 
   return svg
 }
 
 /**
- * Google Earth-style compass with heading slider popup.
- * Click compass -> popup with drag slider for heading.
- * Tilt slider hidden but wired for future use.
+ * Premium compass control with heading slider popup.
+ * Frosted-glass light theme matching the app's design system.
  */
 export class CompassControl implements maplibregl.IControl {
   private wrapper!: HTMLDivElement
-  private compassBtn!: HTMLDivElement
+  private compassBtn!: HTMLButtonElement
   private needle!: HTMLDivElement
   private panel!: HTMLDivElement
   private headingThumb!: HTMLDivElement
@@ -54,6 +59,7 @@ export class CompassControl implements maplibregl.IControl {
   private panelOpen = false
   private activeSlider: 'heading' | 'tilt' | null = null
   private showTilt = false
+
   constructor() {
     // empty
   }
@@ -70,81 +76,19 @@ export class CompassControl implements maplibregl.IControl {
       alignItems: 'flex-end',
     })
 
-    // --- Compass button (44px circle) ---
-    this.compassBtn = document.createElement('div')
-    this.compassBtn.className = 'maplibregl-ctrl'
+    // --- Compass button (styled as a native MapLibre nav button) ---
+    this.compassBtn = document.createElement('button')
+    this.compassBtn.className = 'maplibregl-ctrl-compass'
+    this.compassBtn.title = 'Orientation'
     Object.assign(this.compassBtn.style, {
-      width: '44px',
-      height: '44px',
-      borderRadius: '50%',
-      background: '#ffffff',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04)',
-      cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      userSelect: 'none',
       position: 'relative',
-      flexShrink: '0',
-      transition: 'box-shadow 0.2s, transform 0.15s',
-    })
-    this.compassBtn.addEventListener('mouseenter', () => {
-      this.compassBtn.style.boxShadow = '0 3px 12px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06)'
-      this.compassBtn.style.transform = 'scale(1.05)'
-    })
-    this.compassBtn.addEventListener('mouseleave', () => {
-      this.compassBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04)'
-      this.compassBtn.style.transform = 'scale(1)'
+      padding: '0',
     })
 
-    // Outer ring
-    const ring = document.createElement('div')
-    Object.assign(ring.style, {
-      position: 'absolute',
-      inset: '3px',
-      borderRadius: '50%',
-      border: '1px solid #e2e8f0',
-    })
-    this.compassBtn.appendChild(ring)
-
-    // 8 tick marks (N, NE, E, SE, S, SW, W, NW)
-    for (let i = 0; i < 8; i++) {
-      const tick = document.createElement('div')
-      const isCardinal = i % 2 === 0
-      Object.assign(tick.style, {
-        position: 'absolute',
-        width: isCardinal ? '2px' : '1px',
-        height: isCardinal ? '5px' : '3px',
-        background: isCardinal ? '#94a3b8' : '#cbd5e1',
-        top: isCardinal ? '3px' : '4px',
-        left: '50%',
-        transformOrigin: `50% ${22 - (isCardinal ? 3 : 4)}px`,
-        transform: `translateX(-50%) rotate(${i * 45}deg)`,
-        pointerEvents: 'none',
-        borderRadius: '1px',
-      })
-      this.compassBtn.appendChild(tick)
-    }
-
-    // "N" letter at top
-    const nLabel = document.createElement('span')
-    Object.assign(nLabel.style, {
-      position: 'absolute',
-      top: '3px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      fontSize: '7px',
-      fontWeight: '700',
-      color: '#dc2626',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      pointerEvents: 'none',
-      lineHeight: '1',
-      opacity: '0',  // hidden until we have room, needle covers it
-    })
-    nLabel.textContent = 'N'
-    this.compassBtn.appendChild(nLabel)
-
-    // Needle
+    // Needle (the SVG contains its own ring + ticks)
     this.needle = document.createElement('div')
     Object.assign(this.needle.style, {
       position: 'absolute',
@@ -155,7 +99,7 @@ export class CompassControl implements maplibregl.IControl {
       pointerEvents: 'none',
       transition: 'transform 0.15s ease-out',
     })
-    this.needle.appendChild(createNeedleSvg())
+    this.needle.appendChild(createCompassSvg(24))
     this.compassBtn.appendChild(this.needle)
 
     this.compassBtn.addEventListener('click', (e) => {
@@ -164,42 +108,46 @@ export class CompassControl implements maplibregl.IControl {
     })
     this.wrapper.appendChild(this.compassBtn)
 
-    // --- Dark popup panel (appended to map container to escape canvas stacking context) ---
+    // --- Frosted glass popup panel ---
     this.panel = document.createElement('div')
     Object.assign(this.panel.style, {
       position: 'absolute',
-      width: '240px',
-      background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-      borderRadius: '14px',
-      padding: '16px 18px 14px',
-      boxShadow: '0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+      width: '220px',
+      background: 'rgba(255,255,255,0.92)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderRadius: '16px',
+      border: '1px solid rgba(255,255,255,0.6)',
+      padding: '14px 16px 12px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)',
       display: 'none',
       flexDirection: 'column',
-      gap: '12px',
+      gap: '10px',
       zIndex: '1000',
-      backdropFilter: 'blur(8px)',
       pointerEvents: 'auto',
+      opacity: '0',
+      transform: 'translateY(4px) scale(0.97)',
+      transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     })
     this.panel.addEventListener('mousedown', (e) => e.stopPropagation())
     this.panel.addEventListener('click', (e) => e.stopPropagation())
 
-    // Header row (title + close)
+    // Header row
     const header = document.createElement('div')
     Object.assign(header.style, {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: '2px',
     })
 
     const title = document.createElement('span')
     Object.assign(title.style, {
-      color: '#e2e8f0',
+      color: '#374151',
       fontSize: '11px',
       fontWeight: '600',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
       textTransform: 'uppercase',
-      letterSpacing: '0.05em',
+      letterSpacing: '0.06em',
     })
     title.textContent = 'Orientation'
     header.appendChild(title)
@@ -208,21 +156,26 @@ export class CompassControl implements maplibregl.IControl {
     Object.assign(closeBtn.style, {
       background: 'none',
       border: 'none',
-      color: '#64748b',
-      fontSize: '16px',
+      color: '#9ca3af',
+      fontSize: '14px',
       cursor: 'pointer',
       lineHeight: '1',
-      padding: '2px 4px',
-      borderRadius: '4px',
+      padding: '4px',
+      borderRadius: '50%',
+      width: '24px',
+      height: '24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       transition: 'color 0.15s, background 0.15s',
     })
     closeBtn.textContent = '\u2715'
     closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.style.color = '#e2e8f0'
-      closeBtn.style.background = 'rgba(255,255,255,0.08)'
+      closeBtn.style.color = '#374151'
+      closeBtn.style.background = 'rgba(0,0,0,0.05)'
     })
     closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.style.color = '#64748b'
+      closeBtn.style.color = '#9ca3af'
       closeBtn.style.background = 'none'
     })
     closeBtn.addEventListener('click', (e) => {
@@ -231,15 +184,6 @@ export class CompassControl implements maplibregl.IControl {
     })
     header.appendChild(closeBtn)
     this.panel.appendChild(header)
-
-    // Separator
-    const sep = document.createElement('div')
-    Object.assign(sep.style, {
-      height: '1px',
-      background: 'rgba(255,255,255,0.06)',
-      margin: '0 -4px',
-    })
-    this.panel.appendChild(sep)
 
     // --- Tilt slider (hidden) ---
     const tiltSlider = this.createSliderRow('Tilt', '\u00b0')
@@ -258,20 +202,20 @@ export class CompassControl implements maplibregl.IControl {
     this.headingLabel = headingSlider.valueLabel
     this.panel.appendChild(headingSlider.row)
 
-    // --- Reset to north ---
+    // --- Reset to north button (pill) ---
     const resetBtn = document.createElement('button')
     Object.assign(resetBtn.style, {
-      color: '#60a5fa',
+      color: BRAND,
       fontSize: '11px',
-      fontWeight: '500',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      background: 'none',
+      fontWeight: '600',
+      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
+      background: 'rgba(75,108,167,0.06)',
       border: 'none',
       cursor: 'pointer',
       alignSelf: 'flex-end',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      transition: 'background 0.15s, color 0.15s',
+      padding: '5px 12px',
+      borderRadius: '9999px',
+      transition: 'background 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     })
     resetBtn.textContent = 'Reset to north'
     resetBtn.addEventListener('click', (e) => {
@@ -282,16 +226,22 @@ export class CompassControl implements maplibregl.IControl {
       }
     })
     resetBtn.addEventListener('mouseenter', () => {
-      resetBtn.style.background = 'rgba(96,165,250,0.1)'
-      resetBtn.style.color = '#93c5fd'
+      resetBtn.style.background = 'rgba(75,108,167,0.12)'
+      resetBtn.style.color = BRAND_LIGHT
     })
     resetBtn.addEventListener('mouseleave', () => {
-      resetBtn.style.background = 'none'
-      resetBtn.style.color = '#60a5fa'
+      resetBtn.style.background = 'rgba(75,108,167,0.06)'
+      resetBtn.style.color = BRAND
+    })
+    resetBtn.addEventListener('mousedown', () => {
+      resetBtn.style.transform = 'scale(0.95)'
+    })
+    resetBtn.addEventListener('mouseup', () => {
+      resetBtn.style.transform = 'scale(1)'
     })
     this.panel.appendChild(resetBtn)
 
-    // Append panel to map container (not the control group) so it renders above the canvas
+    // Append panel to map container
     map.getContainer().appendChild(this.panel)
 
     // --- Global drag listeners ---
@@ -329,24 +279,24 @@ export class CompassControl implements maplibregl.IControl {
     this.tiltRow.style.display = visible ? 'flex' : 'none'
   }
 
-  // --- Slider row builder ---
+  // --- Slider row builder (light theme) ---
 
   private createSliderRow(label: string, unit: string) {
     const row = document.createElement('div')
     Object.assign(row.style, {
       display: 'flex',
       alignItems: 'center',
-      gap: '10px',
+      gap: '8px',
     })
 
     // Label
     const lbl = document.createElement('span')
     Object.assign(lbl.style, {
-      color: '#94a3b8',
+      color: '#6b7280',
       fontSize: '12px',
       fontWeight: '500',
-      minWidth: '56px',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      minWidth: '52px',
+      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
     })
     lbl.textContent = label
     row.appendChild(lbl)
@@ -380,53 +330,54 @@ export class CompassControl implements maplibregl.IControl {
     Object.assign(bar.style, {
       width: '100%',
       height: '4px',
-      background: '#334155',
-      borderRadius: '4px',
+      background: '#e5e7eb',
+      borderRadius: '9999px',
       position: 'relative',
       overflow: 'visible',
     })
 
-    // Active fill
+    // Active fill (brand gradient)
     const fill = document.createElement('div')
     Object.assign(fill.style, {
       height: '100%',
-      background: 'linear-gradient(90deg, #3b82f6, #60a5fa)',
-      borderRadius: '4px',
+      background: `linear-gradient(90deg, ${BRAND}, ${BRAND_LIGHT})`,
+      borderRadius: '9999px',
       width: '0%',
       pointerEvents: 'none',
       transition: 'width 0.05s ease-out',
     })
     bar.appendChild(fill)
 
-    // Thumb
+    // Thumb (matches existing range inputs)
     const thumb = document.createElement('div')
     Object.assign(thumb.style, {
       width: '14px',
       height: '14px',
       borderRadius: '50%',
       background: '#ffffff',
-      border: '2px solid #3b82f6',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+      border: `2.5px solid ${BRAND}`,
+      boxShadow: '0 1px 4px rgba(75,108,167,0.25)',
       position: 'absolute',
       top: '50%',
       left: '0%',
       transform: 'translate(-50%, -50%)',
       cursor: 'grab',
-      transition: 'box-shadow 0.15s, transform 0.15s',
+      transition: 'box-shadow 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
       pointerEvents: 'none',
     })
     bar.appendChild(thumb)
     track.appendChild(bar)
     row.appendChild(track)
 
-    // Value label (e.g., "127°")
+    // Value label
     const valueLabel = document.createElement('span')
     Object.assign(valueLabel.style, {
-      color: '#cbd5e1',
-      fontSize: '11px',
+      color: '#374151',
+      fontSize: '12px',
       fontWeight: '600',
-      fontFamily: 'monospace',
-      minWidth: '36px',
+      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
+      fontVariantNumeric: 'tabular-nums',
+      minWidth: '32px',
       textAlign: 'right',
     })
     valueLabel.textContent = `0${unit}`
@@ -446,23 +397,35 @@ export class CompassControl implements maplibregl.IControl {
     this.panelOpen = true
     this.positionPanel()
     this.panel.style.display = 'flex'
+    // Trigger enter animation on next frame
+    requestAnimationFrame(() => {
+      this.panel.style.opacity = '1'
+      this.panel.style.transform = 'translateY(0) scale(1)'
+    })
     this.syncAll()
   }
 
   private positionPanel() {
     if (!this.map) return
     const containerRect = this.map.getContainer().getBoundingClientRect()
-    const btnRect = this.compassBtn.getBoundingClientRect()
-    // Position to the left of the compass button, vertically aligned to bottom
-    const right = containerRect.right - btnRect.left + 10
-    const bottom = containerRect.bottom - btnRect.bottom
+    // Align panel top with the control group top (not the compass button)
+    const group = this.compassBtn.closest('.maplibregl-ctrl-group') || this.compassBtn
+    const groupRect = group.getBoundingClientRect()
+    const right = containerRect.right - groupRect.left + 8
+    const top = groupRect.top - containerRect.top
     this.panel.style.right = `${right}px`
-    this.panel.style.bottom = `${bottom}px`
+    this.panel.style.top = `${top}px`
+    this.panel.style.bottom = 'auto'
   }
 
   private closePanel() {
     this.panelOpen = false
-    this.panel.style.display = 'none'
+    this.panel.style.opacity = '0'
+    this.panel.style.transform = 'translateY(4px) scale(0.97)'
+    // Hide after transition completes
+    setTimeout(() => {
+      if (!this.panelOpen) this.panel.style.display = 'none'
+    }, 200)
   }
 
   // --- Sync ---

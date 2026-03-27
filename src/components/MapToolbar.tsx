@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
 import {
@@ -26,14 +26,37 @@ interface MapToolbarProps {
   getVertexCount?: () => number
 }
 
-const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string }[] = [
+const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+const MOD = isMac ? '⌘' : 'Ctrl+'
+
+const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string; shortcut?: string }[] = [
   { mode: 'boundary', label: 'Boundary', Icon: Hexagon, desc: 'Draw territory boundary' },
   { mode: 'road', label: 'Road', Icon: Route, desc: 'Draw custom road' },
   { mode: 'house', label: 'House', Icon: Home, desc: 'Place house marker' },
   { mode: 'tree', label: 'Tree', Icon: TreePine, desc: 'Place tree / landmark' },
   { mode: 'bulkFill', label: 'Bulk Fill', Icon: LayoutGrid, desc: 'Place houses along a road' },
-  { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements' },
+  { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
+
+/* Tooltip with optional keyboard shortcut badge */
+function Tip({ label, shortcut }: { label: string; shortcut?: string }) {
+  return (
+    <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1">
+      {label}
+      {shortcut && (
+        <kbd className="rounded bg-white/15 px-1.5 py-px text-[10px] font-medium tracking-wide text-white/70">
+          {shortcut}
+        </kbd>
+      )}
+    </span>
+  )
+}
+
+/* Shared button base — animation handled by .btn-press in CSS */
+const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
+const btnSize = 'h-9 w-9'
+const btnInteractive = 'hover:bg-black/[0.06]'
+const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1'
 
 export default function MapToolbar({
   activeMode,
@@ -65,124 +88,170 @@ export default function MapToolbar({
     (activeMode === 'road' && vertexCount >= 2)
   )
 
+  // Track scroll position for fade-edge indicators
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 2)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    checkScroll()
+    el.addEventListener('scroll', checkScroll, { passive: true })
+    const ro = new ResizeObserver(checkScroll)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', checkScroll)
+      ro.disconnect()
+    }
+  }, [checkScroll])
+
   return (
     <div
-      className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-2xl border border-white/50 bg-white/85 px-2.5 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] backdrop-blur-xl will-change-transform"
+      role="toolbar"
+      aria-label="Map drawing tools"
+      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center rounded-full border border-white/60 bg-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.10),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl will-change-transform"
     >
-      {/* History: Undo / Redo */}
-      <button
-        onClick={() => {
-          if (isDrawing && onDrawUndo) onDrawUndo()
-          else undoAction()
-        }}
-        disabled={!isDrawing && !canUndo}
-        title="Undo (Ctrl+Z)"
-        className={`group relative rounded-xl p-2.5 transition-all duration-200 outline-none ${
-          isDrawing || canUndo
-            ? 'text-slate-800 hover:bg-slate-800/8 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.92]'
-            : 'cursor-not-allowed text-slate-300'
-        }`}
-      >
-        <Undo2 size={18} strokeWidth={2} />
-        <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-          Undo
-        </span>
-      </button>
-      <button
-        onClick={() => {
-          if (isDrawing && onDrawRedo) onDrawRedo()
-          else redoAction()
-        }}
-        disabled={!isDrawing && !canRedo}
-        title="Redo (Ctrl+Shift+Z)"
-        className={`group relative rounded-xl p-2.5 transition-all duration-200 outline-none ${
-          isDrawing || canRedo
-            ? 'text-slate-800 hover:bg-slate-800/8 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.92]'
-            : 'cursor-not-allowed text-slate-300'
-        }`}
-      >
-        <Redo2 size={18} strokeWidth={2} />
-        <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-          Redo
-        </span>
-      </button>
-
-      {/* Done — finishes drawing or exits placement mode */}
-      {isDrawing && onDrawFinish && (
-        <button
-          onClick={onDrawFinish}
-          disabled={!canFinish}
-          title={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
-          className={`group relative rounded-xl px-3 py-1.5 text-[12px] font-semibold transition-all duration-200 outline-none ${
-            canFinish
-              ? 'bg-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:bg-emerald-600 active:scale-[0.92]'
-              : 'cursor-not-allowed bg-slate-100 text-slate-300'
-          }`}
-        >
-          <span className="flex items-center gap-1">
-            <Check size={14} strokeWidth={2.5} />
-            Done
-          </span>
-        </button>
-      )}
-      {isPlacing && (
-        <button
-          onClick={() => onModeChange(null)}
-          className="group relative rounded-xl bg-emerald-500 px-3 py-1.5 text-[12px] font-semibold text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] transition-all duration-200 outline-none hover:bg-emerald-600 active:scale-[0.92]"
-        >
-          <span className="flex items-center gap-1">
-            <Check size={14} strokeWidth={2.5} />
-            Done
-          </span>
-        </button>
+      {/* Left fade edge */}
+      {canScrollLeft && (
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 rounded-l-full bg-linear-to-r from-white/90 to-transparent" />
       )}
 
-      {/* Vertical divider */}
-      <div className="mx-1.5 h-6 w-px bg-slate-300" />
-
-      {/* Drawing tools */}
-      {TOOLS.map(({ mode, label, Icon, desc }) => {
-        const isActive = activeMode === mode
-        const isDisabledTool = mode === 'boundary' && hasBoundary
-
-        return (
+      {/* Scrollable inner */}
+      <div
+        ref={scrollRef}
+        className="scrollbar-hide flex items-center gap-1 overflow-x-auto overscroll-x-contain px-1.5 py-1.5"
+      >
+        {/* ── History group ── */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
           <button
-            key={mode}
-            onClick={() => onModeChange(isActive ? null : mode)}
-            disabled={isDisabledTool}
-            title={isDisabledTool ? 'Boundary already drawn. Clear to redraw.' : desc}
-            className={`group relative rounded-xl p-2.5 transition-all duration-200 outline-none ${
-              isActive
-                ? 'bg-action text-white shadow-[0_2px_8px_rgba(57,87,127,0.3)]'
-                : isDisabledTool
-                  ? 'cursor-not-allowed text-slate-300'
-                  : 'text-slate-800 hover:bg-slate-800/8 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.92]'
+            onClick={() => {
+              if (isDrawing && onDrawUndo) onDrawUndo()
+              else undoAction()
+            }}
+            disabled={!isDrawing && !canUndo}
+            aria-label="Undo"
+            className={`${btnBase} ${btnSize} ${btnFocusRing} ${
+              isDrawing || canUndo
+                ? `text-slate-700 ${btnInteractive}`
+                : 'cursor-not-allowed text-slate-300'
             }`}
           >
-            <Icon size={18} strokeWidth={2} />
-            {/* Tooltip */}
-            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-              {label}
-            </span>
+            <Undo2 size={17} strokeWidth={2} />
+            <Tip label="Undo" shortcut={`${MOD}Z`} />
           </button>
-        )
-      })}
-
-      {/* Clear boundary */}
-      {hasBoundary && onClearBoundary && (
-        <>
-          <div className="mx-1.5 h-6 w-px bg-slate-300" />
           <button
-            onClick={onClearBoundary}
-            title="Clear boundary and start over"
-            className="group relative rounded-xl p-2.5 text-slate-500 transition-all duration-200 outline-none hover:bg-red-500/10 hover:text-red-600 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.92]"
+            onClick={() => {
+              if (isDrawing && onDrawRedo) onDrawRedo()
+              else redoAction()
+            }}
+            disabled={!isDrawing && !canRedo}
+            aria-label="Redo"
+            className={`${btnBase} ${btnSize} ${btnFocusRing} ${
+              isDrawing || canRedo
+                ? `text-slate-700 ${btnInteractive}`
+                : 'cursor-not-allowed text-slate-300'
+            }`}
           >
-            <Trash2 size={18} strokeWidth={2} />
-            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-              Clear
-            </span>
+            <Redo2 size={17} strokeWidth={2} />
+            <Tip label="Redo" shortcut={`${MOD}⇧Z`} />
           </button>
-        </>
+        </div>
+
+        {/* Done — finishes drawing or exits placement mode */}
+        {isDrawing && onDrawFinish && (
+          <button
+            onClick={onDrawFinish}
+            disabled={!canFinish}
+            aria-label={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
+            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold ${
+              canFinish
+                ? 'bg-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600'
+                : 'cursor-not-allowed bg-black/[0.04] text-slate-300'
+            }`}
+          >
+            <span className="flex items-center gap-1">
+              <Check size={14} strokeWidth={2.5} />
+              Done
+            </span>
+            <Tip label="Finish" shortcut="Enter" />
+          </button>
+        )}
+        {isPlacing && (
+          <button
+            onClick={() => onModeChange(null)}
+            aria-label="Done placing"
+            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600`}
+          >
+            <span className="flex items-center gap-1">
+              <Check size={14} strokeWidth={2.5} />
+              Done
+            </span>
+            <Tip label="Exit mode" shortcut="Esc" />
+          </button>
+        )}
+
+        {/* ── Divider dot ── */}
+        <div className="mx-0.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+
+        {/* ── Drawing tools group ── */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
+          {TOOLS.map(({ mode, label, Icon, shortcut }) => {
+            const isActive = activeMode === mode
+            const isDisabledTool = mode === 'boundary' && hasBoundary
+
+            return (
+              <button
+                key={mode}
+                onClick={() => onModeChange(isActive ? null : mode)}
+                disabled={isDisabledTool}
+                aria-label={label}
+                aria-pressed={isActive}
+                className={`${btnBase} ${btnSize} ${btnFocusRing} ${
+                  isActive
+                    ? 'bg-brand text-white shadow-[0_2px_10px_rgba(75,108,167,0.35)]'
+                    : isDisabledTool
+                      ? 'cursor-not-allowed text-slate-300'
+                      : `text-slate-700 ${btnInteractive}`
+                }`}
+              >
+                <Icon size={17} strokeWidth={isActive ? 2.2 : 2} />
+                {/* Active indicator dot */}
+                {isActive && (
+                  <span className="absolute -bottom-0.5 left-1/2 h-[3px] w-[3px] -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
+                )}
+                <Tip label={label} shortcut={shortcut} />
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ── Clear boundary ── */}
+        {hasBoundary && onClearBoundary && (
+          <>
+            <div className="mx-0.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+            <button
+              onClick={onClearBoundary}
+              aria-label="Clear boundary"
+              className={`${btnBase} ${btnSize} ${btnFocusRing} shrink-0 text-slate-400 hover:bg-red-500/10 hover:text-red-500`}
+            >
+              <Trash2 size={17} strokeWidth={2} />
+              <Tip label="Clear" shortcut="Del" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Right fade edge */}
+      {canScrollRight && (
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 rounded-r-full bg-linear-to-l from-white/90 to-transparent" />
       )}
     </div>
   )

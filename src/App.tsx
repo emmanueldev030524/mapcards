@@ -14,6 +14,7 @@ import ExportPanel from './components/ExportPanel'
 import ExportModal from './components/ExportModal'
 import BulkFillDialog from './components/BulkFillDialog'
 import HouseEditPopup from './components/HouseEditPopup'
+import TreeActionPopup from './components/TreeActionPopup'
 import RoadDeleteButton from './components/RoadDeleteButton'
 import SidebarSection from './components/SidebarSection'
 import { useStore } from './store'
@@ -283,6 +284,7 @@ export default function App() {
           getVertexCount={getVertexCount}
         />
         <HouseEditPopup />
+        <TreeActionPopup />
         <RoadDeleteButton />
       </main>
 

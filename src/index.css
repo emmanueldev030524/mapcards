@@ -98,6 +98,28 @@
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
 
+  /* Hide scrollbar but keep scrolling (toolbar swipe on touch) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Toolbar button press — fast down, springy bounce back */
+  .btn-press {
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                background-color 180ms ease,
+                color 180ms ease,
+                box-shadow 180ms ease;
+  }
+  .btn-press:active {
+    transform: scale(0.88);
+    transition: transform 80ms ease-out;
+  }
+
   /* Micro-animation: springy hover lift for cards/panels */
   .hover-lift {
     transition: transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
@@ -131,6 +153,62 @@
   /* MapLibre smooth zoom override */
   .maplibregl-canvas {
     outline: none;
+  }
+
+  /* ── MapLibre controls — frosted glass override ── */
+  .maplibregl-ctrl-group {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 14px !important;
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+    overflow: hidden;
+  }
+  .maplibregl-ctrl-group button {
+    width: 36px !important;
+    height: 36px !important;
+    border: none !important;
+    background: transparent !important;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .maplibregl-ctrl-group button:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+  }
+  .maplibregl-ctrl-group button:active {
+    transform: scale(0.88);
+    transition: transform 80ms ease-out;
+  }
+  /* Remove the default 1px border-top divider between buttons */
+  .maplibregl-ctrl-group button + button {
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+  /* Style the +/- icons */
+  .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    filter: none;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+  }
+  .maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
+    opacity: 1;
+  }
+  /* Compass button in the nav group */
+  .maplibregl-ctrl-compass {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 0 !important;
+  }
+  /* Attribution control — subtle */
+  .maplibregl-ctrl-attrib {
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-radius: 8px !important;
+    font-size: 10px !important;
   }
 }
 

@@ -46,7 +46,6 @@ const WORLD_RING: [number, number][] = [
 export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapReady }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  const selectedTreeRef = useRef<string | null>(null)
   const justDraggedRef = useRef(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +64,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const activeDrawMode = useStore((s) => s.activeDrawMode)
   const customStatuses = useStore((s) => s.customStatuses)
   const moveHousePoint = useStore((s) => s.moveHousePoint)
+  const moveTreePoint = useStore((s) => s.moveTreePoint)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
   const addHousePoint = useStore((s) => s.addHousePoint)
@@ -99,8 +99,20 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         map.scrollZoom.setWheelZoomRate(1 / 150)
         map.scrollZoom.setZoomRate(1 / 100)
 
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-        map.addControl(new CompassControl(), 'bottom-right')
+        const navCtrl = new maplibregl.NavigationControl({ showCompass: false })
+        map.addControl(navCtrl, 'top-right')
+        // Inject compass into the nav control group so +, -, compass form one unified stack
+        const compassCtrl = new CompassControl()
+        map.addControl(compassCtrl, 'top-right')
+        const navGroup = (navCtrl as unknown as { _container: HTMLElement })._container
+        const compassBtn = (compassCtrl as unknown as { compassBtn: HTMLElement }).compassBtn
+        if (navGroup && compassBtn) {
+          // Move compass button into the nav group (CSS handles the separator)
+          navGroup.appendChild(compassBtn)
+          // Remove the now-empty compass wrapper from the control container
+          const emptyWrapper = (compassCtrl as unknown as { wrapper: HTMLElement }).wrapper
+          emptyWrapper.parentElement?.removeChild(emptyWrapper)
+        }
         map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
         map.on('load', () => {
@@ -743,16 +755,37 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     } catch { /* layer may not exist yet */ }
   }, [badgeIconSize, mapReady])
 
-  // Drag-to-move houses (requires 5px movement before drag starts)
+  // Drag-to-move houses & trees (requires 5px movement before drag starts)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
     let pendingId: string | null = null
     let dragId: string | null = null
+    let dragType: 'house' | 'tree' | null = null
     let startPoint: maplibregl.Point | null = null
     const DRAG_THRESHOLD = 5
     const canvas = map.getCanvas()
+    const DRAGGABLE_LAYERS = [HOUSE_LAYER, TREE_LAYER]
+
+    /** Query both house and tree layers, return { id, type } or null */
+    const hitTest = (bbox: [maplibregl.PointLike, maplibregl.PointLike]) => {
+      for (const layer of DRAGGABLE_LAYERS) {
+        if (!map.getLayer(layer)) continue
+        const features = map.queryRenderedFeatures(bbox, { layers: [layer] })
+        if (features.length > 0) {
+          const id = features[0].properties?.id as string | undefined
+          if (id) return { id, type: layer === HOUSE_LAYER ? 'house' as const : 'tree' as const }
+        }
+      }
+      return null
+    }
+
+    /** Move the dragged feature via the appropriate store action */
+    const moveDragged = (id: string, type: 'house' | 'tree', lng: number, lat: number) => {
+      if (type === 'house') moveHousePoint(id, lng, lat)
+      else moveTreePoint(id, lng, lat)
+    }
 
     const onMouseDown = (e: maplibregl.MapMouseEvent) => {
       if (activeDrawMode && activeDrawMode !== 'select') return
@@ -762,15 +795,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         [e.point.x - tolerance, e.point.y - tolerance],
         [e.point.x + tolerance, e.point.y + tolerance],
       ]
-      const features = map.queryRenderedFeatures(bbox, { layers: [HOUSE_LAYER] })
-      if (features.length === 0) return
+      const hit = hitTest(bbox)
+      if (!hit) return
 
-      const id = features[0].properties?.id as string | undefined
-      if (!id) return
-
-      pendingId = id
+      pendingId = hit.id
+      dragType = hit.type
       startPoint = e.point
-      // Disable pan immediately so mousemove events aren't consumed by the map
       map.dragPan.disable()
     }
 
@@ -788,9 +818,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       }
 
       if (!dragId) {
-        // Show grab cursor on hover over houses
+        // Show grab cursor on hover over houses or trees
         if (!activeDrawMode || activeDrawMode === 'select') {
-          const features = map.queryRenderedFeatures(e.point, { layers: [HOUSE_LAYER] })
+          const layers = DRAGGABLE_LAYERS.filter((l) => map.getLayer(l))
+          const features = layers.length > 0 ? map.queryRenderedFeatures(e.point, { layers }) : []
           canvas.style.cursor = features.length > 0 ? 'grab' : ''
         }
         return
@@ -810,7 +841,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       }
 
       canvas.style.cursor = 'grabbing'
-      moveHousePoint(dragId, lng, lat)
+      moveDragged(dragId, dragType!, lng, lat)
     }
 
     const onMouseUp = () => {
@@ -818,9 +849,9 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       startPoint = null
       if (dragId) {
         dragId = null
+        dragType = null
         canvas.style.cursor = ''
         useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
-        // Suppress the click event that fires after drag
         justDraggedRef.current = true
         setTimeout(() => { justDraggedRef.current = false }, 100)
       }
@@ -836,18 +867,16 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       const rect = canvas.getBoundingClientRect()
       const point = new maplibregl.Point(touch.clientX - rect.left, touch.clientY - rect.top)
 
-      const tolerance = 16 // larger for touch
+      const tolerance = 16
       const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
         [point.x - tolerance, point.y - tolerance],
         [point.x + tolerance, point.y + tolerance],
       ]
-      const features = map.queryRenderedFeatures(bbox, { layers: [HOUSE_LAYER] })
-      if (features.length === 0) return
+      const hit = hitTest(bbox)
+      if (!hit) return
 
-      const id = features[0].properties?.id as string | undefined
-      if (!id) return
-
-      pendingId = id
+      pendingId = hit.id
+      dragType = hit.type
       startPoint = point
       map.dragPan.disable()
     }
@@ -879,11 +908,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         ? snapCoord(lngLat.lng, lngLat.lat, spacing)
         : [lngLat.lng, lngLat.lat]
 
-      // Block drag outside boundary
       const bnd = useStore.getState().boundary
       if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) return
 
-      moveHousePoint(dragId, lng, lat)
+      moveDragged(dragId, dragType!, lng, lat)
     }
 
     const onTouchEnd = () => {
@@ -891,8 +919,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       startPoint = null
       if (dragId) {
         dragId = null
+        dragType = null
         useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
-        // Suppress the click event that fires after touch drag
         justDraggedRef.current = true
         setTimeout(() => { justDraggedRef.current = false }, 300)
       }
@@ -914,7 +942,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       map.off('touchmove', onTouchMove)
       map.off('touchend', onTouchEnd)
     }
-  }, [activeDrawMode, moveHousePoint, mapReady])
+  }, [activeDrawMode, moveHousePoint, moveTreePoint, mapReady])
 
   // Click-to-select house or road + Delete/Backspace to remove
   useEffect(() => {
@@ -922,11 +950,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     if (!map) return
 
     const selectHouse = useStore.getState().setSelectedHouseId
+    const selectTree = useStore.getState().setSelectedTreeId
     const selectRoad = useStore.getState().setSelectedRoadId
     const removeRoad = useStore.getState().removeCustomRoad
 
     const onClick = (e: maplibregl.MapMouseEvent) => {
-      // Skip if this click follows a drag (house was moved, not tapped)
+      // Skip if this click follows a drag (house/tree was moved, not tapped)
       if (justDraggedRef.current) return
       // Only select when no draw mode is active
       if (activeDrawMode && activeDrawMode !== 'select') return
@@ -943,6 +972,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         const id = houseFeatures[0].properties?.id as string | undefined
         if (id) {
           selectHouse(id)
+          selectTree(null)
           selectRoad(null)
           return
         }
@@ -954,7 +984,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         if (treeFeatures.length > 0) {
           const id = treeFeatures[0].properties?.id as string | undefined
           if (id) {
-            selectedTreeRef.current = id
+            selectTree(id)
             selectHouse(null)
             selectRoad(null)
             return
@@ -971,7 +1001,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           if (id) {
             selectRoad(id)
             selectHouse(null)
-            selectedTreeRef.current = null
+            selectTree(null)
             return
           }
         }
@@ -979,8 +1009,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
       // Clicked empty area — deselect all
       selectHouse(null)
+      selectTree(null)
       selectRoad(null)
-      selectedTreeRef.current = null
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -994,10 +1024,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           e.preventDefault()
           removeHousePoint(state.selectedHouseId)
           selectHouse(null)
-        } else if (selectedTreeRef.current) {
+        } else if (state.selectedTreeId) {
           e.preventDefault()
-          useStore.getState().removeTreePoint(selectedTreeRef.current)
-          selectedTreeRef.current = null
+          useStore.getState().removeTreePoint(state.selectedTreeId)
+          selectTree(null)
         } else if (state.selectedRoadId) {
           e.preventDefault()
           removeRoad(state.selectedRoadId)
