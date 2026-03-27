@@ -232,13 +232,27 @@ export interface LegendEntry {
  * Collect the legend entries needed for a set of houses.
  * Only returns tags that are actually used.
  */
-export function collectLegend(houses: Array<{ tags: string[] }>): LegendEntry[] {
+export function collectLegend(
+  houses: Array<{ tags: string[] }>,
+  customStatuses?: Array<{ id: string; label: string; color: string }>,
+): LegendEntry[] {
   const usedIds = new Set<string>()
   for (const h of houses) {
     for (const t of h.tags || []) usedIds.add(t)
   }
 
-  return PIN_CATEGORIES
+  const entries: LegendEntry[] = PIN_CATEGORIES
     .filter((c) => usedIds.has(c.id))
     .map((c) => ({ color: c.color, label: c.label, type: c.group }))
+
+  // Add custom statuses that are used
+  if (customStatuses) {
+    for (const cs of customStatuses) {
+      if (usedIds.has(cs.id) && !PIN_CATEGORIES.some((c) => c.id === cs.id)) {
+        entries.push({ color: cs.color, label: cs.label, type: 'status' })
+      }
+    }
+  }
+
+  return entries
 }

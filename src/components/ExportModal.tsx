@@ -4,6 +4,7 @@ import { X, Download, FileText, Loader2 } from 'lucide-react'
 import { useStore } from '../store'
 import { exportToPng } from '../lib/exportPng'
 import { exportToPdf } from '../lib/exportPdf'
+import { collectLegend } from '../lib/mapPins'
 import type maplibregl from 'maplibre-gl'
 
 interface ExportModalProps {
@@ -25,13 +26,23 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const territoryNumber = useStore((s) => s.territoryNumber)
   const cardWidthInches = useStore((s) => s.cardWidthInches)
   const cardHeightInches = useStore((s) => s.cardHeightInches)
+  const housePoints = useStore((s) => s.housePoints)
+  const customStatuses = useStore((s) => s.customStatuses)
 
-  const getExportOptions = useCallback(() => ({
-    map: map!,
-    boundary: boundary!,
-    cardWidthInches,
-    cardHeightInches,
-  }), [map, boundary, cardWidthInches, cardHeightInches])
+  const getExportOptions = useCallback(() => {
+    const legendEntries = collectLegend(
+      housePoints.map((h) => ({ tags: (h.properties.tags as string[]) || [] })),
+      customStatuses,
+    )
+    return {
+      map: map!,
+      boundary: boundary!,
+      cardWidthInches,
+      cardHeightInches,
+      territoryNumber,
+      legendEntries,
+    }
+  }, [map, boundary, cardWidthInches, cardHeightInches, territoryNumber, housePoints, customStatuses])
 
   // Generate preview when modal opens
   useEffect(() => {
