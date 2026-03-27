@@ -1,6 +1,6 @@
 import type { Feature, Polygon, LineString, Point, Geometry } from 'geojson'
 
-export type DrawMode = 'boundary' | 'road' | 'house' | 'bulkFill' | 'select' | null
+export type DrawMode = 'boundary' | 'road' | 'house' | 'tree' | 'bulkFill' | 'select' | null
 
 export type HouseTag = string
 

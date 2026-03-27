@@ -2,16 +2,30 @@ import { useCallback } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { getToggleableLayers } from '../lib/mapStyle'
 import { useStore } from '../store'
+import {
+  Satellite, Map, FileText,
+  Building2, Hash, ShoppingBag, GraduationCap, Church, Cross,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface LayerToggleProps {
   map: maplibregl.Map | null
 }
 
-const MAP_MODES = [
-  { value: 'satellite', label: 'Satellite', icon: '🛰' },
-  { value: 'street', label: 'Street', icon: '🗺' },
-  { value: 'clean', label: 'Clean', icon: '📋' },
-] as const
+const LAYER_ICONS: Record<string, LucideIcon> = {
+  buildings: Building2,
+  housenumbers: Hash,
+  'poi-shops': ShoppingBag,
+  'poi-schools': GraduationCap,
+  'poi-churches': Church,
+  'poi-hospitals': Cross,
+}
+
+const MAP_MODES: { value: 'satellite' | 'street' | 'clean'; label: string; Icon: LucideIcon }[] = [
+  { value: 'satellite', label: 'Satellite', Icon: Satellite },
+  { value: 'street', label: 'Street', Icon: Map },
+  { value: 'clean', label: 'Clean', Icon: FileText },
+]
 
 export default function LayerToggle({ map }: LayerToggleProps) {
   const visibleLayers = useStore((s) => s.visibleLayers)
@@ -23,7 +37,7 @@ export default function LayerToggle({ map }: LayerToggleProps) {
 
   const isAutoMode = mapMode === 'auto'
   const effectiveMode = isAutoMode
-    ? (boundary === null ? 'satellite' : 'clean')
+    ? (boundary === null ? 'satellite' : 'street')
     : mapMode
 
   const handleToggle = useCallback(
@@ -34,6 +48,7 @@ export default function LayerToggle({ map }: LayerToggleProps) {
       const newVisible = !visibleLayers[layerId]
       const visibility = newVisible ? 'visible' : 'none'
 
+      // Toggle our custom layers
       for (const mlId of mapLayerIds) {
         try {
           map.setLayoutProperty(mlId, 'visibility', visibility)
@@ -41,69 +56,94 @@ export default function LayerToggle({ map }: LayerToggleProps) {
           // Layer may not exist yet
         }
       }
+
+      // For buildings/housenumbers: also toggle ALL base style layers that use the same source-layer
+      const sourceLayerMap: Record<string, string> = {
+        buildings: 'building',
+        housenumbers: 'housenumber',
+      }
+      const targetSourceLayer = sourceLayerMap[layerId]
+      if (targetSourceLayer) {
+        const style = map.getStyle()
+        if (style?.layers) {
+          for (const layer of style.layers) {
+            if ('source-layer' in layer && layer['source-layer'] === targetSourceLayer) {
+              try {
+                map.setLayoutProperty(layer.id, 'visibility', visibility)
+              } catch { /* skip */ }
+            }
+          }
+        }
+      }
     },
     [map, visibleLayers, toggleLayer],
   )
 
   return (
-    <div className="space-y-2">
-      {/* Map mode selector */}
-      <div>
-        <div className="mb-1.5 flex items-center gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Map View
-          </h3>
-          {isAutoMode ? (
-            <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
-              auto
-            </span>
-          ) : (
-            <button
-              onClick={() => setMapMode('auto')}
-              className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-primary hover:bg-gray-200"
-            >
-              reset auto
-            </button>
-          )}
-        </div>
-        <div className="flex gap-1">
+    <div className="space-y-3">
+      {/* Map mode — high-contrast segmented control */}
+      <div className="flex items-center gap-1.5">
+        <div className="relative flex min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 p-0.5">
           {MAP_MODES.map((mode) => (
             <button
               key={mode.value}
               onClick={() => setMapMode(mode.value)}
-              className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors ${
+              className={`relative z-10 flex flex-1 items-center justify-center gap-1 rounded px-1 py-1.5 text-[11px] font-bold transition-all duration-200 ${
                 effectiveMode === mode.value
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-muted hover:bg-slate-200 hover:text-heading'
               }`}
             >
-              <span className="text-sm">{mode.icon}</span>
+              <mode.Icon size={12} strokeWidth={2} className="shrink-0" />
               {mode.label}
             </button>
           ))}
         </div>
+        {!isAutoMode && (
+          <button
+            onClick={() => setMapMode('auto')}
+            className="shrink-0 rounded bg-slate-200 px-1.5 py-1 text-[11px] font-bold text-action transition-colors duration-150 hover:bg-slate-300"
+          >
+            Auto
+          </button>
+        )}
       </div>
 
-      <div className="my-1 border-t border-gray-100" />
-
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-        Map Layers
-      </h3>
-      {layers.map((layer) => (
-        <label key={layer.id} className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={visibleLayers[layer.id] || false}
-            onChange={() => handleToggle(layer.id, layer.layerIds)}
-            className="h-3.5 w-3.5 rounded border-gray-300 accent-primary"
-          />
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: layer.color }}
-          />
-          <span className="text-sm text-gray-600">{layer.label}</span>
-        </label>
-      ))}
+      {/* Layers */}
+      <div className="text-[13px] font-bold uppercase tracking-wide text-heading">Layers</div>
+      {layers.map((layer) => {
+        const LayerIcon = LAYER_ICONS[layer.id]
+        const isChecked = visibleLayers[layer.id] || false
+        return (
+          <label key={layer.id} className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors duration-100 hover:bg-slate-50">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => handleToggle(layer.id, layer.layerIds)}
+                className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-slate-500 bg-white transition-all duration-150 checked:border-action checked:bg-action"
+              />
+              <svg className="pointer-events-none absolute left-1 top-1 hidden h-3 w-3 text-white peer-checked:block" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="2 6 5 9 10 3" />
+              </svg>
+            </div>
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 ${isChecked ? 'scale-110' : 'scale-100'}`}
+              style={{ backgroundColor: layer.color + (isChecked ? '30' : '15') }}
+            >
+              {LayerIcon ? (
+                <LayerIcon size={20} strokeWidth={2} style={{ color: layer.color }} />
+              ) : (
+                <span
+                  className="block h-3 w-3 rounded-full"
+                  style={{ backgroundColor: layer.color }}
+                />
+              )}
+            </span>
+            <span className={`text-sm font-medium transition-colors duration-150 ${isChecked ? 'text-heading' : 'text-label'}`}>{layer.label}</span>
+          </label>
+        )
+      })}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
+import { X } from 'lucide-react'
 
 export default function HouseEditPopup() {
   const selectedId = useStore((s) => s.selectedHouseId)
@@ -28,7 +29,7 @@ export default function HouseEditPopup() {
 
   return (
     <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <div className="w-72 rounded-xl border border-border bg-white shadow-xl">
+      <div className="hover-lift w-72 rounded-xl border border-slate-200/80 bg-white/95 shadow-[0_12px_28px_rgba(0,0,0,0.12),0_4px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <div className="flex items-center gap-2">
@@ -48,7 +49,7 @@ export default function HouseEditPopup() {
               onClick={() => setSelected(null)}
               className="rounded px-1 py-0.5 text-gray-300 transition-colors hover:text-gray-500"
             >
-              ✕
+              <X size={14} strokeWidth={2} />
             </button>
           </div>
         </div>

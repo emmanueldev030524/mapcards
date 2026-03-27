@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { saveAs } from 'file-saver'
+import { Plus, Save, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { deleteProject } from '../lib/db'
 
@@ -55,27 +56,30 @@ export default function ProjectManager() {
   )
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+    <div className="space-y-2.5">
+      <h3 className="text-[13px] font-bold uppercase tracking-wide text-heading">
         Project
       </h3>
       <div className="flex gap-1.5">
         <button
           onClick={handleNew}
-          className="flex-1 rounded-md border border-border px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+          className="flex items-center justify-center gap-1 rounded px-2.5 py-2 text-sm font-medium text-label transition-all duration-150 hover:bg-slate-100 active:scale-[0.97]"
         >
+          <Plus size={16} strokeWidth={2} />
           New
         </button>
         <button
           onClick={handleExportJSON}
-          className="flex-1 rounded-md border border-border px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded bg-action px-3 py-2 text-sm font-bold text-white shadow-[0_2px_8px_rgba(57,87,127,0.3)] transition-all duration-150 hover:bg-primary-dark hover:shadow-[0_4px_12px_rgba(57,87,127,0.35)] active:scale-[0.97]"
         >
+          <Save size={16} strokeWidth={2} />
           Save
         </button>
         <button
           onClick={handleImportJSON}
-          className="flex-1 rounded-md border border-border px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+          className="flex items-center justify-center gap-1 rounded px-2.5 py-2 text-sm font-medium text-label transition-all duration-150 hover:bg-slate-100 active:scale-[0.97]"
         >
+          <Upload size={16} strokeWidth={2} />
           Load
         </button>
       </div>

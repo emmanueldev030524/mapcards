@@ -127,14 +127,14 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
       type: 'fill',
       source: 'openmaptiles',
       'source-layer': 'building',
-      paint: { 'fill-color': '#e6e4e0', 'fill-opacity': 0.5 },
+      paint: { 'fill-color': '#dddad5', 'fill-opacity': 0.7 },
     },
     {
       id: 'toggle-buildings-outline',
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'building',
-      paint: { 'line-color': '#d4d0ca', 'line-width': 0.5 },
+      paint: { 'line-color': '#b8b3ab', 'line-width': 1 },
     },
     {
       id: 'toggle-housenumbers',
@@ -271,6 +271,7 @@ const DYNAMIC_LAYER_PREFIXES = [
   'territory-',
   'custom-roads',
   'house-',
+  'tree-',
   'snap-grid',
   'selected-',
 ]

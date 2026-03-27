@@ -2,13 +2,112 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
-  /* JW.org brand palette */
-  --color-primary: #4a6da7;
-  --color-primary-light: #5a7db7;
-  --color-primary-dark: #3b5a8a;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand palette — #39577F base */
+  --color-primary: #39577F;
+  --color-primary-light: #4a6a94;
+  --color-primary-dark: #2d4566;
   --color-accent: #5b3c88;
-  --color-sidebar: #f7f8fa;
+  --color-sidebar: #ffffff;
+  --color-section-bg: #f8f9fb;
   --color-border: #dde1e7;
-  --color-header-bg: #36516e;
+  --color-header-bg: #2d4566;
+
+  /* Accessibility-first high-contrast tokens */
+  --color-heading: #1e293b;   /* slate-800 — section headers */
+  --color-label: #334155;     /* slate-700 — input labels, layer names */
+  --color-muted: #475569;     /* slate-600 — secondary text */
+  --color-action: #39577F;    /* brand blue — focus/active states */
+}
+
+@layer base {
+  /* Custom sidebar scrollbar */
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Range slider — active fill + thumb */
+  input[type="range"] {
+    --range-pct: 50%;
+    background: linear-gradient(to right, #39577F var(--range-pct), #cbd5e1 var(--range-pct));
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #39577F;
+    border: 2.5px solid white;
+    box-shadow: 0 1px 4px rgba(57, 87, 127, 0.35);
+    cursor: pointer;
+    margin-top: -2px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #39577F;
+    border: 2.5px solid white;
+    box-shadow: 0 1px 4px rgba(57, 87, 127, 0.35);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-progress {
+    background: #39577F;
+    border-radius: 9999px;
+    height: 100%;
+  }
+
+  /* Smooth focus transition for inputs */
+  input:not([type="range"]):not([type="checkbox"]),
+  select {
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  /* Micro-animation: springy hover lift for cards/panels */
+  .hover-lift {
+    transition: transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                box-shadow 200ms ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Adaptive chrome: sidebar fades when drawing */
+  .sidebar-drawing {
+    opacity: 0.35;
+    pointer-events: none;
+    transform: translateX(-4px);
+    filter: blur(0.5px);
+  }
+  aside {
+    transition: opacity 300ms ease, transform 300ms ease, filter 300ms ease;
+  }
+
+  /* Layer toggle pulse animation */
+  @keyframes layer-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+  .layer-pulse {
+    animation: layer-pulse 300ms ease-out;
+  }
+
+  /* MapLibre smooth zoom override */
+  .maplibregl-canvas {
+    outline: none;
+  }
 }
 

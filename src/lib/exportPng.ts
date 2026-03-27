@@ -4,6 +4,7 @@ import type { Feature, Polygon } from 'geojson'
 import type { FeatureWithMeta } from '../types/project'
 import type { LineString, Point } from 'geojson'
 import { buildMapStyle, SATELLITE_LAYER, isBaseStreetLayer, isCleanOnlyLayer } from './mapStyle'
+import { ensureHouseIcons, resolveHouseIcon, collectLegend } from './mapPins'
 
 interface ExportOptions {
   boundary: Feature<Polygon>
@@ -17,7 +18,7 @@ interface ExportOptions {
 
 const DPI = 300
 const HEADER_RATIO = 0.10
-const LEGEND_RATIO = 0.08
+const LEGEND_RATIO = 0.12 // increased for color legend
 
 export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const {
@@ -36,10 +37,8 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const legendHeight = Math.round(totalHeight * LEGEND_RATIO)
   const mapHeight = totalHeight - headerHeight - legendHeight
 
-  // Get boundary bbox for fitting
   const bbox = turf.bbox(boundary) as [number, number, number, number]
 
-  // Create offscreen container
   const container = document.createElement('div')
   container.style.width = `${totalWidth}px`
   container.style.height = `${mapHeight}px`
@@ -51,7 +50,6 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   try {
     const style = await buildMapStyle()
 
-    // Force clean vector view for export (hide satellite + street layers, show clean layers)
     for (const layer of style.layers) {
       const setVis = (v: string) => {
         if ('layout' in layer && layer.layout) {
@@ -60,16 +58,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
           (layer as Record<string, unknown>).layout = { visibility: v }
         }
       }
-      if (layer.id === SATELLITE_LAYER) {
-        setVis('none')
-      } else if (layer.id === 'background') {
-        setVis('visible')
-      } else if (isBaseStreetLayer(layer.id)) {
-        // Use street layers in export for road detail
-        setVis('visible')
-      } else if (isCleanOnlyLayer(layer.id)) {
-        setVis('visible')
-      }
+      if (layer.id === SATELLITE_LAYER) setVis('none')
+      else if (layer.id === 'background') setVis('visible')
+      else if (isBaseStreetLayer(layer.id)) setVis('visible')
+      else if (isCleanOnlyLayer(layer.id)) setVis('visible')
     }
 
     const map = new maplibregl.Map({
@@ -85,10 +77,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Map render timed out')), 30000)
-      map.on('idle', () => {
+      map.on('idle', async () => {
         clearTimeout(timeout)
 
-        // Add custom roads to offscreen map
+        // Roads
         if (customRoads.length > 0) {
           map.addSource('export-roads', {
             type: 'geojson',
@@ -110,35 +102,69 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
           })
         }
 
-        // Add house points to offscreen map
+        // Houses — dynamic color-coded icons
         if (housePoints.length > 0) {
+          await ensureHouseIcons(map, housePoints.map((p) => ({ tags: p.properties.tags || [] })))
+
+          const features = housePoints.map((p, i) => {
+            const tags = p.properties.tags || []
+            const { key } = resolveHouseIcon(tags)
+            return {
+              ...p,
+              properties: {
+                ...p.properties,
+                iconImage: key,
+                num: String(i + 1),
+                label: p.properties.label || '',
+              },
+            }
+          })
+
           map.addSource('export-houses', {
             type: 'geojson',
-            data: { type: 'FeatureCollection', features: housePoints },
+            data: { type: 'FeatureCollection', features },
           })
           map.addLayer({
             id: 'export-houses',
-            type: 'circle',
+            type: 'symbol',
             source: 'export-houses',
+            layout: {
+              'icon-image': ['get', 'iconImage'],
+              'icon-size': 0.6,
+              'icon-allow-overlap': true,
+              'icon-anchor': 'center',
+              'text-field': [
+                'format',
+                '#', { 'font-scale': 0.7 },
+                ['get', 'num'], { 'font-scale': 1.0 },
+                ['case', ['!=', ['get', 'label'], ''],
+                  ['concat', '\n', ['get', 'label']],
+                  '',
+                ], { 'font-scale': 0.85 },
+              ],
+              'text-size': 8,
+              'text-anchor': 'top',
+              'text-offset': [0, 0.8],
+              'text-line-height': 1.3,
+              'text-max-width': 8,
+              'text-allow-overlap': true,
+              'text-padding': 0,
+              'text-font': ['Open Sans Semibold', 'Arial Unicode MS Regular'],
+            },
             paint: {
-              'circle-radius': 5,
-              'circle-color': '#4a6da7',
-              'circle-stroke-width': 1.5,
-              'circle-stroke-color': '#ffffff',
+              'text-color': '#1e293b',
+              'text-halo-color': '#ffffff',
+              'text-halo-width': 2,
             },
           })
         }
 
-        // Wait one more frame for layers to render
         map.once('idle', () => resolve())
         map.triggerRepaint()
       })
     })
 
-    // Get map canvas
     const mapCanvas = map.getCanvas()
-
-    // Create output canvas
     const output = document.createElement('canvas')
     output.width = totalWidth
     output.height = totalHeight
@@ -148,11 +174,11 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, totalWidth, totalHeight)
 
-    // Draw header
-    ctx.fillStyle = '#4a6da7'
+    // Header
+    ctx.fillStyle = '#39577F'
     ctx.fillRect(0, 0, totalWidth, headerHeight)
     ctx.fillStyle = '#ffffff'
-    ctx.font = `bold ${Math.round(headerHeight * 0.45)}px system-ui, sans-serif`
+    ctx.font = `bold ${Math.round(headerHeight * 0.45)}px Inter, system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     const headerText = territoryNumber
@@ -160,11 +186,9 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       : territoryName || 'Territory Map'
     ctx.fillText(headerText, totalWidth / 2, headerHeight / 2)
 
-    // Draw map with boundary clip
+    // Map with boundary clip
     ctx.save()
     ctx.translate(0, headerHeight)
-
-    // Create clip path from boundary polygon
     const coords = boundary.geometry.coordinates[0]
     ctx.beginPath()
     for (let i = 0; i < coords.length; i++) {
@@ -174,12 +198,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     }
     ctx.closePath()
     ctx.clip()
-
-    // Draw the map canvas
     ctx.drawImage(mapCanvas, 0, 0, totalWidth, mapHeight)
     ctx.restore()
 
-    // Draw boundary outline on top
+    // Boundary outline
     ctx.save()
     ctx.translate(0, headerHeight)
     ctx.beginPath()
@@ -189,24 +211,68 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       else ctx.lineTo(point.x, point.y)
     }
     ctx.closePath()
-    ctx.strokeStyle = '#4a6da7'
+    ctx.strokeStyle = '#39577F'
     ctx.lineWidth = 3
-    ctx.setLineDash([10, 5])
     ctx.stroke()
     ctx.restore()
 
-    // Draw legend
+    // ─── Legend with color coding ───
     const legendY = headerHeight + mapHeight
     ctx.fillStyle = '#f8f9fa'
     ctx.fillRect(0, legendY, totalWidth, legendHeight)
-    ctx.fillStyle = '#666666'
-    ctx.font = `${Math.round(legendHeight * 0.4)}px system-ui, sans-serif`
+
+    // Thin top border
+    ctx.fillStyle = '#e2e8f0'
+    ctx.fillRect(0, legendY, totalWidth, 1)
+
+    const fontSize = Math.round(legendHeight * 0.28)
+    const smallFont = Math.round(legendHeight * 0.22)
+    const dotSize = Math.round(legendHeight * 0.12)
+    let cursorX = 20
+    const centerY = legendY + legendHeight / 2
+
+    // House count
+    ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`
+    ctx.fillStyle = '#1e293b'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    const legendText = `Houses: ${housePoints.length}  |  Roads: ${customRoads.length}`
-    ctx.fillText(legendText, 20, legendY + legendHeight / 2)
+    ctx.fillText(`${housePoints.length} Houses`, cursorX, centerY - fontSize * 0.6)
 
-    // Cleanup
+    // Road count
+    ctx.font = `${smallFont}px Inter, system-ui, sans-serif`
+    ctx.fillStyle = '#64748b'
+    ctx.fillText(`${customRoads.length} Custom Roads`, cursorX, centerY + fontSize * 0.5)
+
+    // Color legend entries (right-aligned)
+    const legend = collectLegend(housePoints.map((p) => ({ tags: p.properties.tags || [] })))
+
+    if (legend.length > 0) {
+      ctx.textAlign = 'right'
+      let rightX = totalWidth - 20
+
+      for (let i = legend.length - 1; i >= 0; i--) {
+        const entry = legend[i]
+
+        // Label
+        ctx.font = `${smallFont}px Inter, system-ui, sans-serif`
+        ctx.fillStyle = '#334155'
+        const labelWidth = ctx.measureText(entry.label).width
+        ctx.fillText(entry.label, rightX, centerY)
+
+        // Color dot
+        rightX -= labelWidth + dotSize + 6
+        ctx.beginPath()
+        ctx.arc(rightX + dotSize / 2, centerY, dotSize / 2, 0, Math.PI * 2)
+        ctx.fillStyle = entry.color
+        ctx.fill()
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+
+        rightX -= 16 // gap between entries
+      }
+    }
+
     map.remove()
 
     return new Promise<Blob>((resolve, reject) => {

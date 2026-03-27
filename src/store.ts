@@ -9,6 +9,7 @@ interface UndoSnapshot {
   boundary: Feature<Polygon> | null
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
+  treePoints: FeatureWithMeta<Point>[]
 }
 
 const MAX_UNDO = 50
@@ -25,6 +26,7 @@ interface MapCardsStore {
   boundary: Feature<Polygon> | null
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
+  treePoints: FeatureWithMeta<Point>[]
 
   // UI state (not persisted)
   activeDrawMode: DrawMode
@@ -35,6 +37,7 @@ interface MapCardsStore {
   snapToGrid: boolean
   gridSpacingMeters: number
   selectedHouseId: string | null
+  selectedRoadId: string | null
   mapMode: 'satellite' | 'street' | 'clean' | 'auto' // auto = satellite before boundary, clean after
 
   // Undo/redo (internal stacks, not persisted)
@@ -63,6 +66,9 @@ interface MapCardsStore {
   bulkAddHouses: (points: Array<{ lng: number; lat: number }>) => void
   updateHouseLabel: (id: string, label: string) => void
   toggleHouseTag: (id: string, tag: string) => void
+  addTreePoint: (lng: number, lat: number) => void
+  removeTreePoint: (id: string) => void
+  clearAllTrees: () => void
 
   // Actions — UI
   setActiveDrawMode: (mode: DrawMode) => void
@@ -71,6 +77,7 @@ interface MapCardsStore {
   setHouseIconSize: (size: number) => void
   setBadgeIconSize: (size: number) => void
   setSelectedHouseId: (id: string | null) => void
+  setSelectedRoadId: (id: string | null) => void
   setSnapToGrid: (snap: boolean) => void
   setGridSpacing: (meters: number) => void
   setMapMode: (mode: 'satellite' | 'street' | 'clean' | 'auto') => void
@@ -93,6 +100,7 @@ function setWithUndo(
     boundary: s.boundary,
     customRoads: s.customRoads,
     housePoints: s.housePoints,
+    treePoints: s.treePoints,
   }
   const newUndo = [...s._undoStack.slice(-(MAX_UNDO - 1)), snapshot]
   if (typeof changes === 'function') {
@@ -126,6 +134,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   boundary: DEFAULT_PROJECT.boundary,
   customRoads: DEFAULT_PROJECT.customRoads,
   housePoints: DEFAULT_PROJECT.housePoints,
+  treePoints: [],
 
   activeDrawMode: null,
   visibleLayers: { buildings: true },
@@ -135,6 +144,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   snapToGrid: false,
   gridSpacingMeters: 20,
   selectedHouseId: null,
+  selectedRoadId: null,
   mapMode: 'auto' as const,
 
   _undoStack: [],
@@ -253,6 +263,25 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       }),
     })),
 
+  addTreePoint: (lng, lat) =>
+    setWithUndo(get, set, (s) => ({
+      treePoints: [
+        ...s.treePoints,
+        {
+          type: 'Feature',
+          id: uuid(),
+          geometry: { type: 'Point', coordinates: [lng, lat] },
+          properties: { createdAt: new Date().toISOString(), tags: [], label: '' },
+        },
+      ],
+    })),
+
+  removeTreePoint: (id) =>
+    setWithUndo(get, set, (s) => ({ treePoints: s.treePoints.filter((p) => p.id !== id) })),
+
+  clearAllTrees: () =>
+    setWithUndo(get, set, () => ({ treePoints: [] })),
+
   bulkAddHouses: (points) =>
     setWithUndo(get, set, (s) => ({
       housePoints: [
@@ -279,6 +308,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setHouseIconSize: (size) => set({ houseIconSize: size }),
   setBadgeIconSize: (size) => set({ badgeIconSize: size }),
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
+  setSelectedRoadId: (id) => set({ selectedRoadId: id }),
   setSnapToGrid: (snap) => set({ snapToGrid: snap }),
   setGridSpacing: (meters) => set({ gridSpacingMeters: meters }),
   setMapMode: (mode) => set({ mapMode: mode }),
@@ -319,12 +349,14 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       boundary: data.boundary,
       customRoads: data.customRoads,
       housePoints: data.housePoints,
+      treePoints: (data as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
     }),
 
   clearProject: () =>
     set({
       projectId: uuid(),
       ...DEFAULT_PROJECT,
+      treePoints: [],
       activeDrawMode: null,
       visibleLayers: {},
     }),
@@ -345,6 +377,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       boundary: s.boundary,
       customRoads: s.customRoads,
       housePoints: s.housePoints,
-    }
+      treePoints: s.treePoints,
+    } as ProjectData
   },
 }))
