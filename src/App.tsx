@@ -10,6 +10,7 @@ import CardSettings from './components/CardSettings'
 import LayerToggle from './components/LayerToggle'
 import ProjectManager from './components/ProjectManager'
 import ExportPanel from './components/ExportPanel'
+import ExportModal from './components/ExportModal'
 import BulkFillDialog from './components/BulkFillDialog'
 import HouseEditPopup from './components/HouseEditPopup'
 import SidebarSection from './components/SidebarSection'
@@ -61,6 +62,7 @@ export default function App() {
   )
 
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const handleModeChange = useCallback(
     (mode: typeof activeDrawMode) => {
@@ -128,7 +130,7 @@ export default function App() {
       })
 
       // Drop a marker pin with a popup showing the location name
-      const marker = new maplibregl.Marker({ color: '#4a6da7' })
+      const marker = new maplibregl.Marker({ color: '#4B6CA7' })
         .setLngLat([selection.lng, selection.lat])
         .setPopup(
           new maplibregl.Popup({ offset: 25, closeButton: false })
@@ -148,103 +150,102 @@ export default function App() {
     <div className="flex h-dvh w-full">
       {/* Sidebar */}
       <aside
-        className={`flex w-75 shrink-0 flex-col border-r border-slate-200 bg-white shadow-[2px_0_12px_rgba(0,0,0,0.06)] ${
+        className={`flex w-68 shrink-0 flex-col border-r border-divider bg-sidebar-bg ${
           activeDrawMode === 'boundary' || activeDrawMode === 'road' ? 'sidebar-drawing' : ''
         }`}
         onMouseEnter={(e) => {
-          // Re-enable sidebar on hover even during drawing
           if (activeDrawMode) e.currentTarget.classList.remove('sidebar-drawing')
         }}
         onMouseLeave={(e) => {
-          // Re-fade when leaving sidebar during drawing
           if (activeDrawMode === 'boundary' || activeDrawMode === 'road')
             e.currentTarget.classList.add('sidebar-drawing')
         }}
       >
-        <div className="bg-linear-to-b from-header-bg to-primary-dark px-4 pb-5 pt-4">
-          <h1 className="text-lg font-bold tracking-tight text-white">MapCards</h1>
-          <p className="text-[11px] font-medium text-white/60">Territory Card Maker</p>
+        {/* Header — flat brand color */}
+        <div className="bg-brand px-5 pb-4 pt-4">
+          <h1 className="text-[15px] font-bold tracking-tight text-white">MapCards</h1>
+          <p className="mt-0.5 text-[11px] font-medium text-white/55">Territory Card Maker</p>
         </div>
 
-        <div className="sidebar-scroll flex-1 overflow-y-auto">
-          {/* Project + Search — always visible, no card */}
-          <div className="space-y-3 px-4 pt-4 pb-2">
+        <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+          {/* Project + Search */}
+          <div className="space-y-3 px-5 pt-5 pb-3">
             <ProjectManager />
             <LocationSearch onLocationSelect={handleLocationSelect} />
           </div>
 
-          <div className="mx-4 border-t border-slate-200" />
+          <div className="mx-5 border-t border-divider" />
 
           {/* Card Settings */}
-          <div className="px-4 py-2">
+          <div className="px-5 py-2">
             <SidebarSection title="Card Settings">
               <CardSettings />
             </SidebarSection>
           </div>
 
-          <div className="mx-4 border-t border-slate-200" />
+          <div className="mx-5 border-t border-divider" />
 
           {/* Settings — sliders, grid snap (contextual) */}
-          <div className="px-4 py-2">
+          <div className="px-5 py-2">
             <SidebarSection title="Settings">
               <Toolbar />
             </SidebarSection>
           </div>
 
-          <div className="mx-4 border-t border-slate-200" />
+          <div className="mx-5 border-t border-divider" />
 
           {/* Map View & Layers */}
-          <div className="px-4 py-2">
+          <div className="px-5 py-2">
             <SidebarSection title="Map View & Layers">
               <LayerToggle map={mapInstance} />
             </SidebarSection>
           </div>
 
-          <div className="mx-4 border-t border-slate-200" />
+          <div className="mx-5 border-t border-divider" />
 
           {/* Export */}
-          <div className="px-4 py-2">
+          <div className="px-5 py-2">
             <SidebarSection title="Export">
-              <ExportPanel />
+              <ExportPanel onExport={() => setExportOpen(true)} />
             </SidebarSection>
           </div>
 
           {/* Empty state guidance */}
           {!boundary && housePoints.length === 0 && customRoads.length === 0 && (
-            <div className="mx-4 mt-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center">
-              <p className="text-sm font-semibold text-heading">Get started</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
+            <div className="mx-5 mt-2 rounded-lg border border-dashed border-divider bg-surface px-4 py-4 text-center">
+              <p className="text-[13px] font-semibold text-heading">Get started</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-body">
                 Use the toolbar above the map to draw a territory boundary, then add houses and roads.
               </p>
             </div>
           )}
 
-          {/* Status */}
-          <div className="px-4 py-3">
-            <div className="rounded-lg bg-slate-50 p-3.5">
-              <h3 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-heading">
+          {/* Status panel — white card with soft shadow */}
+          <div className="px-5 py-4">
+            <div className="rounded-xl bg-surface p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)]">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
                 Status
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-label">Boundary</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  <span className="text-[13px] text-body">Boundary</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                     boundary
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-200 text-slate-600'
+                      ? 'bg-emerald-soft text-emerald-text'
+                      : 'bg-input-bg text-body'
                   }`}>
                     {boundary ? 'Drawn' : 'Not set'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-label">Custom roads</span>
-                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold tabular-nums text-primary-dark">
+                  <span className="text-[13px] text-body">Custom roads</span>
+                  <span className="rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-brand">
                     {customRoads.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-label">Houses</span>
-                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold tabular-nums text-primary-dark">
+                  <span className="text-[13px] text-body">Houses</span>
+                  <span className="rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-brand">
                     {housePoints.length}
                   </span>
                 </div>
@@ -272,6 +273,12 @@ export default function App() {
         map={mapInstance}
         open={bulkFillOpen}
         onClose={() => setBulkFillOpen(false)}
+      />
+
+      <ExportModal
+        map={mapInstance}
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
       />
     </div>
   )

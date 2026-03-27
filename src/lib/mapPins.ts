@@ -39,8 +39,6 @@ export const PIN_CATEGORIES: PinCategory[] = [
     iconPaths: '<text x="8" y="12" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="Arial">Rx</text>' },
   { id: 'government', label: 'Government', color: '#2980b9', group: 'place',
     iconPaths: '<path d="M4 7h8L8 4 4 7z" fill="none" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 7v4m2-4v4m2-4v4m2-4v4" stroke="#fff" stroke-width="1.2"/><line x1="3.5" y1="11.5" x2="12.5" y2="11.5" stroke="#fff" stroke-width="1.3"/>' },
-  { id: 'rv', label: 'RV / Trailer', color: '#16a085', group: 'place',
-    iconPaths: '<rect x="3" y="6" width="10" height="6" rx="1" fill="none" stroke="#fff" stroke-width="1.3"/><circle cx="5.5" cy="12.5" r="1.2" fill="none" stroke="#fff" stroke-width="1"/><circle cx="10.5" cy="12.5" r="1.2" fill="none" stroke="#fff" stroke-width="1"/><line x1="13" y1="9" x2="14.5" y2="9" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>' },
   { id: 'tree', label: 'Tree / Landmark', color: '#2d8a4e', group: 'place',
     iconPaths: '<path d="M8 2L3 9h3l-2 4h4v3h0V13h4l-2-4h3L8 2z" fill="#fff" opacity="0.9" stroke="#fff" stroke-width="0.5" stroke-linejoin="round"/>' },
 ]
@@ -78,7 +76,7 @@ export async function loadPinImages(map: MapImageHost): Promise<void> {
 
 // ─── Dynamic house icon system ───
 
-const HOUSE_DEFAULT_COLOR = '#39577F'
+const HOUSE_DEFAULT_COLOR = '#4B6CA7'
 
 type MapImageHost = { hasImage: (id: string) => boolean; addImage: (id: string, img: HTMLImageElement) => void }
 
@@ -90,71 +88,96 @@ interface HouseIconSpec {
 }
 
 /**
- * Generate a house SVG with:
- * - Body walls = bodyColor tint
- * - Roof = roofColor (can differ from body for dual-tag)
- * - Optional status badge (small colored circle in top-right corner)
+ * Generate a crisp house SVG icon at 48x48 for pixel-perfect rendering.
+ * Clean outlined design with rounded corners. Anchor point is center-bottom.
+ * Shape/size/stroke never change — only fill colors change per status.
  */
 function buildHouseSVG(spec: HouseIconSpec): string {
   const { bodyColor, roofColor, statusColor, statusSymbol } = spec
-  const bodyTint = bodyColor + '30'
-  const roofTint = roofColor + '50'
 
-  // Status badge in top-right corner (if present)
+  // Status badge in top-right (if present)
   const badge = statusColor
-    ? `<circle cx="20" cy="4.5" r="3.5" fill="${statusColor}" stroke="#fff" stroke-width="1"/>
-       <text x="20" y="6.5" text-anchor="middle" font-size="5" font-weight="bold" fill="#fff" font-family="Arial">${statusSymbol || ''}</text>`
+    ? `<circle cx="39" cy="8" r="6" fill="${statusColor}" stroke="#fff" stroke-width="1.5"/>
+       <text x="39" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="#fff" font-family="sans-serif">${statusSymbol || ''}</text>`
     : ''
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
   <defs>
-    <filter id="hs" x="-15%" y="-10%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" flood-opacity="0.2"/>
+    <filter id="ds" x="-10%" y="-5%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.15"/>
     </filter>
   </defs>
-  <g filter="url(#hs)">
-    <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10.5z" fill="${bodyTint}"/>
-    <path d="M3 10.5L12 3l9 7.5H3z" fill="${roofTint}"/>
-    <rect x="9" y="14" width="6" height="7" rx="0.5" fill="#fff" opacity="0.9"/>
-    <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10.5z"
-          fill="none" stroke="${bodyColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M3 10.5L12 3l9 7.5" fill="none" stroke="${roofColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="9" y="14" width="6" height="7" rx="0.5"
-          fill="none" stroke="${bodyColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="7" y="11" width="3" height="2.5" rx="0.3" fill="#fff" opacity="0.7" stroke="${bodyColor}" stroke-width="0.8"/>
-    <rect x="14" y="11" width="3" height="2.5" rx="0.3" fill="#fff" opacity="0.7" stroke="${bodyColor}" stroke-width="0.8"/>
+  <g filter="url(#ds)">
+    <!-- Roof fill -->
+    <path d="M24 6L7 19h34L24 6z" fill="${roofColor}" opacity="0.18"/>
+    <!-- Body fill -->
+    <rect x="10" y="19" width="28" height="20" rx="2" fill="${bodyColor}" opacity="0.12"/>
+    <!-- Body outline -->
+    <rect x="10" y="19" width="28" height="20" rx="2" fill="none" stroke="${bodyColor}" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Roof outline -->
+    <path d="M24 6L7 19h34L24 6z" fill="none" stroke="${roofColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Door -->
+    <rect x="20" y="28" width="8" height="11" rx="1.5" fill="#fff" opacity="0.9"/>
+    <rect x="20" y="28" width="8" height="11" rx="1.5" fill="none" stroke="${bodyColor}" stroke-width="1.5"/>
+    <!-- Windows -->
+    <rect x="12.5" y="22" width="6" height="5" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="12.5" y="22" width="6" height="5" rx="1" fill="none" stroke="${bodyColor}" stroke-width="1.2"/>
+    <rect x="29.5" y="22" width="6" height="5" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="29.5" y="22" width="6" height="5" rx="1" fill="none" stroke="${bodyColor}" stroke-width="1.2"/>
+    <!-- Door knob -->
+    <circle cx="26" cy="34" r="0.8" fill="${bodyColor}"/>
   </g>
   ${badge}
 </svg>`
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
 
+/** Minimal shape for status lookup — works with both PIN_CATEGORIES and custom statuses */
+export interface StatusLike {
+  id: string
+  color: string
+  label?: string
+}
+
 /**
  * Resolve the full icon spec for a house from its tags.
- * Returns an icon key (for caching) and the spec (for generation).
+ * Accepts optional customStatuses array so user-created statuses also tint the icon.
  */
-export function resolveHouseIcon(tags: string[]): { key: string; spec: HouseIconSpec } {
+export function resolveHouseIcon(tags: string[], customStatuses?: StatusLike[]): { key: string; spec: HouseIconSpec } {
+  const allStatuses: StatusLike[] = [
+    ...PIN_CATEGORIES.filter((c) => c.group === 'status'),
+    ...(customStatuses || []),
+  ]
+
   const places = (tags || []).filter((t) => PIN_CATEGORIES.some((c) => c.id === t && c.group === 'place'))
-  const statuses = (tags || []).filter((t) => PIN_CATEGORIES.some((c) => c.id === t && c.group === 'status'))
+  const statuses = (tags || []).filter((t) => allStatuses.some((s) => s.id === t))
 
-  const bodyColor = places.length > 0
+  const firstStatus = statuses.length > 0 ? allStatuses.find((s) => s.id === statuses[0]) : null
+  const placeColor1 = places.length > 0
     ? (PIN_CATEGORIES.find((c) => c.id === places[0])?.color || HOUSE_DEFAULT_COLOR)
-    : HOUSE_DEFAULT_COLOR
+    : null
+  const placeColor2 = places.length > 1
+    ? (PIN_CATEGORIES.find((c) => c.id === places[1])?.color || null)
+    : null
 
-  const roofColor = places.length > 1
-    ? (PIN_CATEGORIES.find((c) => c.id === places[1])?.color || bodyColor)
-    : bodyColor
+  // Color combination logic (same pattern whether combining two places or place+status):
+  // - Body = first place type color, or status color, or default brand
+  // - Roof = second place type, or status color (if place is set), or same as body
+  const bodyColor = placeColor1 || firstStatus?.color || HOUSE_DEFAULT_COLOR
+  const roofColor = placeColor2 || (placeColor1 && firstStatus ? firstStatus.color : bodyColor)
 
-  // First status tag becomes the corner badge
-  const statusCat = statuses.length > 0 ? PIN_CATEGORIES.find((c) => c.id === statuses[0]) : null
-  const statusColor = statusCat?.color || null
-  const statusSymbol = statusCat ? (statusCat.id === 'notHome' ? '?' : '✕') : null
+  // Corner badge for status
+  const statusColor = firstStatus?.color || null
+  const isBuiltinStatus = firstStatus ? PIN_CATEGORIES.some((c) => c.id === firstStatus.id) : false
+  const statusSymbol = firstStatus
+    ? (isBuiltinStatus ? (firstStatus.id === 'notHome' ? '?' : '✕') : '●')
+    : null
 
   // Build a deterministic cache key
   const parts = ['house']
   if (places.length > 0) parts.push(...places.slice(0, 2).sort())
   else parts.push('default')
-  if (statusCat) parts.push(statusCat.id)
+  if (firstStatus) parts.push(firstStatus.id)
   const key = parts.join('-')
 
   return { key, spec: { bodyColor, roofColor, statusColor, statusSymbol } }
@@ -167,7 +190,7 @@ async function ensureHouseIcon(map: MapImageHost, key: string, spec: HouseIconSp
   if (map.hasImage(key)) return
   const url = buildHouseSVG(spec)
   return new Promise<void>((resolve) => {
-    const img = new Image(24, 24)
+    const img = new Image(48, 48)
     img.onload = () => { if (!map.hasImage(key)) map.addImage(key, img); resolve() }
     img.onerror = () => resolve()
     img.src = url
@@ -181,13 +204,14 @@ async function ensureHouseIcon(map: MapImageHost, key: string, spec: HouseIconSp
 export async function ensureHouseIcons(
   map: MapImageHost,
   houses: Array<{ tags: string[] }>,
+  customStatuses?: StatusLike[],
 ): Promise<void> {
   // Always ensure default exists
   const defaultSpec: HouseIconSpec = { bodyColor: HOUSE_DEFAULT_COLOR, roofColor: HOUSE_DEFAULT_COLOR, statusColor: null, statusSymbol: null }
   const needed = new Map<string, HouseIconSpec>([['house-default', defaultSpec]])
 
   for (const h of houses) {
-    const { key, spec } = resolveHouseIcon(h.tags)
+    const { key, spec } = resolveHouseIcon(h.tags, customStatuses)
     if (!needed.has(key)) needed.set(key, spec)
   }
 

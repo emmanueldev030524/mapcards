@@ -4,6 +4,12 @@ import type { Feature, Polygon, LineString, Point } from 'geojson'
 import type { DrawMode, FeatureWithMeta, ProjectData } from './types/project'
 import { DEFAULT_PROJECT } from './types/project'
 
+export interface CustomStatus {
+  id: string
+  label: string
+  color: string
+}
+
 /** Snapshot of undoable project data */
 interface UndoSnapshot {
   boundary: Feature<Polygon> | null
@@ -27,11 +33,13 @@ interface MapCardsStore {
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
   treePoints: FeatureWithMeta<Point>[]
+  customStatuses: CustomStatus[]
 
   // UI state (not persisted)
   activeDrawMode: DrawMode
   visibleLayers: Record<string, boolean>
   boundaryOpacity: number
+  maskOpacity: number
   houseIconSize: number
   badgeIconSize: number
   snapToGrid: boolean
@@ -69,11 +77,15 @@ interface MapCardsStore {
   addTreePoint: (lng: number, lat: number) => void
   removeTreePoint: (id: string) => void
   clearAllTrees: () => void
+  addCustomStatus: (label: string, color: string) => void
+  removeCustomStatus: (id: string) => void
+  updateCustomStatus: (id: string, label: string, color: string) => void
 
   // Actions — UI
   setActiveDrawMode: (mode: DrawMode) => void
   toggleLayer: (layerId: string) => void
   setBoundaryOpacity: (opacity: number) => void
+  setMaskOpacity: (opacity: number) => void
   setHouseIconSize: (size: number) => void
   setBadgeIconSize: (size: number) => void
   setSelectedHouseId: (id: string | null) => void
@@ -135,10 +147,15 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   customRoads: DEFAULT_PROJECT.customRoads,
   housePoints: DEFAULT_PROJECT.housePoints,
   treePoints: [],
+  customStatuses: [
+    { id: 'notHome', label: 'Not Home', color: '#f39c12' },
+    { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
+  ],
 
   activeDrawMode: null,
   visibleLayers: { buildings: true },
-  boundaryOpacity: 0.1,
+  boundaryOpacity: 0,
+  maskOpacity: 0.85,
   houseIconSize: 0.8,
   badgeIconSize: 0.7,
   snapToGrid: false,
@@ -282,6 +299,15 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   clearAllTrees: () =>
     setWithUndo(get, set, () => ({ treePoints: [] })),
 
+  addCustomStatus: (label, color) =>
+    set((s) => ({ customStatuses: [...s.customStatuses, { id: `status-${uuid().slice(0, 8)}`, label, color }] })),
+
+  removeCustomStatus: (id) =>
+    set((s) => ({ customStatuses: s.customStatuses.filter((st) => st.id !== id) })),
+
+  updateCustomStatus: (id, label, color) =>
+    set((s) => ({ customStatuses: s.customStatuses.map((st) => st.id === id ? { ...st, label, color } : st) })),
+
   bulkAddHouses: (points) =>
     setWithUndo(get, set, (s) => ({
       housePoints: [
@@ -305,6 +331,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       },
     })),
   setBoundaryOpacity: (opacity) => set({ boundaryOpacity: opacity }),
+  setMaskOpacity: (opacity) => set({ maskOpacity: opacity }),
   setHouseIconSize: (size) => set({ houseIconSize: size }),
   setBadgeIconSize: (size) => set({ badgeIconSize: size }),
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
@@ -350,6 +377,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       customRoads: data.customRoads,
       housePoints: data.housePoints,
       treePoints: (data as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
+      customStatuses: ((data as Record<string, unknown>).customStatuses as CustomStatus[]) || [
+        { id: 'notHome', label: 'Not Home', color: '#f39c12' },
+        { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
+      ],
     }),
 
   clearProject: () =>
@@ -357,6 +388,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       projectId: uuid(),
       ...DEFAULT_PROJECT,
       treePoints: [],
+      customStatuses: [
+        { id: 'notHome', label: 'Not Home', color: '#f39c12' },
+        { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
+      ],
       activeDrawMode: null,
       visibleLayers: {},
     }),
@@ -378,6 +413,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       customRoads: s.customRoads,
       housePoints: s.housePoints,
       treePoints: s.treePoints,
+      customStatuses: s.customStatuses,
     } as ProjectData
   },
 }))

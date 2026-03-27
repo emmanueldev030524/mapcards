@@ -1,24 +1,38 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
 
-  /* Brand palette — #39577F base */
-  --color-primary: #39577F;
-  --color-primary-light: #4a6a94;
-  --color-primary-dark: #2d4566;
-  --color-accent: #5b3c88;
-  --color-sidebar: #ffffff;
-  --color-section-bg: #f8f9fb;
-  --color-border: #dde1e7;
-  --color-header-bg: #2d4566;
+  /* Brand palette — #4B6CA7 base */
+  --color-brand: #4B6CA7;
+  --color-brand-light: #5A7DB8;
+  --color-brand-dark: #3D5A8E;
+  --color-brand-tint: #EEF2F9;
+  --color-brand-hover: rgba(75, 108, 167, 0.07);
 
-  /* Accessibility-first high-contrast tokens */
-  --color-heading: #1e293b;   /* slate-800 — section headers */
-  --color-label: #334155;     /* slate-700 — input labels, layer names */
-  --color-muted: #475569;     /* slate-600 — secondary text */
-  --color-action: #39577F;    /* brand blue — focus/active states */
+  /* Legacy aliases for components that still reference old tokens */
+  --color-primary: #4B6CA7;
+  --color-primary-light: #5A7DB8;
+  --color-primary-dark: #3D5A8E;
+  --color-action: #4B6CA7;
+
+  /* Surfaces */
+  --color-sidebar-bg: #F8F9FB;
+  --color-surface: #FFFFFF;
+  --color-input-bg: #F1F3F6;
+  --color-divider: #E5E7EB;
+
+  /* Typography */
+  --color-heading: #374151;
+  --color-label: #374151;
+  --color-body: #6B7280;
+  --color-muted: #6B7280;
+
+  /* Status */
+  --color-emerald-soft: #ECFDF5;
+  --color-emerald-text: #065F46;
 }
 
 @layer base {
@@ -40,31 +54,31 @@
   /* Range slider — active fill + thumb */
   input[type="range"] {
     --range-pct: 50%;
-    background: linear-gradient(to right, #39577F var(--range-pct), #cbd5e1 var(--range-pct));
+    background: linear-gradient(to right, #4B6CA7 var(--range-pct), #E5E7EB var(--range-pct));
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: #39577F;
-    border: 2.5px solid white;
-    box-shadow: 0 1px 4px rgba(57, 87, 127, 0.35);
+    background: #4B6CA7;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(75, 108, 167, 0.3);
     cursor: pointer;
-    margin-top: -2px;
+    margin-top: -1px;
   }
   input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: #39577F;
-    border: 2.5px solid white;
-    box-shadow: 0 1px 4px rgba(57, 87, 127, 0.35);
+    background: #4B6CA7;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(75, 108, 167, 0.3);
     cursor: pointer;
   }
   input[type="range"]::-moz-range-progress {
-    background: #39577F;
+    background: #4B6CA7;
     border-radius: 9999px;
     height: 100%;
   }

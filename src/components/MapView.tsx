@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
 import maplibregl from 'maplibre-gl'
+import * as turf from '@turf/turf'
 import { buildMapStyle, applyMapMode } from '../lib/mapStyle'
 import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
@@ -55,11 +56,13 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const customRoads = useStore((s) => s.customRoads)
   const boundary = useStore((s) => s.boundary)
   const boundaryOpacity = useStore((s) => s.boundaryOpacity)
+  const maskOpacity = useStore((s) => s.maskOpacity)
   const houseIconSize = useStore((s) => s.houseIconSize)
   const badgeIconSize = useStore((s) => s.badgeIconSize)
   const snapToGrid = useStore((s) => s.snapToGrid)
   const gridSpacingMeters = useStore((s) => s.gridSpacingMeters)
   const activeDrawMode = useStore((s) => s.activeDrawMode)
+  const customStatuses = useStore((s) => s.customStatuses)
   const moveHousePoint = useStore((s) => s.moveHousePoint)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
@@ -88,7 +91,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           zoom,
           attributionControl: false,
           fadeDuration: 200,
-        })
+          canvasContextAttributes: { preserveDrawingBuffer: true },
+        } as maplibregl.MapOptions)
 
         // Smooth inertial scrolling
         map.scrollZoom.setWheelZoomRate(1 / 150)
@@ -107,55 +111,20 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             data: { type: 'FeatureCollection', features: [] },
           })
 
-          // Territory fill — visible tint so the area is clearly defined
+          // --- Z-ORDER: fill → mask → roads → boundary stroke → icons ---
+
+          // 1. Territory fill — 7% brand tint
           map.addLayer({
             id: BOUNDARY_FILL,
             type: 'fill',
             source: BOUNDARY_SOURCE,
             paint: {
-              'fill-color': '#39577F',
-              'fill-opacity': 0.08,
+              'fill-color': '#4B6CA7',
+              'fill-opacity': 0.07,
             },
           })
 
-          // Outer drop shadow (wide, soft — makes boundary "sit" on the map)
-          map.addLayer({
-            id: BOUNDARY_OUTLINE + '-shadow',
-            type: 'line',
-            source: BOUNDARY_SOURCE,
-            paint: {
-              'line-color': '#1e293b',
-              'line-width': 12,
-              'line-opacity': 0.06,
-              'line-blur': 6,
-            },
-          })
-
-          // Mid glow (brand blue halo)
-          map.addLayer({
-            id: BOUNDARY_OUTLINE + '-glow',
-            type: 'line',
-            source: BOUNDARY_SOURCE,
-            paint: {
-              'line-color': '#39577F',
-              'line-width': 6,
-              'line-opacity': 0.12,
-              'line-blur': 3,
-            },
-          })
-
-          // Main boundary line — solid, not dashed
-          map.addLayer({
-            id: BOUNDARY_OUTLINE,
-            type: 'line',
-            source: BOUNDARY_SOURCE,
-            paint: {
-              'line-color': '#39577F',
-              'line-width': 2.5,
-            },
-          })
-
-          // Mask layer — white fill covering everything outside boundary
+          // 2. Mask — dims everything outside boundary
           map.addSource(MASK_SOURCE, {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
@@ -166,27 +135,41 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             type: 'fill',
             source: MASK_SOURCE,
             paint: {
-              'fill-color': '#f8f7f5',
-              'fill-opacity': 0.92,
+              'fill-color': '#C0BDB8',
+              'fill-opacity': 0.85,
             },
           })
 
-          // Custom roads — two-layer system like real map roads (casing + fill)
+          // 3. Custom roads — interleaved with base roads for seamless merging
           map.addSource(ROAD_SOURCE, {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
           })
 
+          // Find insertion points: casing with base casings, fill with base fills
+          const styleLayers = map.getStyle()?.layers || []
+          let casingBefore: string | undefined
+          let fillBefore: string | undefined
+          for (const sl of styleLayers) {
+            if (!casingBefore && sl.id.startsWith('highway-') && !sl.id.includes('casing')) {
+              casingBefore = sl.id
+            }
+            if (!fillBefore && sl.id.startsWith('bridge-')) {
+              fillBefore = sl.id
+            }
+          }
+
+          // Custom roads — casing+fill, interleaved with base roads
           map.addLayer({
             id: ROAD_CASING,
             type: 'line',
             source: ROAD_SOURCE,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
-              'line-color': '#cfcdca',
-              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 1, 14, 6, 18, 16, 20, 22],
+              'line-color': '#A8B4C4',
+              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 0.5, 13, 1, 14, 4, 20, 15],
             },
-          })
+          }, casingBefore)
 
           map.addLayer({
             id: ROAD_FILL,
@@ -195,7 +178,33 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
               'line-color': '#ffffff',
-              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 0.5, 14, 4, 18, 12, 20, 18],
+              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13.5, 0, 14, 2.5, 20, 11.5],
+            },
+          }, fillBefore)
+
+          // 4. Boundary glow — soft brand halo, renders ABOVE roads
+          map.addLayer({
+            id: BOUNDARY_OUTLINE + '-glow',
+            type: 'line',
+            source: BOUNDARY_SOURCE,
+            layout: { 'line-join': 'round' },
+            paint: {
+              'line-color': '#4B6CA7',
+              'line-width': 6,
+              'line-opacity': 0.25,
+              'line-blur': 6,
+            },
+          })
+
+          // 5. Boundary stroke — dominant, 2.5px solid brand blue, ON TOP
+          map.addLayer({
+            id: BOUNDARY_OUTLINE,
+            type: 'line',
+            source: BOUNDARY_SOURCE,
+            layout: { 'line-join': 'round' },
+            paint: {
+              'line-color': '#4B6CA7',
+              'line-width': 2.5,
             },
           })
 
@@ -210,7 +219,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             type: 'line',
             source: GRID_LINES_SOURCE,
             paint: {
-              'line-color': '#8a9bb5',
+              'line-color': '#94A3B8',
               'line-width': 0.5,
               'line-opacity': 0.2,
             },
@@ -228,7 +237,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             source: GRID_SOURCE,
             paint: {
               'circle-radius': 2,
-              'circle-color': '#8a9bb5',
+              'circle-color': '#94A3B8',
               'circle-opacity': 0.3,
             },
           })
@@ -248,7 +257,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-radius': 20,
               'circle-color': 'transparent',
               'circle-stroke-width': 2,
-              'circle-stroke-color': '#39577F',
+              'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.3,
             },
           })
@@ -260,10 +269,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             source: SELECTED_SOURCE,
             paint: {
               'circle-radius': 16,
-              'circle-color': '#39577F',
+              'circle-color': '#4B6CA7',
               'circle-opacity': 0.1,
               'circle-stroke-width': 2.5,
-              'circle-stroke-color': '#39577F',
+              'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.5,
             },
           })
@@ -314,41 +323,39 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               data: { type: 'FeatureCollection', features: [] },
             })
 
-            // House marker — house icon with compact number below
+            // House marker — crisp SVG icon anchored at bottom, number below
             map.addLayer({
               id: HOUSE_LAYER,
               type: 'symbol',
               source: HOUSE_SOURCE,
               layout: {
                 'icon-image': ['get', 'iconImage'],
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.3, 16, 0.6, 19, 0.8],
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.35, 16, 0.55, 19, 0.7],
                 'icon-allow-overlap': true,
-                'icon-anchor': 'center',
-                // #N below icon (# smaller), name on second line if set
+                'icon-anchor': 'bottom',
                 'text-field': [
                   'format',
-                  '#', { 'font-scale': 0.7 },
                   ['get', 'num'], { 'font-scale': 1.0 },
                   ['case', ['!=', ['get', 'label'], ''],
                     ['concat', '\n', ['get', 'label']],
                     '',
                   ], { 'font-scale': 0.85 },
                 ],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 13, 6, 16, 8, 19, 10],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 13, 7, 16, 9, 19, 11],
                 'text-anchor': 'top',
-                'text-offset': [0, 0.8],
+                'text-offset': [0, 0.2],
                 'text-line-height': 1.3,
                 'text-max-width': 8,
                 'text-allow-overlap': true,
                 'text-padding': 0,
-                'text-font': ['Open Sans Semibold', 'Arial Unicode MS Regular'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 'text-rotation-alignment': 'viewport',
                 'text-pitch-alignment': 'viewport',
               },
               paint: {
-                'text-color': '#1e293b',
+                'text-color': ['coalesce', ['get', 'bodyColor'], '#4B6CA7'],
                 'text-halo-color': 'rgba(255,255,255,1)',
-                'text-halo-width': 2,
+                'text-halo-width': 1.5,
                 'text-halo-blur': 0,
               },
             })
@@ -560,6 +567,14 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     } catch { /* layer may not exist yet */ }
   }, [boundaryOpacity, mapReady])
 
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    try {
+      map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity)
+    } catch { /* layer may not exist yet */ }
+  }, [maskOpacity, mapReady])
+
   // Switch map view mode (satellite / street / clean)
   useEffect(() => {
     const map = mapRef.current
@@ -573,15 +588,23 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     if (!map) return
 
     const handleClick = (e: maplibregl.MapMouseEvent) => {
+      const state = useStore.getState()
+
+      // Enforce boundary containment — only place inside the polygon
+      if (state.boundary && (activeDrawMode === 'house' || activeDrawMode === 'tree')) {
+        const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
+        if (!turf.booleanPointInPolygon(pt, state.boundary)) return
+      }
+
       if (activeDrawMode === 'house') {
-        const snap = useStore.getState().snapToGrid
-        const spacing = useStore.getState().gridSpacingMeters
+        const snap = state.snapToGrid
+        const spacing = state.gridSpacingMeters
         const [lng, lat] = snap
           ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
           : [e.lngLat.lng, e.lngLat.lat]
         addHousePoint(lng, lat)
       } else if (activeDrawMode === 'tree') {
-        useStore.getState().addTreePoint(e.lngLat.lng, e.lngLat.lat)
+        state.addTreePoint(e.lngLat.lng, e.lngLat.lat)
       }
     }
 
@@ -641,13 +664,14 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         const num = i + 1
         const label = p.properties.label || ''
         const tags = p.properties.tags || []
-        const { key } = resolveHouseIcon(tags)
+        const { key, spec } = resolveHouseIcon(tags, customStatuses)
         return {
           ...p,
           properties: {
             ...p.properties,
             id: p.id,
             iconImage: key,
+            bodyColor: spec.bodyColor,
             num: String(num),
             label,
           },
@@ -655,7 +679,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       })
 
       // Ensure all needed icon variants exist, then set data
-      ensureHouseIcons(map, housePoints.map((p) => ({ tags: p.properties.tags || [] }))).then(() => {
+      ensureHouseIcons(map, housePoints.map((p) => ({ tags: p.properties.tags || [] })), customStatuses).then(() => {
         source.setData({ type: 'FeatureCollection', features })
       })
     }
@@ -665,7 +689,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     if (badgeSource) {
       badgeSource.setData({ type: 'FeatureCollection', features: [] })
     }
-  }, [housePoints, mapReady])
+  }, [housePoints, customStatuses, mapReady])
 
   // Sync tree points to map
   useEffect(() => {
@@ -692,9 +716,9 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       const scale = houseIconSize
       map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
         'interpolate', ['linear'], ['zoom'],
-        13, 0.3 * scale,
-        16, 0.6 * scale,
-        19, 0.8 * scale,
+        13, 0.35 * scale,
+        16, 0.55 * scale,
+        19, 0.7 * scale,
       ])
     } catch { /* layer may not exist yet */ }
   }, [houseIconSize, mapReady])
@@ -891,16 +915,35 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
   }, [activeDrawMode, removeHousePoint, mapReady])
 
-  // Change cursor based on draw mode
+  // Dynamic cursor: crosshair inside boundary, not-allowed outside (for house/tree/road modes)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
-    if (activeDrawMode === 'house' || activeDrawMode === 'tree') {
+    const needsBoundaryCheck = activeDrawMode === 'house' || activeDrawMode === 'tree' || activeDrawMode === 'road'
+
+    if (!needsBoundaryCheck) {
+      // Boundary drawing or no mode — static cursor
+      map.getCanvas().style.cursor = (activeDrawMode === 'boundary') ? 'crosshair' : ''
+      return
+    }
+
+    const boundary = useStore.getState().boundary
+    if (!boundary) {
       map.getCanvas().style.cursor = 'crosshair'
-    } else if (activeDrawMode === 'boundary' || activeDrawMode === 'road') {
-      map.getCanvas().style.cursor = 'crosshair'
-    } else {
+      return
+    }
+
+    const onMouseMove = (e: maplibregl.MapMouseEvent) => {
+      const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
+      const inside = turf.booleanPointInPolygon(pt, boundary)
+      map.getCanvas().style.cursor = inside ? 'crosshair' : 'not-allowed'
+    }
+
+    map.getCanvas().style.cursor = 'not-allowed'
+    map.on('mousemove', onMouseMove)
+    return () => {
+      map.off('mousemove', onMouseMove)
       map.getCanvas().style.cursor = ''
     }
   }, [activeDrawMode])

@@ -56,31 +56,28 @@ export default function ProjectManager() {
   )
 
   return (
-    <div className="space-y-2.5">
-      <h3 className="text-[13px] font-bold uppercase tracking-wide text-heading">
-        Project
-      </h3>
-      <div className="flex gap-1.5">
+    <div className="space-y-3">
+      <div className="flex min-w-0 gap-1.5">
         <button
           onClick={handleNew}
-          className="flex items-center justify-center gap-1 rounded px-2.5 py-2 text-sm font-medium text-label transition-all duration-150 hover:bg-slate-100 active:scale-[0.97]"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full border border-brand bg-transparent px-2 py-1.5 text-[12px] font-medium text-brand transition-colors duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
         >
-          <Plus size={16} strokeWidth={2} />
-          New
+          <Plus size={13} strokeWidth={2} className="shrink-0" />
+          <span className="truncate">New</span>
         </button>
         <button
           onClick={handleExportJSON}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded bg-action px-3 py-2 text-sm font-bold text-white shadow-[0_2px_8px_rgba(57,87,127,0.3)] transition-all duration-150 hover:bg-primary-dark hover:shadow-[0_4px_12px_rgba(57,87,127,0.35)] active:scale-[0.97]"
+          className="flex min-w-0 flex-[1.3] items-center justify-center gap-1 rounded-full bg-brand px-2 py-1.5 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3),0_2px_8px_rgba(75,108,167,0.15)] transition-colors duration-150 hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
         >
-          <Save size={16} strokeWidth={2} />
-          Save
+          <Save size={13} strokeWidth={2} className="shrink-0" />
+          <span className="truncate">Save</span>
         </button>
         <button
           onClick={handleImportJSON}
-          className="flex items-center justify-center gap-1 rounded px-2.5 py-2 text-sm font-medium text-label transition-all duration-150 hover:bg-slate-100 active:scale-[0.97]"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full border border-brand bg-transparent px-2 py-1.5 text-[12px] font-medium text-brand transition-colors duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
         >
-          <Upload size={16} strokeWidth={2} />
-          Load
+          <Upload size={13} strokeWidth={2} className="shrink-0" />
+          <span className="truncate">Load</span>
         </button>
       </div>
       <input

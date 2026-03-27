@@ -82,7 +82,7 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
 
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body">
         <Search size={14} strokeWidth={2} />
       </div>
       <input
@@ -90,31 +90,30 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
         value={query}
         onChange={(e) => handleInput(e.target.value)}
         placeholder="Search location..."
-        className="w-full rounded border-[1.5px] border-slate-400 bg-white py-2 pl-8 pr-8 text-sm text-heading placeholder-muted shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] outline-none transition-all duration-150 focus:border-action focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),0_0_0_3px_rgba(57,87,127,0.12)]"
+        className="w-full rounded-lg border-0 bg-input-bg py-2 pl-9 pr-8 text-[13px] text-heading placeholder-body outline-none transition-shadow duration-150 focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
       />
-      {/* Clear button or loading spinner */}
       {loading ? (
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-primary" />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-divider border-t-brand" />
         </div>
       ) : query.length > 0 && (
         <button
           onClick={() => { setQuery(''); setResults([]); setOpen(false) }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-body transition-colors duration-150 hover:bg-divider hover:text-heading"
         >
-          <X size={14} strokeWidth={2} />
+          <X size={13} strokeWidth={2} />
         </button>
       )}
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1.5 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.05)]">
+        <ul className="absolute z-50 mt-1.5 max-h-48 w-full overflow-y-auto rounded-lg border border-divider bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)]">
           {results.map((r) => (
             <li key={r.place_id}>
               <button
                 onClick={() => handleSelect(r)}
-                className="w-full border-b border-slate-100 px-3 py-2.5 text-left text-xs text-slate-700 transition-colors duration-100 last:border-b-0 hover:bg-primary/5"
+                className="w-full border-b border-divider/50 px-3 py-2.5 text-left text-[12px] text-body transition-colors duration-100 last:border-b-0 hover:bg-brand-hover"
               >
-                <span className="font-medium">{r.display_name.split(',')[0]}</span>
-                <span className="block text-[10px] text-slate-400">
+                <span className="font-medium text-heading">{r.display_name.split(',')[0]}</span>
+                <span className="mt-0.5 block text-[10px] text-body/70">
                   {r.display_name.split(',').slice(1).join(',').trim()}
                 </span>
               </button>

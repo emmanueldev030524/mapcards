@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react'
 import maplibregl from 'maplibre-gl'
+import * as turf from '@turf/turf'
 import type { Feature, Polygon, LineString } from 'geojson'
 import type { DrawMode } from '../types/project'
 import { useStore } from '../store'
@@ -10,35 +11,39 @@ interface UseDrawOptions {
 }
 
 /** Snap radius in screen pixels */
-const SNAP_RADIUS_PX = 12
+const SNAP_VERTEX_PX = 14
+const SNAP_LINE_PX = 10
 
-/** Find nearest snap target from existing roads + boundary vertices. Returns snapped lngLat or null. */
+/**
+ * Find nearest snap target from existing roads + boundary.
+ * Priority: 1) exact vertices (endpoints/junctions), 2) nearest point on any road line.
+ * Vertex snapping gets a wider radius because connecting at endpoints is the most common intent.
+ */
 function findSnapTarget(
   map: maplibregl.Map,
   clickPoint: maplibregl.Point,
 ): [number, number] | null {
   const state = useStore.getState()
-  const candidates: [number, number][] = []
 
-  // Collect all road vertices
+  // --- Pass 1: vertex snap (road endpoints + boundary vertices) ---
+  const vertices: [number, number][] = []
+
   for (const road of state.customRoads) {
     for (const coord of road.geometry.coordinates) {
-      candidates.push(coord as [number, number])
+      vertices.push(coord as [number, number])
     }
   }
 
-  // Collect boundary vertices
   if (state.boundary) {
-    const ring = state.boundary.geometry.coordinates[0]
-    for (const coord of ring) {
-      candidates.push(coord as [number, number])
+    for (const coord of state.boundary.geometry.coordinates[0]) {
+      vertices.push(coord as [number, number])
     }
   }
 
-  let bestDist = SNAP_RADIUS_PX
+  let bestDist = SNAP_VERTEX_PX
   let bestCoord: [number, number] | null = null
 
-  for (const coord of candidates) {
+  for (const coord of vertices) {
     const projected = map.project(new maplibregl.LngLat(coord[0], coord[1]))
     const dx = projected.x - clickPoint.x
     const dy = projected.y - clickPoint.y
@@ -46,6 +51,45 @@ function findSnapTarget(
     if (dist < bestDist) {
       bestDist = dist
       bestCoord = coord
+    }
+  }
+
+  // Vertex match wins — exact connection at an existing junction/endpoint
+  if (bestCoord) return bestCoord
+
+  // --- Pass 2: nearest point on any road line segment ---
+  // Enables clean T-intersections by snapping to the middle of a road
+  const clickLngLat = map.unproject(clickPoint)
+  const clickPt = turf.point([clickLngLat.lng, clickLngLat.lat])
+
+  for (const road of state.customRoads) {
+    if (road.geometry.coordinates.length < 2) continue
+    const line = turf.lineString(road.geometry.coordinates as [number, number][])
+    const nearest = turf.nearestPointOnLine(line, clickPt)
+    const nearestCoord = nearest.geometry.coordinates as [number, number]
+    const projected = map.project(new maplibregl.LngLat(nearestCoord[0], nearestCoord[1]))
+    const dx = projected.x - clickPoint.x
+    const dy = projected.y - clickPoint.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < SNAP_LINE_PX && dist < bestDist) {
+      bestDist = dist
+      bestCoord = nearestCoord
+    }
+  }
+
+  // Also snap to boundary edges for roads that start/end at the territory border
+  if (state.boundary) {
+    const ring = state.boundary.geometry.coordinates[0] as [number, number][]
+    const boundaryLine = turf.lineString(ring)
+    const nearest = turf.nearestPointOnLine(boundaryLine, clickPt)
+    const nearestCoord = nearest.geometry.coordinates as [number, number]
+    const projected = map.project(new maplibregl.LngLat(nearestCoord[0], nearestCoord[1]))
+    const dx = projected.x - clickPoint.x
+    const dy = projected.y - clickPoint.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < SNAP_LINE_PX && dist < bestDist) {
+      bestDist = dist
+      bestCoord = nearestCoord
     }
   }
 
@@ -249,6 +293,15 @@ export function useDraw(options: UseDrawOptions) {
       if (!activeModeRef.current) return
       const coords = coordsRef.current
 
+      // Enforce boundary containment for road drawing
+      if (activeModeRef.current === 'road') {
+        const boundary = useStore.getState().boundary
+        if (boundary) {
+          const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
+          if (!turf.booleanPointInPolygon(pt, boundary)) return
+        }
+      }
+
       // Check if clicking near first vertex to close (boundary mode, 3+ points)
       if (activeModeRef.current === 'boundary' && coords.length >= 3) {
         const firstPx = map.project(new maplibregl.LngLat(coords[0][0], coords[0][1]))
@@ -293,8 +346,18 @@ export function useDraw(options: UseDrawOptions) {
       // Resolve the effective cursor coordinate (snapped or raw)
       const cursorCoord: [number, number] = snapped || [e.lngLat.lng, e.lngLat.lat]
 
-      // Show pointer cursor when near first vertex (closable)
-      if (activeModeRef.current === 'boundary' && coords.length >= 3) {
+      // Cursor logic: not-allowed outside boundary for road mode
+      if (activeModeRef.current === 'road') {
+        const boundary = useStore.getState().boundary
+        if (boundary) {
+          const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
+          if (!turf.booleanPointInPolygon(pt, boundary)) {
+            map.getCanvas().style.cursor = 'not-allowed'
+            return
+          }
+        }
+        map.getCanvas().style.cursor = snapped ? 'grab' : 'crosshair'
+      } else if (activeModeRef.current === 'boundary' && coords.length >= 3) {
         const firstPx = map.project(new maplibregl.LngLat(coords[0][0], coords[0][1]))
         const dist = Math.sqrt((firstPx.x - e.point.x) ** 2 + (firstPx.y - e.point.y) ** 2)
         map.getCanvas().style.cursor = dist < 15 ? 'pointer' : snapped ? 'grab' : 'crosshair'

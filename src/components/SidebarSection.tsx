@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 interface SidebarSectionProps {
   title: string
@@ -14,15 +14,15 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between py-2"
+        className="group flex w-full items-center justify-between rounded-md px-1 py-2 transition-colors duration-150 hover:bg-brand-hover"
       >
-        <h3 className="text-[13px] font-bold uppercase tracking-wide text-heading">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
           {title}
         </h3>
-        <ChevronDown
-          size={14}
-          strokeWidth={2.5}
-          className={`text-slate-500 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+        <ChevronRight
+          size={13}
+          strokeWidth={2}
+          className={`text-body transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
         />
       </button>
       <div
@@ -31,7 +31,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         }`}
       >
         <div className="overflow-hidden">
-          <div className="pt-2">{children}</div>
+          <div className="pt-1.5 pb-1">{children}</div>
         </div>
       </div>
     </div>

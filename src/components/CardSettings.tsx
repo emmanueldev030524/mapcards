@@ -1,16 +1,16 @@
 import { useStore } from '../store'
 
 const inputClass =
-  'peer w-full rounded border-[1.5px] border-slate-400 bg-white px-3 pb-2 pt-6 text-base text-heading outline-none transition-all duration-150 placeholder-transparent focus:border-action focus:shadow-[0_0_0_3px_rgba(57,87,127,0.15)]'
+  'peer w-full rounded-lg border border-divider bg-surface px-3 pb-2 pt-6 text-[13px] text-heading outline-none transition-shadow duration-150 placeholder-transparent focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
 
 const inputCompact =
-  'peer w-full rounded border-[1.5px] border-slate-400 bg-white px-3 pb-1 pt-5 text-base text-heading outline-none transition-all duration-150 placeholder-transparent focus:border-action focus:shadow-[0_0_0_3px_rgba(57,87,127,0.15)]'
+  'peer w-full rounded-lg border border-divider bg-surface px-3 pb-1 pt-5 text-[13px] text-heading outline-none transition-shadow duration-150 placeholder-transparent focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
 
 const floatLabelClass =
-  'pointer-events-none absolute left-3 top-1.5 origin-left text-[11px] font-semibold text-label transition-all duration-150 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:text-muted peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:font-semibold peer-focus:text-action'
+  'pointer-events-none absolute left-3 top-1.5 origin-left text-[10px] font-semibold text-body transition-all duration-150 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
 
 const floatLabelCompact =
-  'pointer-events-none absolute left-3 top-1 origin-left text-[10px] font-semibold text-label transition-all duration-150 peer-placeholder-shown:top-2.5 peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:text-muted peer-focus:top-1 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-action'
+  'pointer-events-none absolute left-3 top-1 origin-left text-[10px] font-semibold text-body transition-all duration-150 peer-placeholder-shown:top-2.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body peer-focus:top-1 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
 
 export default function CardSettings() {
   const territoryName = useStore((s) => s.territoryName)
@@ -54,8 +54,8 @@ export default function CardSettings() {
       </div>
 
       {/* Dimensions — compact row */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex min-w-0 gap-2">
+        <div className="relative min-w-0 flex-1">
           <input
             type="number"
             id="card-width"
@@ -71,7 +71,7 @@ export default function CardSettings() {
             Width (in)
           </label>
         </div>
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <input
             type="number"
             id="card-height"

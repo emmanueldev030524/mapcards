@@ -1,14 +1,9 @@
 import jsPDF from 'jspdf'
 import { exportToPng } from './exportPng'
-import type { Feature, Polygon, LineString, Point } from 'geojson'
-import type { FeatureWithMeta } from '../types/project'
+import type maplibregl from 'maplibre-gl'
 
 interface PdfExportOptions {
-  boundary: Feature<Polygon>
-  customRoads: FeatureWithMeta<LineString>[]
-  housePoints: FeatureWithMeta<Point>[]
-  territoryName: string
-  territoryNumber: string
+  map: maplibregl.Map
   cardWidthInches: number
   cardHeightInches: number
 }
@@ -16,7 +11,7 @@ interface PdfExportOptions {
 export async function exportToPdf(options: PdfExportOptions): Promise<Blob> {
   const { cardWidthInches, cardHeightInches } = options
 
-  // Generate the PNG first
+  // Generate the PNG first (captures live map)
   const pngBlob = await exportToPng(options)
   const pngUrl = URL.createObjectURL(pngBlob)
 
@@ -28,7 +23,6 @@ export async function exportToPdf(options: PdfExportOptions): Promise<Blob> {
       format: [cardWidthInches, cardHeightInches],
     })
 
-    // Load image and add to PDF
     const img = await loadImage(pngUrl)
     const canvas = document.createElement('canvas')
     canvas.width = img.width

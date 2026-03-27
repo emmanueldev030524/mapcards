@@ -70,10 +70,43 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
   const allBaseLayers = [...baseStyle.layers]
   const baseLayerIds = new Set(allBaseLayers.map((l) => l.id))
 
-  // Warm off-white background for clean/street modes
+  // Premium warm off-white background
   const bgLayer = allBaseLayers.find((l) => l.id === 'background')
   if (bgLayer && 'paint' in bgLayer) {
-    bgLayer.paint = { 'background-color': '#f8f7f5' }
+    bgLayer.paint = { 'background-color': '#F5F5F0' }
+  }
+
+  // Unify base road styling (slate casing + white fill)
+  const ROAD_KEYWORDS = ['highway', 'tunnel', 'bridge', 'road']
+  const isRoadLayer = (id: string) => ROAD_KEYWORDS.some((k) => id.startsWith(k))
+  const isCasing = (id: string) => id.includes('casing')
+  const isMajor = (id: string) => id.includes('motorway') || id.includes('trunk') || id.includes('primary')
+  const isPath = (id: string) => id.includes('path')
+
+  for (const layer of allBaseLayers) {
+    if (!('paint' in layer) || !layer.paint) continue
+    const p = layer.paint as Record<string, unknown>
+    const id = layer.id
+
+    if (layer.type === 'line' && isRoadLayer(id)) {
+      if (isPath(id)) {
+        p['line-color'] = '#9CA3AF'
+        p['line-opacity'] = 0.5
+        p['line-width'] = 1
+      } else if (isCasing(id)) {
+        p['line-color'] = '#A8B4C4'
+      } else if (id.includes('railway')) {
+        p['line-color'] = '#B8B8B8'
+      } else {
+        p['line-color'] = '#ffffff'
+      }
+    }
+
+    // Mute road labels
+    if (layer.type === 'symbol' && isRoadLayer(id)) {
+      p['text-color'] = '#9CA3AF'
+      p['text-halo-color'] = '#F5F5F0'
+    }
   }
 
   // --- Add our custom "clean" layers on top of base layers ---
@@ -88,17 +121,17 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
     paint: {
       'fill-color': [
         'match', ['get', 'class'],
-        'park', '#e8f0e4',
-        'grass', '#edf3e8',
-        'cemetery', '#e6ebe0',
-        'forest', '#dde8d5',
-        'farmland', '#f0efe8',
-        'residential', '#f4f3f0',
-        'commercial', '#f2f0ed',
-        'industrial', '#f0eeed',
+        'park', '#EBF0E7',
+        'grass', '#EEF2EB',
+        'cemetery', '#EAEDE6',
+        'forest', '#E2EBD9',
+        'farmland', '#F2F1EC',
+        'residential', '#F5F5F0',
+        'commercial', '#F3F2EF',
+        'industrial', '#F2F0EF',
         'transparent',
       ],
-      'fill-opacity': 0.7,
+      'fill-opacity': 0.6,
     },
   })
 
@@ -108,7 +141,7 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
     type: 'fill',
     source: 'openmaptiles',
     'source-layer': 'water',
-    paint: { 'fill-color': '#c6ddf0', 'fill-opacity': 0.5 },
+    paint: { 'fill-color': '#D6E8F0', 'fill-opacity': 0.55 },
   })
 
   // Waterway lines
@@ -117,7 +150,7 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
     type: 'line',
     source: 'openmaptiles',
     'source-layer': 'waterway',
-    paint: { 'line-color': '#b8d4ea', 'line-width': 1.5, 'line-opacity': 0.6 },
+    paint: { 'line-color': '#C4DCF0', 'line-width': 1.5, 'line-opacity': 0.5 },
   })
 
   // --- Toggle layers (managed by LayerToggle) ---
@@ -127,14 +160,14 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
       type: 'fill',
       source: 'openmaptiles',
       'source-layer': 'building',
-      paint: { 'fill-color': '#dddad5', 'fill-opacity': 0.7 },
+      paint: { 'fill-color': '#E8E6E2', 'fill-opacity': 0.6 },
     },
     {
       id: 'toggle-buildings-outline',
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'building',
-      paint: { 'line-color': '#b8b3ab', 'line-width': 1 },
+      paint: { 'line-color': '#D5D2CC', 'line-width': 0.8 },
     },
     {
       id: 'toggle-housenumbers',
