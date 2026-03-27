@@ -408,13 +408,23 @@ export class CompassControl implements maplibregl.IControl {
   private positionPanel() {
     if (!this.map) return
     const containerRect = this.map.getContainer().getBoundingClientRect()
-    // Align panel top with the control group top (not the compass button)
     const group = this.compassBtn.closest('.maplibregl-ctrl-group') || this.compassBtn
     const groupRect = group.getBoundingClientRect()
-    const right = containerRect.right - groupRect.left + 8
-    const top = groupRect.top - containerRect.top
-    this.panel.style.right = `${right}px`
-    this.panel.style.top = `${top}px`
+
+    // On narrow screens (<600px), position below the control group, right-aligned
+    // On wider screens, position to the left of the control group, top-aligned
+    const isNarrow = containerRect.width < 600
+    if (isNarrow) {
+      const right = containerRect.right - groupRect.right
+      const top = groupRect.bottom - containerRect.top + 8
+      this.panel.style.right = `${right}px`
+      this.panel.style.top = `${top}px`
+    } else {
+      const right = containerRect.right - groupRect.left + 8
+      const top = groupRect.top - containerRect.top
+      this.panel.style.right = `${right}px`
+      this.panel.style.top = `${top}px`
+    }
     this.panel.style.bottom = 'auto'
   }
 
