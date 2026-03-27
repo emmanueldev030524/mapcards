@@ -4,6 +4,15 @@ import type { Feature, Polygon, LineString, Point } from 'geojson'
 import type { DrawMode, FeatureWithMeta, ProjectData } from './types/project'
 import { DEFAULT_PROJECT } from './types/project'
 
+/** Snapshot of undoable project data */
+interface UndoSnapshot {
+  boundary: Feature<Polygon> | null
+  customRoads: FeatureWithMeta<LineString>[]
+  housePoints: FeatureWithMeta<Point>[]
+}
+
+const MAX_UNDO = 50
+
 interface MapCardsStore {
   // Project data
   projectId: string
@@ -26,6 +35,16 @@ interface MapCardsStore {
   snapToGrid: boolean
   gridSpacingMeters: number
   selectedHouseId: string | null
+  mapMode: 'satellite' | 'street' | 'clean' | 'auto' // auto = satellite before boundary, clean after
+
+  // Undo/redo (internal stacks, not persisted)
+  _undoStack: UndoSnapshot[]
+  _redoStack: UndoSnapshot[]
+  _lastMoveId: string | null
+  canUndo: boolean
+  canRedo: boolean
+  undoAction: () => void
+  redoAction: () => void
 
   // Actions — project
   setTerritoryName: (name: string) => void
@@ -54,12 +73,45 @@ interface MapCardsStore {
   setSelectedHouseId: (id: string | null) => void
   setSnapToGrid: (snap: boolean) => void
   setGridSpacing: (meters: number) => void
+  setMapMode: (mode: 'satellite' | 'street' | 'clean' | 'auto') => void
   moveHousePoint: (id: string, lng: number, lat: number) => void
 
   // Actions — persistence
   loadProject: (data: ProjectData) => void
   clearProject: () => void
   getProjectData: () => ProjectData
+}
+
+/** Push current project data onto undo stack, then apply changes */
+function setWithUndo(
+  get: () => MapCardsStore,
+  set: (partial: Partial<MapCardsStore> | ((s: MapCardsStore) => Partial<MapCardsStore>)) => void,
+  changes: Partial<MapCardsStore> | ((s: MapCardsStore) => Partial<MapCardsStore>),
+) {
+  const s = get()
+  const snapshot: UndoSnapshot = {
+    boundary: s.boundary,
+    customRoads: s.customRoads,
+    housePoints: s.housePoints,
+  }
+  const newUndo = [...s._undoStack.slice(-(MAX_UNDO - 1)), snapshot]
+  if (typeof changes === 'function') {
+    set((state) => ({
+      ...changes(state),
+      _undoStack: newUndo,
+      _redoStack: [],
+      canUndo: true,
+      canRedo: false,
+    }))
+  } else {
+    set({
+      ...changes,
+      _undoStack: newUndo,
+      _redoStack: [],
+      canUndo: true,
+      canRedo: false,
+    })
+  }
 }
 
 export const useStore = create<MapCardsStore>((set, get) => ({
@@ -83,6 +135,51 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   snapToGrid: false,
   gridSpacingMeters: 20,
   selectedHouseId: null,
+  mapMode: 'auto' as const,
+
+  _undoStack: [],
+  _redoStack: [],
+  _lastMoveId: null,
+  canUndo: false,
+  canRedo: false,
+
+  undoAction: () =>
+    set((s) => {
+      if (s._undoStack.length === 0) return s
+      const prev = s._undoStack[s._undoStack.length - 1]
+      const current: UndoSnapshot = {
+        boundary: s.boundary,
+        customRoads: s.customRoads,
+        housePoints: s.housePoints,
+      }
+      const newUndo = s._undoStack.slice(0, -1)
+      return {
+        ...prev,
+        _undoStack: newUndo,
+        _redoStack: [...s._redoStack, current],
+        canUndo: newUndo.length > 0,
+        canRedo: true,
+      }
+    }),
+
+  redoAction: () =>
+    set((s) => {
+      if (s._redoStack.length === 0) return s
+      const next = s._redoStack[s._redoStack.length - 1]
+      const current: UndoSnapshot = {
+        boundary: s.boundary,
+        customRoads: s.customRoads,
+        housePoints: s.housePoints,
+      }
+      const newRedo = s._redoStack.slice(0, -1)
+      return {
+        ...next,
+        _undoStack: [...s._undoStack, current],
+        _redoStack: newRedo,
+        canUndo: true,
+        canRedo: newRedo.length > 0,
+      }
+    }),
 
   // Project settings
   setTerritoryName: (name) => set({ territoryName: name }),
@@ -91,11 +188,11 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     set({ cardWidthInches: width, cardHeightInches: height }),
   setMapView: (center, zoom) => set({ mapCenter: center, mapZoom: zoom }),
 
-  // Drawing
-  setBoundary: (f) => set({ boundary: f }),
+  // Drawing (all undoable)
+  setBoundary: (f) => setWithUndo(get, set, { boundary: f }),
 
   addCustomRoad: (f) =>
-    set((s) => ({
+    setWithUndo(get, set, (s) => ({
       customRoads: [
         ...s.customRoads,
         {
@@ -107,10 +204,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     })),
 
   removeCustomRoad: (id) =>
-    set((s) => ({ customRoads: s.customRoads.filter((r) => r.id !== id) })),
+    setWithUndo(get, set, (s) => ({ customRoads: s.customRoads.filter((r) => r.id !== id) })),
 
   addHousePoint: (lng, lat) =>
-    set((s) => ({
+    setWithUndo(get, set, (s) => ({
       housePoints: [
         ...s.housePoints,
         {
@@ -123,25 +220,25 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     })),
 
   removeHousePoint: (id) =>
-    set((s) => ({ housePoints: s.housePoints.filter((p) => p.id !== id) })),
+    setWithUndo(get, set, (s) => ({ housePoints: s.housePoints.filter((p) => p.id !== id) })),
 
   removeHousePoints: (ids) =>
-    set((s) => {
+    setWithUndo(get, set, (s) => {
       const idSet = new Set(ids)
       return { housePoints: s.housePoints.filter((p) => !idSet.has(p.id as string)) }
     }),
 
-  clearAllHouses: () => set({ housePoints: [] }),
+  clearAllHouses: () => setWithUndo(get, set, { housePoints: [] }),
 
   updateHouseLabel: (id, label) =>
-    set((s) => ({
+    setWithUndo(get, set, (s) => ({
       housePoints: s.housePoints.map((p) =>
         p.id === id ? { ...p, properties: { ...p.properties, label } } : p,
       ),
     })),
 
   toggleHouseTag: (id, tag) =>
-    set((s) => ({
+    setWithUndo(get, set, (s) => ({
       housePoints: s.housePoints.map((p) => {
         if (p.id !== id) return p
         const tags = p.properties.tags || []
@@ -157,7 +254,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     })),
 
   bulkAddHouses: (points) =>
-    set((s) => ({
+    setWithUndo(get, set, (s) => ({
       housePoints: [
         ...s.housePoints,
         ...points.map((p) => ({
@@ -184,14 +281,30 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
   setSnapToGrid: (snap) => set({ snapToGrid: snap }),
   setGridSpacing: (meters) => set({ gridSpacingMeters: meters }),
-  moveHousePoint: (id, lng, lat) =>
-    set((s) => ({
-      housePoints: s.housePoints.map((p) =>
-        p.id === id
-          ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
-          : p,
-      ),
-    })),
+  setMapMode: (mode) => set({ mapMode: mode }),
+  moveHousePoint: (id, lng, lat) => {
+    // Only push undo on first move (avoid flooding stack during drag)
+    const s = get()
+    const isFirstMove = !s._lastMoveId || s._lastMoveId !== id
+    if (isFirstMove) {
+      setWithUndo(get, set, (st) => ({
+        housePoints: st.housePoints.map((p) =>
+          p.id === id
+            ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
+            : p,
+        ),
+        _lastMoveId: id,
+      }))
+    } else {
+      set((st) => ({
+        housePoints: st.housePoints.map((p) =>
+          p.id === id
+            ? { ...p, geometry: { ...p.geometry, coordinates: [lng, lat] } }
+            : p,
+        ),
+      }))
+    }
+  },
 
   // Persistence
   loadProject: (data) =>

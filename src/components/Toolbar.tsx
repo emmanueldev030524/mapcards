@@ -6,6 +6,8 @@ interface ToolbarProps {
   onModeChange: (mode: DrawMode) => void
   hasBoundary: boolean
   onClearBoundary?: () => void
+  onDrawUndo?: () => void
+  onDrawRedo?: () => void
 }
 
 const TOOLS: { mode: DrawMode; label: string; icon: string; description: string }[] = [
@@ -16,7 +18,12 @@ const TOOLS: { mode: DrawMode; label: string; icon: string; description: string 
   { mode: 'select', label: 'Select', icon: '↖', description: 'Select & edit features' },
 ]
 
-export default function Toolbar({ activeMode, onModeChange, hasBoundary, onClearBoundary }: ToolbarProps) {
+export default function Toolbar({ activeMode, onModeChange, hasBoundary, onClearBoundary, onDrawUndo, onDrawRedo }: ToolbarProps) {
+  const isDrawing = activeMode === 'boundary' || activeMode === 'road'
+  const canUndo = useStore((s) => s.canUndo)
+  const canRedo = useStore((s) => s.canRedo)
+  const undoAction = useStore((s) => s.undoAction)
+  const redoAction = useStore((s) => s.redoAction)
   const boundaryOpacity = useStore((s) => s.boundaryOpacity)
   const setBoundaryOpacity = useStore((s) => s.setBoundaryOpacity)
   const houseIconSize = useStore((s) => s.houseIconSize)
@@ -33,9 +40,43 @@ export default function Toolbar({ activeMode, onModeChange, hasBoundary, onClear
 
   return (
     <div className="space-y-1">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-        Drawing Tools
-      </h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          Drawing Tools
+        </h3>
+        <div className="flex gap-0.5">
+          <button
+            onClick={() => {
+              if (isDrawing && onDrawUndo) onDrawUndo()
+              else undoAction()
+            }}
+            disabled={!isDrawing && !canUndo}
+            title="Undo (Ctrl+Z)"
+            className={`rounded px-1.5 py-0.5 text-base leading-none transition-colors ${
+              isDrawing || canUndo
+                ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                : 'text-gray-300'
+            }`}
+          >
+            ↩
+          </button>
+          <button
+            onClick={() => {
+              if (isDrawing && onDrawRedo) onDrawRedo()
+              else redoAction()
+            }}
+            disabled={!isDrawing && !canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            className={`rounded px-1.5 py-0.5 text-base leading-none transition-colors ${
+              isDrawing || canRedo
+                ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                : 'text-gray-300'
+            }`}
+          >
+            ↪
+          </button>
+        </div>
+      </div>
       {TOOLS.map(({ mode, label, icon, description }) => {
         const isActive = activeMode === mode
         const isDisabled = mode === 'boundary' && hasBoundary

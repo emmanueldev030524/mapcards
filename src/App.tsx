@@ -84,12 +84,21 @@ export default function App() {
       // Ctrl+Z / Cmd+Z = undo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
-        undo()
+        // If actively drawing, undo last vertex; otherwise undo last store action
+        if (useStore.getState().activeDrawMode) {
+          undo()
+        } else {
+          useStore.getState().undoAction()
+        }
       }
       // Ctrl+Shift+Z / Cmd+Shift+Z = redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault()
-        redo()
+        if (useStore.getState().activeDrawMode) {
+          redo()
+        } else {
+          useStore.getState().redoAction()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -151,6 +160,8 @@ export default function App() {
             onModeChange={handleModeChange}
             hasBoundary={boundary !== null}
             onClearBoundary={() => { setBoundary(null); clearAll() }}
+            onDrawUndo={undo}
+            onDrawRedo={redo}
           />
 
           <LayerToggle map={mapInstance} />

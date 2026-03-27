@@ -3,7 +3,7 @@ import * as turf from '@turf/turf'
 import type { Feature, Polygon } from 'geojson'
 import type { FeatureWithMeta } from '../types/project'
 import type { LineString, Point } from 'geojson'
-import { buildStreetsOnlyStyle } from './mapStyle'
+import { buildMapStyle, SATELLITE_LAYER, isBaseStreetLayer, isCleanOnlyLayer } from './mapStyle'
 
 interface ExportOptions {
   boundary: Feature<Polygon>
@@ -49,7 +49,29 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   document.body.appendChild(container)
 
   try {
-    const style = await buildStreetsOnlyStyle()
+    const style = await buildMapStyle()
+
+    // Force clean vector view for export (hide satellite + street layers, show clean layers)
+    for (const layer of style.layers) {
+      const setVis = (v: string) => {
+        if ('layout' in layer && layer.layout) {
+          layer.layout = { ...layer.layout, visibility: v as 'visible' | 'none' }
+        } else {
+          (layer as Record<string, unknown>).layout = { visibility: v }
+        }
+      }
+      if (layer.id === SATELLITE_LAYER) {
+        setVis('none')
+      } else if (layer.id === 'background') {
+        setVis('visible')
+      } else if (isBaseStreetLayer(layer.id)) {
+        // Use street layers in export for road detail
+        setVis('visible')
+      } else if (isCleanOnlyLayer(layer.id)) {
+        setVis('visible')
+      }
+    }
+
     const map = new maplibregl.Map({
       container,
       style,

@@ -11,10 +11,12 @@ interface UseDrawOptions {
 type ActiveLineMode = 'boundary' | 'road' | null
 
 const DRAW_SOURCE = 'draw-line'
+const DRAW_CASING = 'draw-line-casing'
 const DRAW_LAYER = 'draw-line-layer'
 const VERTEX_SOURCE = 'draw-vertices'
 const VERTEX_LAYER = 'draw-vertices-dots'
 const CURSOR_SOURCE = 'draw-cursor-line'
+const CURSOR_CASING = 'draw-cursor-line-casing'
 const CURSOR_LAYER = 'draw-cursor-line-layer'
 
 export function useDraw(options: UseDrawOptions) {
@@ -101,42 +103,62 @@ export function useDraw(options: UseDrawOptions) {
     if (mapRef.current) return
     mapRef.current = map
 
-    // Drawn line layer
+    // Drawn line layer — bright yellow with dark outline for max visibility on satellite
     if (!map.getSource(DRAW_SOURCE)) {
       map.addSource(DRAW_SOURCE, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       })
       map.addLayer({
+        id: DRAW_CASING,
+        type: 'line',
+        source: DRAW_SOURCE,
+        paint: {
+          'line-color': '#000000',
+          'line-width': 7,
+          'line-opacity': 0.5,
+        },
+      })
+      map.addLayer({
         id: DRAW_LAYER,
         type: 'line',
         source: DRAW_SOURCE,
         paint: {
-          'line-color': '#4a6da7',
-          'line-width': 3,
+          'line-color': '#facc15',
+          'line-width': 3.5,
         },
       })
     }
 
-    // Cursor follow line (from last vertex to mouse)
+    // Cursor follow line — bright yellow dashed with dark casing
     if (!map.getSource(CURSOR_SOURCE)) {
       map.addSource(CURSOR_SOURCE, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       })
       map.addLayer({
+        id: CURSOR_CASING,
+        type: 'line',
+        source: CURSOR_SOURCE,
+        paint: {
+          'line-color': '#000000',
+          'line-width': 5,
+          'line-opacity': 0.35,
+        },
+      })
+      map.addLayer({
         id: CURSOR_LAYER,
         type: 'line',
         source: CURSOR_SOURCE,
         paint: {
-          'line-color': '#4a6da7',
-          'line-width': 2,
+          'line-color': '#facc15',
+          'line-width': 2.5,
           'line-dasharray': [4, 3],
         },
       })
     }
 
-    // Vertex dots layer
+    // Vertex dots — bright yellow with dark stroke
     if (!map.getSource(VERTEX_SOURCE)) {
       map.addSource(VERTEX_SOURCE, {
         type: 'geojson',
@@ -147,10 +169,11 @@ export function useDraw(options: UseDrawOptions) {
         type: 'circle',
         source: VERTEX_SOURCE,
         paint: {
-          'circle-radius': ['case', ['==', ['get', 'isClose'], 1], 8, 6],
-          'circle-color': ['case', ['==', ['get', 'isClose'], 1], '#e74c3c', '#4a6da7'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
+          'circle-radius': ['case', ['==', ['get', 'isClose'], 1], 9, 6],
+          'circle-color': ['case', ['==', ['get', 'isClose'], 1], '#ef4444', '#facc15'],
+          'circle-stroke-width': 2.5,
+          'circle-stroke-color': '#000000',
+          'circle-stroke-opacity': 0.6,
         },
       })
     }
@@ -207,33 +230,51 @@ export function useDraw(options: UseDrawOptions) {
     map.on('dblclick', (e: maplibregl.MapMouseEvent) => {
       if (!activeModeRef.current) return
       e.preventDefault()
-      // Remove the double-click's extra point (last click already added it)
       finishDrawing()
     })
+
+    // Enter key to finish drawing
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!activeModeRef.current) return
+      if (e.key === 'Enter' && coordsRef.current.length >= 2) {
+        e.preventDefault()
+        finishDrawing()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
   }, [updateLayers, clearDraw, finishDrawing])
 
   const setMode = useCallback((mode: DrawMode) => {
+    // If re-clicking the same mode while drawing, finish the current drawing
+    if (mode === activeModeRef.current && coordsRef.current.length >= 2) {
+      finishDrawing()
+      return
+    }
     clearDraw()
     const map = mapRef.current
 
     switch (mode) {
       case 'boundary':
         activeModeRef.current = 'boundary'
-        // Set line color to boundary blue
+        // Bright yellow for satellite visibility
         if (map) {
           try {
-            map.setPaintProperty(DRAW_LAYER, 'line-color', '#4a6da7')
-            map.setPaintProperty(CURSOR_LAYER, 'line-color', '#4a6da7')
+            map.setPaintProperty(DRAW_LAYER, 'line-color', '#facc15')
+            map.setPaintProperty(DRAW_CASING, 'line-color', '#000000')
+            map.setPaintProperty(CURSOR_LAYER, 'line-color', '#facc15')
+            map.setPaintProperty(CURSOR_CASING, 'line-color', '#000000')
           } catch { /* ok */ }
         }
         break
       case 'road':
         activeModeRef.current = 'road'
-        // Set line color to road gray
+        // Road gray with white casing
         if (map) {
           try {
             map.setPaintProperty(DRAW_LAYER, 'line-color', '#888888')
+            map.setPaintProperty(DRAW_CASING, 'line-color', '#ffffff')
             map.setPaintProperty(CURSOR_LAYER, 'line-color', '#888888')
+            map.setPaintProperty(CURSOR_CASING, 'line-color', '#ffffff')
           } catch { /* ok */ }
         }
         break
@@ -246,7 +287,7 @@ export function useDraw(options: UseDrawOptions) {
     if (map) {
       map.getCanvas().style.cursor = activeModeRef.current ? 'crosshair' : ''
     }
-  }, [clearDraw])
+  }, [clearDraw, finishDrawing])
 
   const undo = useCallback(() => {
     if (coordsRef.current.length === 0) return

@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react'
 import maplibregl from 'maplibre-gl'
-import { buildStreetsOnlyStyle } from '../lib/mapStyle'
+import { buildMapStyle, applyMapMode } from '../lib/mapStyle'
+import type { MapViewMode } from '../lib/mapStyle'
+import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
 import { loadPinImages } from '../lib/mapPins'
@@ -27,6 +29,9 @@ const GRID_LINES_SOURCE = 'snap-grid-lines'
 const GRID_LINES_LAYER = 'snap-grid-lines-layer'
 const SELECTED_SOURCE = 'selected-house'
 const SELECTED_LAYER = 'selected-house-ring'
+const ROAD_SOURCE = 'custom-roads'
+const ROAD_CASING = 'custom-roads-casing'
+const ROAD_FILL = 'custom-roads-fill'
 
 // World-extent polygon ring (covers the entire map)
 const WORLD_RING: [number, number][] = [
@@ -41,6 +46,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const [mapReady, setMapReady] = useState(false)
 
   const housePoints = useStore((s) => s.housePoints)
+  const customRoads = useStore((s) => s.customRoads)
   const boundary = useStore((s) => s.boundary)
   const boundaryOpacity = useStore((s) => s.boundaryOpacity)
   const houseIconSize = useStore((s) => s.houseIconSize)
@@ -52,6 +58,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
   const addHousePoint = useStore((s) => s.addHousePoint)
+  const mapMode = useStore((s) => s.mapMode)
+
+  // Derive the effective view mode
+  const effectiveMode: MapViewMode = mapMode === 'auto'
+    ? (boundary === null ? 'satellite' : 'clean')
+    : mapMode
 
   // Initialize map
   useEffect(() => {
@@ -60,7 +72,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
     async function initMap() {
       try {
-        const style = await buildStreetsOnlyStyle()
+        const style = await buildMapStyle()
         if (cancelled) return
 
         const map = new maplibregl.Map({
@@ -71,7 +83,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           attributionControl: false,
         })
 
-        map.addControl(new maplibregl.NavigationControl(), 'top-right')
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+        map.addControl(new CompassControl(), 'bottom-right')
         map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
         map.on('load', () => {
@@ -132,6 +145,34 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             paint: {
               'fill-color': '#f8f7f5',
               'fill-opacity': 0.92,
+            },
+          })
+
+          // Custom roads — two-layer system like real map roads (casing + fill)
+          map.addSource(ROAD_SOURCE, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+
+          map.addLayer({
+            id: ROAD_CASING,
+            type: 'line',
+            source: ROAD_SOURCE,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#cfcdca',
+              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 1, 14, 6, 18, 16, 20, 22],
+            },
+          })
+
+          map.addLayer({
+            id: ROAD_FILL,
+            type: 'line',
+            source: ROAD_SOURCE,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#ffffff',
+              'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 0.5, 14, 4, 18, 12, 20, 18],
             },
           })
 
@@ -390,6 +431,16 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
   }, [snapToGrid, gridSpacingMeters, boundary, mapReady])
 
+  // Sync custom roads to map
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const source = map.getSource(ROAD_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (source) {
+      source.setData({ type: 'FeatureCollection', features: customRoads })
+    }
+  }, [customRoads, mapReady])
+
   // Sync boundary fill opacity
   useEffect(() => {
     const map = mapRef.current
@@ -398,6 +449,13 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity)
     } catch { /* layer may not exist yet */ }
   }, [boundaryOpacity, mapReady])
+
+  // Switch map view mode (satellite / street / clean)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    try { applyMapMode(map, effectiveMode) } catch { /* layers may not exist yet */ }
+  }, [effectiveMode, mapReady])
 
   // Handle click-to-place houses
   useEffect(() => {
@@ -575,6 +633,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (dragId) {
         dragId = null
         canvas.style.cursor = ''
+        // Clear move tracking so next drag creates a new undo snapshot
+        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
       }
       // Always re-enable pan on mouseup
       map.dragPan.enable()
