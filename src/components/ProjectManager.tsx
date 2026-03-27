@@ -38,13 +38,30 @@ export default function ProjectManager() {
       reader.onload = () => {
         try {
           const data = JSON.parse(reader.result as string)
+
+          // Validate required structure
           if (data.version !== 1) {
             alert('Unsupported project file version.')
             return
           }
+          if (typeof data.id !== 'string' || !data.id) {
+            alert('Invalid project file: missing project ID.')
+            return
+          }
+          if (typeof data.cardWidthInches !== 'number' || typeof data.cardHeightInches !== 'number') {
+            alert('Invalid project file: missing card dimensions.')
+            return
+          }
+          if (!Array.isArray(data.mapCenter) || data.mapCenter.length !== 2) {
+            alert('Invalid project file: missing map center.')
+            return
+          }
+          if (!Array.isArray(data.customRoads)) data.customRoads = []
+          if (!Array.isArray(data.housePoints)) data.housePoints = []
+
           loadProjectToStore(data)
         } catch {
-          alert('Invalid project file.')
+          alert('Invalid project file. Please select a .mapcards.json file.')
         }
       }
       reader.readAsText(file)

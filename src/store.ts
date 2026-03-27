@@ -178,6 +178,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         boundary: s.boundary,
         customRoads: s.customRoads,
         housePoints: s.housePoints,
+        treePoints: s.treePoints,
       }
       const newUndo = s._undoStack.slice(0, -1)
       return {
@@ -197,6 +198,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         boundary: s.boundary,
         customRoads: s.customRoads,
         housePoints: s.housePoints,
+        treePoints: s.treePoints,
       }
       const newRedo = s._redoStack.slice(0, -1)
       return {
@@ -376,8 +378,8 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       boundary: data.boundary,
       customRoads: data.customRoads,
       housePoints: data.housePoints,
-      treePoints: (data as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
-      customStatuses: ((data as Record<string, unknown>).customStatuses as CustomStatus[]) || [
+      treePoints: (data as unknown as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
+      customStatuses: ((data as unknown as Record<string, unknown>).customStatuses as CustomStatus[]) || [
         { id: 'notHome', label: 'Not Home', color: '#f39c12' },
         { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
       ],

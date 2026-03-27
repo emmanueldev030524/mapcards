@@ -47,6 +47,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const selectedTreeRef = useRef<string | null>(null)
+  const justDraggedRef = useRef(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
@@ -249,6 +250,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           })
 
           // Outer pulse ring (animated via JS)
+          // circle-translate shifts the ring up to align with the icon's visual center
+          // (house icon is bottom-anchored, so the center is ~14px above the anchor point)
           map.addLayer({
             id: SELECTED_LAYER + '-pulse',
             type: 'circle',
@@ -259,6 +262,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-stroke-width': 2,
               'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.3,
+              'circle-translate': [0, -14],
             },
           })
 
@@ -274,11 +278,13 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-stroke-width': 2.5,
               'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.5,
+              'circle-translate': [0, -14],
             },
           })
 
-          // Animate the outer pulse ring
+          // Animate the outer pulse ring (cancellable)
           let pulsePhase = 0
+          let pulseRafId = 0
           const animatePulse = () => {
             pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
             const scale = 1 + Math.sin(pulsePhase) * 0.3 // oscillate 0.7–1.3
@@ -287,9 +293,11 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
               map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
             } catch { /* layer may not exist */ }
-            requestAnimationFrame(animatePulse)
+            pulseRafId = requestAnimationFrame(animatePulse)
           }
-          requestAnimationFrame(animatePulse)
+          pulseRafId = requestAnimationFrame(animatePulse)
+          // Store the cancel function on the map instance for cleanup
+          ;(map as unknown as Record<string, unknown>)._cancelPulse = () => cancelAnimationFrame(pulseRafId)
 
           // Selected road highlight (glowing line behind selected road)
           map.addSource(SELECTED_ROAD_SOURCE, {
@@ -475,6 +483,9 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     return () => {
       cancelled = true
       if (mapRef.current) {
+        // Cancel the pulse animation before removing the map
+        const cancelPulse = (mapRef.current as unknown as Record<string, unknown>)._cancelPulse as (() => void) | undefined
+        cancelPulse?.()
         mapRef.current.remove()
         mapRef.current = null
       }
@@ -800,21 +811,95 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (dragId) {
         dragId = null
         canvas.style.cursor = ''
-        // Clear move tracking so next drag creates a new undo snapshot
         useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
+        // Suppress the click event that fires after drag
+        justDraggedRef.current = true
+        setTimeout(() => { justDraggedRef.current = false }, 100)
       }
-      // Always re-enable pan on mouseup
+      map.dragPan.enable()
+    }
+
+    // Touch support for tablet users
+    const onTouchStart = (e: maplibregl.MapTouchEvent) => {
+      if (activeDrawMode && activeDrawMode !== 'select') return
+      if (e.originalEvent.touches.length !== 1) return
+
+      const touch = e.originalEvent.touches[0]
+      const rect = canvas.getBoundingClientRect()
+      const point = new maplibregl.Point(touch.clientX - rect.left, touch.clientY - rect.top)
+
+      const tolerance = 16 // larger for touch
+      const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [point.x - tolerance, point.y - tolerance],
+        [point.x + tolerance, point.y + tolerance],
+      ]
+      const features = map.queryRenderedFeatures(bbox, { layers: [HOUSE_LAYER] })
+      if (features.length === 0) return
+
+      const id = features[0].properties?.id as string | undefined
+      if (!id) return
+
+      pendingId = id
+      startPoint = point
+      map.dragPan.disable()
+    }
+
+    const onTouchMove = (e: maplibregl.MapTouchEvent) => {
+      if (!pendingId && !dragId) return
+      if (e.originalEvent.touches.length !== 1) return
+
+      const touch = e.originalEvent.touches[0]
+      const rect = canvas.getBoundingClientRect()
+      const point = new maplibregl.Point(touch.clientX - rect.left, touch.clientY - rect.top)
+
+      if (pendingId && startPoint && !dragId) {
+        const dx = point.x - startPoint.x
+        const dy = point.y - startPoint.y
+        if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD) {
+          dragId = pendingId
+          pendingId = null
+        }
+        return
+      }
+
+      if (!dragId) return
+
+      const lngLat = map.unproject(point)
+      const snap = useStore.getState().snapToGrid
+      const spacing = useStore.getState().gridSpacingMeters
+      const [lng, lat] = snap
+        ? snapCoord(lngLat.lng, lngLat.lat, spacing)
+        : [lngLat.lng, lngLat.lat]
+      moveHousePoint(dragId, lng, lat)
+    }
+
+    const onTouchEnd = () => {
+      pendingId = null
+      startPoint = null
+      if (dragId) {
+        dragId = null
+        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
+        // Suppress the click event that fires after touch drag
+        justDraggedRef.current = true
+        setTimeout(() => { justDraggedRef.current = false }, 300)
+      }
       map.dragPan.enable()
     }
 
     map.on('mousedown', onMouseDown)
     map.on('mousemove', onMouseMove)
     map.on('mouseup', onMouseUp)
+    map.on('touchstart', onTouchStart)
+    map.on('touchmove', onTouchMove)
+    map.on('touchend', onTouchEnd)
 
     return () => {
       map.off('mousedown', onMouseDown)
       map.off('mousemove', onMouseMove)
       map.off('mouseup', onMouseUp)
+      map.off('touchstart', onTouchStart)
+      map.off('touchmove', onTouchMove)
+      map.off('touchend', onTouchEnd)
     }
   }, [activeDrawMode, moveHousePoint, mapReady])
 
@@ -828,6 +913,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     const removeRoad = useStore.getState().removeCustomRoad
 
     const onClick = (e: maplibregl.MapMouseEvent) => {
+      // Skip if this click follows a drag (house was moved, not tapped)
+      if (justDraggedRef.current) return
       // Only select when no draw mode is active
       if (activeDrawMode && activeDrawMode !== 'select') return
 

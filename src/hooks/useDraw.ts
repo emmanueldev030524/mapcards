@@ -115,6 +115,7 @@ export function useDraw(options: UseDrawOptions) {
   const activeModeRef = useRef<ActiveLineMode>(null)
   const coordsRef = useRef<[number, number][]>([])
   const undoStackRef = useRef<[number, number][]>([])
+  const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null)
   optionsRef.current = options
 
   const updateLayers = useCallback(() => {
@@ -386,7 +387,7 @@ export function useDraw(options: UseDrawOptions) {
       finishDrawing()
     })
 
-    // Enter key to finish drawing
+    // Enter key to finish drawing (stored for cleanup)
     const onKeyDown = (e: KeyboardEvent) => {
       if (!activeModeRef.current) return
       if (e.key === 'Enter' && coordsRef.current.length >= 2) {
@@ -395,6 +396,7 @@ export function useDraw(options: UseDrawOptions) {
       }
     }
     window.addEventListener('keydown', onKeyDown)
+    keydownRef.current = onKeyDown
   }, [updateLayers, clearDraw, finishDrawing])
 
   const setMode = useCallback((mode: DrawMode) => {
@@ -456,19 +458,27 @@ export function useDraw(options: UseDrawOptions) {
     updateLayers()
   }, [updateLayers])
 
-  const removeFeature = useCallback((_id: string) => {
-    // Not needed with manual drawing
-  }, [])
-
   const clearAll = useCallback(() => {
     clearDraw()
   }, [clearDraw])
 
   useEffect(() => {
     return () => {
+      if (keydownRef.current) {
+        window.removeEventListener('keydown', keydownRef.current)
+        keydownRef.current = null
+      }
       mapRef.current = null
     }
   }, [])
 
-  return { initDraw, setMode, undo, redo, removeFeature, clearAll }
+  /** Finish the current drawing (boundary needs 3+ pts, road needs 2+) */
+  const finish = useCallback(() => {
+    finishDrawing()
+  }, [finishDrawing])
+
+  /** Get the current vertex count (for enabling/disabling Done button) */
+  const getVertexCount = useCallback(() => coordsRef.current.length, [])
+
+  return { initDraw, setMode, undo, redo, clearAll, finish, getVertexCount }
 }

@@ -29,60 +29,123 @@ function waitForIdle(map: maplibregl.Map, timeout: number): Promise<void> {
   })
 }
 
+/** Measure how tall the legend bar needs to be (supports wrapping to multiple rows) */
+function measureLegendHeight(
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  territoryNumber?: string,
+  entries: LegendEntry[] = [],
+): number {
+  if (!territoryNumber && entries.length === 0) return 0
+
+  const px = 50
+  const rowHeight = 52
+  const topPad = 28
+  const bottomPad = 24
+  const dotRadius = 11
+  const gap = 40
+  const entryFont = '600 28px "Outfit", "Inter", system-ui, sans-serif'
+  const titleFont = 'bold 38px "Outfit", "Inter", system-ui, sans-serif'
+
+  // Measure title width
+  let legendStartX = px
+  if (territoryNumber) {
+    ctx.font = titleFont
+    legendStartX += ctx.measureText(`Territory ${territoryNumber}`).width + 50
+  }
+
+  // Count rows by simulating layout
+  if (entries.length === 0) return topPad + rowHeight + bottomPad
+
+  ctx.font = entryFont
+  let rows = 1
+  let x = legendStartX
+
+  for (const entry of entries) {
+    const entryWidth = dotRadius * 2 + 10 + ctx.measureText(entry.label).width + gap
+    if (x + entryWidth > canvasWidth - px && x > legendStartX) {
+      rows++
+      x = px // wrapped rows start from left edge
+    }
+    x += entryWidth
+  }
+
+  return topPad + rowHeight * rows + bottomPad
+}
+
 function drawLegendBar(
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
   canvasHeight: number,
+  barHeight: number,
   territoryNumber?: string,
   entries: LegendEntry[] = [],
 ) {
-  const barHeight = 120
   const barY = canvasHeight - barHeight
-  const px = 40 // horizontal padding
+  const px = 50
+  const rowHeight = 52
+  const topPad = 28
+  const dotRadius = 11
+  const gap = 40
+  const entryFont = '600 28px "Outfit", "Inter", system-ui, sans-serif'
+  const titleFont = 'bold 38px "Outfit", "Inter", system-ui, sans-serif'
 
-  // Semi-transparent white bar
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)'
+  // White bar background
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
   ctx.fillRect(0, barY, canvasWidth, barHeight)
 
-  // Top divider line
-  ctx.strokeStyle = '#d1d5db'
-  ctx.lineWidth = 2
+  // Top divider — subtle
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 1.5
   ctx.beginPath()
   ctx.moveTo(0, barY)
   ctx.lineTo(canvasWidth, barY)
   ctx.stroke()
 
-  // Territory number title — left side
-  let textX = px
+  // Territory title — left side, vertically centered in first row
+  const firstRowY = barY + topPad + rowHeight / 2
+  let legendStartX = px
+
   if (territoryNumber) {
-    ctx.font = 'bold 48px "Outfit", "Inter", system-ui, sans-serif'
+    ctx.font = titleFont
     ctx.fillStyle = '#1f2937'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`Territory ${territoryNumber}`, textX, barY + barHeight / 2)
-    textX += ctx.measureText(`Territory ${territoryNumber}`).width + 60
+    ctx.fillText(`Territory ${territoryNumber}`, px, firstRowY)
+    legendStartX = px + ctx.measureText(`Territory ${territoryNumber}`).width + 50
   }
 
-  // Legend entries — flow right from the title
-  if (entries.length > 0) {
-    const dotRadius = 14
-    const gap = 32
-    const entryFont = '32px "Outfit", "Inter", system-ui, sans-serif'
-    ctx.font = entryFont
+  // Legend entries — flow right, wrap to next row if needed
+  if (entries.length === 0) return
 
-    for (const entry of entries) {
-      // Color dot
-      ctx.beginPath()
-      ctx.arc(textX + dotRadius, barY + barHeight / 2, dotRadius, 0, Math.PI * 2)
-      ctx.fillStyle = entry.color
-      ctx.fill()
+  ctx.font = entryFont
+  let x = legendStartX
+  let row = 0
 
-      // Label
-      ctx.fillStyle = '#4b5563'
-      ctx.font = entryFont
-      ctx.textBaseline = 'middle'
-      ctx.fillText(entry.label, textX + dotRadius * 2 + 12, barY + barHeight / 2)
-      textX += dotRadius * 2 + 12 + ctx.measureText(entry.label).width + gap
+  for (const entry of entries) {
+    const labelWidth = ctx.measureText(entry.label).width
+    const entryWidth = dotRadius * 2 + 10 + labelWidth + gap
+
+    // Wrap to next row if this entry would overflow
+    if (x + entryWidth > canvasWidth - px && x > (row === 0 ? legendStartX : px)) {
+      row++
+      x = px // wrapped rows start from left edge
     }
+
+    const rowY = barY + topPad + rowHeight * row + rowHeight / 2
+
+    // Color dot
+    ctx.beginPath()
+    ctx.arc(x + dotRadius, rowY, dotRadius, 0, Math.PI * 2)
+    ctx.fillStyle = entry.color
+    ctx.fill()
+
+    // Label
+    ctx.fillStyle = '#4b5563'
+    ctx.font = entryFont
+    ctx.textBaseline = 'middle'
+    ctx.fillText(entry.label, x + dotRadius * 2 + 10, rowY)
+
+    x += entryWidth
   }
 }
 
@@ -109,10 +172,13 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   map.resize()
   await waitForIdle(map, 2000)
 
-  // Fit boundary into the card with padding — extra bottom padding for legend bar
+  // Measure legend bar height dynamically (may wrap to 2+ rows)
   const bbox = turf.bbox(boundary) as [number, number, number, number]
-  const hasLegend = !!(options.territoryNumber || (options.legendEntries && options.legendEntries.length > 0))
-  const legendHeight = hasLegend ? 120 : 0
+  const measureCtx = document.createElement('canvas').getContext('2d')!
+  const legendHeight = measureLegendHeight(
+    measureCtx, totalWidth,
+    options.territoryNumber, options.legendEntries || [],
+  )
   const pad = 80
 
   map.fitBounds(bbox, {
@@ -171,6 +237,8 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   await waitForIdle(map, 4000)
 
   // --- Canvas capture with boundary clipping ---
+  // Note: The interactive map has preserveDrawingBuffer: true which is required
+  // for canvas capture. The performance cost is acceptable for a card-making tool.
   const mapCanvas = map.getCanvas()
   const output = document.createElement('canvas')
   output.width = totalWidth
@@ -206,14 +274,14 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   })
   ctx.closePath()
   ctx.strokeStyle = '#4B6CA7'
-  ctx.lineWidth = 10
+  ctx.lineWidth = 6
   ctx.lineJoin = 'round'
   ctx.stroke()
 
   // --- Draw legend bar at bottom ---
   const { territoryNumber, legendEntries } = options
-  if (territoryNumber || (legendEntries && legendEntries.length > 0)) {
-    drawLegendBar(ctx, totalWidth, totalHeight, territoryNumber, legendEntries || [])
+  if (legendHeight > 0) {
+    drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, territoryNumber, legendEntries || [])
   }
 
   // Restore original map state

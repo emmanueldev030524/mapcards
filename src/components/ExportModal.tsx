@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { saveAs } from 'file-saver'
 import { X, Download, FileText, Loader2 } from 'lucide-react'
 import { useStore } from '../store'
@@ -44,7 +44,12 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     }
   }, [map, boundary, cardWidthInches, cardHeightInches, territoryNumber, housePoints, customStatuses])
 
-  // Generate preview when modal opens
+  // Stable ref to latest export options — avoids re-triggering effect on every render
+  const exportOptionsRef = useRef(getExportOptions)
+  exportOptionsRef.current = getExportOptions
+
+  // Generate preview when modal opens (only depends on open + boundary identity)
+  const boundaryId = boundary ? JSON.stringify(boundary.geometry.coordinates[0].slice(0, 2)) : null
   useEffect(() => {
     if (!open || !boundary || !map) return
 
@@ -54,7 +59,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     setPngBlob(null)
     setErrorMsg('')
 
-    exportToPng(getExportOptions())
+    exportToPng(exportOptionsRef.current())
       .then((blob) => {
         if (cancelled) return
         setPngBlob(blob)
@@ -70,7 +75,8 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       })
 
     return () => { cancelled = true }
-  }, [open, boundary, getExportOptions])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, boundaryId])
 
   // Cleanup preview URL on unmount
   useEffect(() => {
@@ -112,7 +118,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="relative mx-4 flex max-h-[90vh] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_48px_rgba(0,0,0,0.16),0_8px_16px_rgba(0,0,0,0.08)]">
+      <div className="relative mx-4 flex max-h-[90vh] w-full max-w-150 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_48px_rgba(0,0,0,0.16),0_8px_16px_rgba(0,0,0,0.08)]">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-divider px-5 py-3.5">

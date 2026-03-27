@@ -80,7 +80,6 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
   const ROAD_KEYWORDS = ['highway', 'tunnel', 'bridge', 'road']
   const isRoadLayer = (id: string) => ROAD_KEYWORDS.some((k) => id.startsWith(k))
   const isCasing = (id: string) => id.includes('casing')
-  const isMajor = (id: string) => id.includes('motorway') || id.includes('trunk') || id.includes('primary')
   const isPath = (id: string) => id.includes('path')
 
   for (const layer of allBaseLayers) {
@@ -268,9 +267,6 @@ export async function buildMapStyle(): Promise<StyleSpecification> {
   return finalStyle
 }
 
-// Keep the old name as an alias for compatibility (used in exportPng.ts)
-export const buildStreetsOnlyStyle = buildMapStyle
-
 // --- Layer classification ---
 
 let _baseLayerIds: Set<string> = new Set()
@@ -349,14 +345,3 @@ export function applyMapMode(map: maplibregl.Map, mode: MapViewMode) {
 
 // Need the import for the applyMapMode function signature
 import type maplibregl from 'maplibre-gl'
-
-/**
- * Old compat function — replaced by the mode system but kept for reference.
- * @deprecated Use applyMapMode instead
- */
-export function isVectorOverlayLayer(layerId: string): boolean {
-  if (layerId === SATELLITE_LAYER || layerId === 'background') return false
-  if (isToggleLayer(layerId)) return false
-  if (isDynamicLayer(layerId)) return false
-  return true
-}

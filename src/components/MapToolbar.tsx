@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
 import {
@@ -9,7 +10,8 @@ import {
   MousePointer,
   Undo2,
   Redo2,
-  Eraser,
+  Trash2,
+  Check,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -20,6 +22,8 @@ interface MapToolbarProps {
   onClearBoundary?: () => void
   onDrawUndo?: () => void
   onDrawRedo?: () => void
+  onDrawFinish?: () => void
+  getVertexCount?: () => number
 }
 
 const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string }[] = [
@@ -38,12 +42,28 @@ export default function MapToolbar({
   onClearBoundary,
   onDrawUndo,
   onDrawRedo,
+  onDrawFinish,
+  getVertexCount,
 }: MapToolbarProps) {
   const isDrawing = activeMode === 'boundary' || activeMode === 'road'
+  const isPlacing = activeMode === 'house' || activeMode === 'tree'
   const canUndo = useStore((s) => s.canUndo)
   const canRedo = useStore((s) => s.canRedo)
   const undoAction = useStore((s) => s.undoAction)
   const redoAction = useStore((s) => s.redoAction)
+
+  // Poll vertex count while drawing so the Done button enables/disables reactively
+  const [vertexCount, setVertexCount] = useState(0)
+  useEffect(() => {
+    if (!isDrawing || !getVertexCount) { setVertexCount(0); return }
+    const id = setInterval(() => setVertexCount(getVertexCount()), 200)
+    return () => clearInterval(id)
+  }, [isDrawing, getVertexCount])
+
+  const canFinish = isDrawing && (
+    (activeMode === 'boundary' && vertexCount >= 3) ||
+    (activeMode === 'road' && vertexCount >= 2)
+  )
 
   return (
     <div
@@ -87,6 +107,36 @@ export default function MapToolbar({
         </span>
       </button>
 
+      {/* Done — finishes drawing or exits placement mode */}
+      {isDrawing && onDrawFinish && (
+        <button
+          onClick={onDrawFinish}
+          disabled={!canFinish}
+          title={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
+          className={`group relative rounded-xl px-3 py-1.5 text-[12px] font-semibold transition-all duration-200 outline-none ${
+            canFinish
+              ? 'bg-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:bg-emerald-600 active:scale-[0.92]'
+              : 'cursor-not-allowed bg-slate-100 text-slate-300'
+          }`}
+        >
+          <span className="flex items-center gap-1">
+            <Check size={14} strokeWidth={2.5} />
+            Done
+          </span>
+        </button>
+      )}
+      {isPlacing && (
+        <button
+          onClick={() => onModeChange(null)}
+          className="group relative rounded-xl bg-emerald-500 px-3 py-1.5 text-[12px] font-semibold text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] transition-all duration-200 outline-none hover:bg-emerald-600 active:scale-[0.92]"
+        >
+          <span className="flex items-center gap-1">
+            <Check size={14} strokeWidth={2.5} />
+            Done
+          </span>
+        </button>
+      )}
+
       {/* Vertical divider */}
       <div className="mx-1.5 h-6 w-px bg-slate-300" />
 
@@ -127,7 +177,7 @@ export default function MapToolbar({
             title="Clear boundary and start over"
             className="group relative rounded-xl p-2.5 text-slate-500 transition-all duration-200 outline-none hover:bg-red-500/10 hover:text-red-600 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.92]"
           >
-            <Eraser size={18} strokeWidth={2} />
+            <Trash2 size={18} strokeWidth={2} />
             <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
               Clear
             </span>

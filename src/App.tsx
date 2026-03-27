@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Feature, Polygon, LineString } from 'geojson'
 import maplibregl from 'maplibre-gl'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
 import Toolbar from './components/Toolbar'
@@ -13,6 +14,7 @@ import ExportPanel from './components/ExportPanel'
 import ExportModal from './components/ExportModal'
 import BulkFillDialog from './components/BulkFillDialog'
 import HouseEditPopup from './components/HouseEditPopup'
+import RoadDeleteButton from './components/RoadDeleteButton'
 import SidebarSection from './components/SidebarSection'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
@@ -48,7 +50,7 @@ export default function App() {
     [addCustomRoad],
   )
 
-  const { initDraw, setMode, undo, redo, clearAll } = useDraw({
+  const { initDraw, setMode, undo, redo, clearAll, finish, getVertexCount } = useDraw({
     onBoundaryComplete: handleBoundaryComplete,
     onRoadComplete: handleRoadComplete,
   })
@@ -63,6 +65,7 @@ export default function App() {
 
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const handleModeChange = useCallback(
     (mode: typeof activeDrawMode) => {
@@ -150,7 +153,9 @@ export default function App() {
     <div className="flex h-dvh w-full">
       {/* Sidebar */}
       <aside
-        className={`flex w-68 shrink-0 flex-col border-r border-divider bg-sidebar-bg ${
+        className={`flex shrink-0 flex-col border-r border-divider bg-sidebar-bg transition-[width] duration-300 ease-out ${
+          sidebarOpen ? 'w-68' : 'w-0 overflow-hidden border-r-0'
+        } ${
           activeDrawMode === 'boundary' || activeDrawMode === 'road' ? 'sidebar-drawing' : ''
         }`}
         onMouseEnter={(e) => {
@@ -256,17 +261,39 @@ export default function App() {
       </aside>
 
       {/* Map */}
-      <main className="relative flex-1">
+      <main className="relative min-w-0 flex-1">
         <MapView onMapReady={handleMapReady} />
+
+        {/* Sidebar toggle */}
+        <button
+          onClick={() => setSidebarOpen((v) => !v)}
+          className="absolute left-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-xl border border-white/50 bg-white/85 text-slate-700 shadow-[0_2px_8px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-95"
+          title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        >
+          {sidebarOpen ? <PanelLeftClose size={16} strokeWidth={2} /> : <PanelLeftOpen size={16} strokeWidth={2} />}
+        </button>
+
         <MapToolbar
           activeMode={activeDrawMode}
           onModeChange={handleModeChange}
           hasBoundary={boundary !== null}
-          onClearBoundary={() => { setBoundary(null); clearAll() }}
+          onClearBoundary={() => {
+            if (!confirm('Clear everything? This removes the boundary, all houses, trees, and roads.')) return
+            setBoundary(null)
+            clearAll()
+            useStore.getState().clearAllHouses()
+            useStore.getState().clearAllTrees()
+            // Clear custom roads one by one (no bulk clear in store)
+            const roads = useStore.getState().customRoads
+            for (const r of roads) useStore.getState().removeCustomRoad(r.id as string)
+          }}
           onDrawUndo={undo}
           onDrawRedo={redo}
+          onDrawFinish={finish}
+          getVertexCount={getVertexCount}
         />
         <HouseEditPopup />
+        <RoadDeleteButton />
       </main>
 
       <BulkFillDialog

@@ -1,14 +1,7 @@
 import jsPDF from 'jspdf'
-import { exportToPng } from './exportPng'
-import type maplibregl from 'maplibre-gl'
+import { exportToPng, type ExportOptions } from './exportPng'
 
-interface PdfExportOptions {
-  map: maplibregl.Map
-  cardWidthInches: number
-  cardHeightInches: number
-}
-
-export async function exportToPdf(options: PdfExportOptions): Promise<Blob> {
+export async function exportToPdf(options: ExportOptions): Promise<Blob> {
   const { cardWidthInches, cardHeightInches } = options
 
   // Generate the PNG first (captures live map)

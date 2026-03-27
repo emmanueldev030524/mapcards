@@ -48,8 +48,8 @@ export default function HouseEditPopup() {
   const placeCats = PIN_CATEGORIES.filter((c) => c.group === 'place')
 
   return (
-    <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <div className="hover-lift w-80 rounded-xl border border-divider bg-white/95 shadow-[0_12px_28px_rgba(0,0,0,0.12),0_4px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+    <div className="absolute bottom-4 left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0">
+      <div className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_12px_28px_rgba(0,0,0,0.12),0_4px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm sm:w-80">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-divider px-3 py-2">
           <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { LayoutGrid } from 'lucide-react'
 import { useStore } from '../store'
@@ -17,6 +17,9 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
   const [line, setLine] = useState<Feature<LineString> | null>(null)
   const [clickedPoints, setClickedPoints] = useState<[number, number][]>([])
   const bulkAddHouses = useStore((s) => s.bulkAddHouses)
+
+  // Store active listeners so we can clean them up on cancel
+  const listenersRef = useRef<{ onClick: ((e: maplibregl.MapMouseEvent) => void) | null; onDblClick: ((e: maplibregl.MapMouseEvent) => void) | null }>({ onClick: null, onDblClick: null })
 
   const startDrawLine = useCallback(() => {
     if (!map) return
@@ -47,10 +50,12 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
 
       map.off('click', onClick)
       map.off('dblclick', onDblClick)
+      listenersRef.current = { onClick: null, onDblClick: null }
       map.getCanvas().style.cursor = ''
       setDrawing(false)
     }
 
+    listenersRef.current = { onClick, onDblClick }
     map.on('click', onClick)
     map.on('dblclick', onDblClick)
   }, [map])
@@ -65,6 +70,14 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
   }, [line, count, bulkAddHouses, onClose])
 
   const handleCancel = useCallback(() => {
+    // Remove any active drawing listeners to prevent leaks
+    if (map && listenersRef.current.onClick) {
+      map.off('click', listenersRef.current.onClick)
+    }
+    if (map && listenersRef.current.onDblClick) {
+      map.off('dblclick', listenersRef.current.onDblClick)
+    }
+    listenersRef.current = { onClick: null, onDblClick: null }
     setLine(null)
     setClickedPoints([])
     setDrawing(false)

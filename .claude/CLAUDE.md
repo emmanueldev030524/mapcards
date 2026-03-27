@@ -26,7 +26,7 @@ A local-first web utility for creating S-12-E territory cards. Admin traces stre
 - Never add `* { margin: 0; padding: 0; }` — Tailwind v4 preflight handles resets
 - MapLibre style is built at runtime by filtering OpenFreeMap bright style (see `src/lib/mapStyle.ts`)
 - Custom roads must use same paint/layout as base map roads (two-layer: casing + fill)
-- Export uses offscreen MapLibre instance with `preserveDrawingBuffer: true` — never set this on the interactive map
+- Export captures the live map canvas (not offscreen) — `preserveDrawingBuffer: true` is required on the interactive map for this to work
 
 ## File Structure
 ```
