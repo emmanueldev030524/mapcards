@@ -73,11 +73,30 @@ function measureLegendHeight(
   return topPad + rowHeight * rows + bottomPad
 }
 
+/** Draw a rounded rectangle path (helper for clipping and stroking) */
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.arcTo(x + w, y, x + w, y + r, r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
+  ctx.lineTo(x + r, y + h)
+  ctx.arcTo(x, y + h, x, y + h - r, r)
+  ctx.lineTo(x, y + r)
+  ctx.arcTo(x, y, x + r, y, r)
+  ctx.closePath()
+}
+
 function drawLegendBar(
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
   canvasHeight: number,
   barHeight: number,
+  cornerRadius: number,
   territoryNumber?: string,
   entries: LegendEntry[] = [],
 ) {
@@ -90,17 +109,32 @@ function drawLegendBar(
   const entryFont = '600 28px "Outfit", "Inter", system-ui, sans-serif'
   const titleFont = 'bold 38px "Outfit", "Inter", system-ui, sans-serif'
 
-  // White bar background
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
-  ctx.fillRect(0, barY, canvasWidth, barHeight)
-
-  // Top divider — subtle
-  ctx.strokeStyle = '#e5e7eb'
-  ctx.lineWidth = 1.5
+  // Frosted glass legend bar — clip to bottom rounded corners
+  ctx.save()
   ctx.beginPath()
   ctx.moveTo(0, barY)
   ctx.lineTo(canvasWidth, barY)
+  ctx.lineTo(canvasWidth, canvasHeight - cornerRadius)
+  ctx.arcTo(canvasWidth, canvasHeight, canvasWidth - cornerRadius, canvasHeight, cornerRadius)
+  ctx.lineTo(cornerRadius, canvasHeight)
+  ctx.arcTo(0, canvasHeight, 0, canvasHeight - cornerRadius, cornerRadius)
+  ctx.lineTo(0, barY)
+  ctx.closePath()
+  ctx.clip()
+
+  // Frosted backdrop
+  ctx.fillStyle = 'rgba(250, 248, 245, 0.92)'
+  ctx.fillRect(0, barY, canvasWidth, barHeight)
+
+  // Top divider — warm subtle line
+  ctx.strokeStyle = '#E0DCD6'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(px, barY)
+  ctx.lineTo(canvasWidth - px, barY)
   ctx.stroke()
+
+  ctx.restore()
 
   // Territory title — left side, vertically centered in first row
   const firstRowY = barY + topPad + rowHeight / 2
@@ -108,7 +142,7 @@ function drawLegendBar(
 
   if (territoryNumber) {
     ctx.font = titleFont
-    ctx.fillStyle = '#1f2937'
+    ctx.fillStyle = '#3D4F6B'
     ctx.textBaseline = 'middle'
     ctx.fillText(`Territory ${territoryNumber}`, px, firstRowY)
     legendStartX = px + ctx.measureText(`Territory ${territoryNumber}`).width + 50
@@ -133,14 +167,17 @@ function drawLegendBar(
 
     const rowY = barY + topPad + rowHeight * row + rowHeight / 2
 
-    // Color dot
+    // Color dot with subtle border
     ctx.beginPath()
     ctx.arc(x + dotRadius, rowY, dotRadius, 0, Math.PI * 2)
     ctx.fillStyle = entry.color
     ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+    ctx.lineWidth = 1
+    ctx.stroke()
 
     // Label
-    ctx.fillStyle = '#4b5563'
+    ctx.fillStyle = '#4B5563'
     ctx.font = entryFont
     ctx.textBaseline = 'middle'
     ctx.fillText(entry.label, x + dotRadius * 2 + 10, rowY)
@@ -179,7 +216,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     measureCtx, totalWidth,
     options.territoryNumber, options.legendEntries || [],
   )
-  const pad = 80
+  const pad = 40
 
   map.fitBounds(bbox, {
     padding: { top: pad, right: pad, bottom: pad + legendHeight, left: pad },
@@ -236,7 +273,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
 
   await waitForIdle(map, 4000)
 
-  // --- Canvas capture with boundary clipping ---
+  // --- Canvas capture with premium card rendering ---
   // Note: The interactive map has preserveDrawingBuffer: true which is required
   // for canvas capture. The performance cost is acceptable for a card-making tool.
   const mapCanvas = map.getCanvas()
@@ -245,14 +282,20 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   output.height = totalHeight
   const ctx = output.getContext('2d')!
 
-  // White background (everything outside boundary)
-  ctx.fillStyle = '#ffffff'
+  const cornerRadius = Math.round(24 * (DPI / 300)) // ~24px at 300 DPI
+  const borderInset = 3
+
+  // --- 1. Cream background with rounded corners ---
+  ctx.save()
+  roundRect(ctx, 0, 0, totalWidth, totalHeight, cornerRadius)
+  ctx.clip()
+  ctx.fillStyle = '#FAF8F5'
   ctx.fillRect(0, 0, totalWidth, totalHeight)
 
   // Project boundary to final screen coordinates
   const finalCoords = coords.map((c) => map.project(c as [number, number]))
 
-  // Clip map rendering to boundary shape
+  // --- 2. Clip map rendering to boundary shape ---
   ctx.save()
   ctx.beginPath()
   finalCoords.forEach((p, i) => {
@@ -266,23 +309,41 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   ctx.drawImage(mapCanvas, 0, 0, totalWidth, totalHeight)
   ctx.restore()
 
-  // Draw boundary stroke on top (outside the clip so it's fully visible)
-  ctx.beginPath()
-  finalCoords.forEach((p, i) => {
-    if (i === 0) ctx.moveTo(p.x, p.y)
-    else ctx.lineTo(p.x, p.y)
-  })
-  ctx.closePath()
-  ctx.strokeStyle = '#4B6CA7'
-  ctx.lineWidth = 6
-  ctx.lineJoin = 'round'
-  ctx.stroke()
+  // --- 3. Floating drop shadow — map area feels lifted off the card ---
+  const shadowLayers = [
+    { offset: 8, width: 20, opacity: 0.03 },
+    { offset: 5, width: 14, opacity: 0.05 },
+    { offset: 3, width: 9, opacity: 0.07 },
+    { offset: 1.5, width: 5, opacity: 0.10 },
+    { offset: 0.5, width: 2, opacity: 0.14 },
+  ]
+  for (const sl of shadowLayers) {
+    ctx.save()
+    ctx.beginPath()
+    finalCoords.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x + sl.offset, p.y + sl.offset)
+      else ctx.lineTo(p.x + sl.offset, p.y + sl.offset)
+    })
+    ctx.closePath()
+    ctx.strokeStyle = `rgba(30, 40, 60, ${sl.opacity})`
+    ctx.lineWidth = sl.width
+    ctx.lineJoin = 'round'
+    ctx.stroke()
+    ctx.restore()
+  }
 
-  // --- Draw legend bar at bottom ---
+  // --- 5. Legend bar at bottom ---
   const { territoryNumber, legendEntries } = options
   if (legendHeight > 0) {
-    drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, territoryNumber, legendEntries || [])
+    drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, cornerRadius, territoryNumber, legendEntries || [])
   }
+
+  // --- 6. Thin hairline border around card ---
+  ctx.restore() // restore the rounded corner clip
+  roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
+  ctx.strokeStyle = '#D5D0C8'
+  ctx.lineWidth = 2
+  ctx.stroke()
 
   // Restore original map state
   container.style.width = origWidth

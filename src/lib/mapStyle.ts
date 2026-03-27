@@ -32,14 +32,14 @@ export function getToggleableLayers(): ToggleableLayer[] {
     {
       id: 'buildings',
       label: 'Buildings',
-      color: '#95a5a6',
+      color: '#6B7B8D',
       layerIds: ['toggle-buildings-fill', 'toggle-buildings-outline'],
     },
     {
       id: 'housenumbers',
-      label: 'House Numbers',
-      color: '#7f8c8d',
-      layerIds: ['toggle-housenumbers'],
+      label: 'House Labels',
+      color: '#E8A54B',
+      layerIds: [],
     },
     ...POI_CATEGORIES.map((cat) => ({
       id: cat.id,

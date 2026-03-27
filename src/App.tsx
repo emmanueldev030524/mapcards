@@ -166,10 +166,10 @@ export default function App() {
             e.currentTarget.classList.add('sidebar-drawing')
         }}
       >
-        {/* Header — flat brand color */}
-        <div className="bg-brand px-5 pb-4 pt-4">
-          <h1 className="text-[15px] font-bold tracking-tight text-white">MapCards</h1>
-          <p className="mt-0.5 text-[11px] font-medium text-white/55">Territory Card Maker</p>
+        {/* Header */}
+        <div className="bg-linear-to-b from-brand to-brand-dark px-5 pb-5 pt-5">
+          <h1 className="text-[16px] font-bold tracking-tight text-white">MapCards</h1>
+          <p className="mt-0.5 text-[11px] font-medium text-white/50">Territory Card Maker</p>
         </div>
 
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -179,37 +179,37 @@ export default function App() {
             <LocationSearch onLocationSelect={handleLocationSelect} />
           </div>
 
-          <div className="mx-5 border-t border-divider" />
+          <div className="mx-5 border-t border-divider/50" />
 
           {/* Card Settings */}
-          <div className="px-5 py-2">
+          <div className="px-5 py-2.5">
             <SidebarSection title="Card Settings">
               <CardSettings />
             </SidebarSection>
           </div>
 
-          <div className="mx-5 border-t border-divider" />
+          <div className="mx-5 border-t border-divider/50" />
 
           {/* Settings — sliders, grid snap (contextual) */}
-          <div className="px-5 py-2">
+          <div className="px-5 py-2.5">
             <SidebarSection title="Settings">
               <Toolbar />
             </SidebarSection>
           </div>
 
-          <div className="mx-5 border-t border-divider" />
+          <div className="mx-5 border-t border-divider/50" />
 
           {/* Map View & Layers */}
-          <div className="px-5 py-2">
+          <div className="px-5 py-2.5">
             <SidebarSection title="Map View & Layers">
               <LayerToggle map={mapInstance} />
             </SidebarSection>
           </div>
 
-          <div className="mx-5 border-t border-divider" />
+          <div className="mx-5 border-t border-divider/50" />
 
           {/* Export */}
-          <div className="px-5 py-2">
+          <div className="px-5 py-2.5">
             <SidebarSection title="Export">
               <ExportPanel onExport={() => setExportOpen(true)} />
             </SidebarSection>
@@ -217,46 +217,36 @@ export default function App() {
 
           {/* Empty state guidance */}
           {!boundary && housePoints.length === 0 && customRoads.length === 0 && (
-            <div className="mx-5 mt-2 rounded-lg border border-dashed border-divider bg-surface px-4 py-4 text-center">
-              <p className="text-[13px] font-semibold text-heading">Get started</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-body">
-                Use the toolbar above the map to draw a territory boundary, then add houses and roads.
+            <div className="mx-5 mt-3 rounded-xl bg-brand/5 px-4 py-5 text-center">
+              <div className="mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-brand/10">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand">
+                  <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+                </svg>
+              </div>
+              <p className="text-[13px] font-semibold text-heading">Draw a territory</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-body/70">
+                Use the toolbar above the map to trace your boundary, then place houses and roads.
               </p>
             </div>
           )}
 
-          {/* Status panel — white card with soft shadow */}
-          <div className="px-5 py-4">
-            <div className="rounded-xl bg-surface p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)]">
-              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
-                Status
-              </h3>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-body">Boundary</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                    boundary
-                      ? 'bg-emerald-soft text-emerald-text'
-                      : 'bg-input-bg text-body'
-                  }`}>
-                    {boundary ? 'Drawn' : 'Not set'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-body">Custom roads</span>
-                  <span className="rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-brand">
-                    {customRoads.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-body">Houses</span>
-                  <span className="rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-brand">
-                    {housePoints.length}
-                  </span>
-                </div>
+          {/* Stats — compact inline */}
+          {(boundary || customRoads.length > 0 || housePoints.length > 0) && (
+            <div className="px-5 pb-4 pt-2">
+              <div className="flex items-center gap-3 text-[13px]">
+                <span className={`inline-flex items-center gap-1.5 font-medium ${boundary ? 'text-emerald-text' : 'text-body/40'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${boundary ? 'bg-emerald-500' : 'bg-body/20'}`} />
+                  Boundary
+                </span>
+                <span className="font-semibold tabular-nums text-body">
+                  {customRoads.length} <span className="font-medium text-body/50">roads</span>
+                </span>
+                <span className="font-semibold tabular-nums text-body">
+                  {housePoints.length} <span className="font-medium text-body/50">houses</span>
+                </span>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </aside>
 

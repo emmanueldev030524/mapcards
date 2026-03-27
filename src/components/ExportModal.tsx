@@ -155,7 +155,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
               <p className="mt-1 text-[12px] text-body">{errorMsg}</p>
               <button
                 onClick={handleClose}
-                className="mt-4 rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-brand-dark"
+                className="mt-4 rounded-full bg-brand px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-brand-dark"
               >
                 Close
               </button>
@@ -178,14 +178,14 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           <div className="flex items-center gap-3 border-t border-divider px-5 py-3.5">
             <button
               onClick={handleDownloadPng}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-colors hover:bg-brand-dark"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-colors hover:bg-brand-dark"
             >
               <Download size={15} strokeWidth={2} />
               Download PNG
             </button>
             <button
               onClick={handleDownloadPdf}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover"
             >
               <FileText size={15} strokeWidth={2} />
               Download PDF

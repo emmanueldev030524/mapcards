@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { getToggleableLayers } from '../lib/mapStyle'
 import { useStore } from '../store'
@@ -26,6 +26,64 @@ const MAP_MODES: { value: 'satellite' | 'street' | 'clean'; label: string; Icon:
   { value: 'street', label: 'Street', Icon: Map },
   { value: 'clean', label: 'Clean', Icon: FileText },
 ]
+
+/** Sliding pill segmented control */
+function SegmentedControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string; Icon: LucideIcon }[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 })
+  const activeIndex = options.findIndex((o) => o.value === value)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const buttons = container.querySelectorAll<HTMLButtonElement>('[data-segment]')
+    const btn = buttons[activeIndex]
+    if (!btn) return
+    setIndicator({
+      left: btn.offsetLeft,
+      width: btn.offsetWidth,
+    })
+  }, [activeIndex])
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex w-full overflow-hidden rounded-full border border-divider/60 bg-white p-0.5"
+    >
+      {/* Sliding indicator */}
+      <div
+        className="absolute top-0.5 bottom-0.5 rounded-full bg-brand shadow-[0_1px_3px_rgba(75,108,167,0.4)] transition-all duration-300 ease-in-out"
+        style={{ left: indicator.left, width: indicator.width }}
+      />
+      {options.map((opt) => {
+        const isActive = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            data-segment
+            onClick={() => onChange(opt.value)}
+            className={`relative z-10 flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-1 py-2 text-[11px] transition-colors duration-200 ${
+              isActive
+                ? 'font-semibold text-white'
+                : 'font-medium text-body/50 hover:text-body/80'
+            }`}
+          >
+            <opt.Icon size={13} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function LayerToggle({ map }: LayerToggleProps) {
   const visibleLayers = useStore((s) => s.visibleLayers)
@@ -56,17 +114,12 @@ export default function LayerToggle({ map }: LayerToggleProps) {
         }
       }
 
-      // For buildings/housenumbers: also toggle ALL base style layers that use the same source-layer
-      const sourceLayerMap: Record<string, string> = {
-        buildings: 'building',
-        housenumbers: 'housenumber',
-      }
-      const targetSourceLayer = sourceLayerMap[layerId]
-      if (targetSourceLayer) {
+      // For buildings: also toggle ALL base style layers that use the building source-layer
+      if (layerId === 'buildings') {
         const style = map.getStyle()
         if (style?.layers) {
           for (const layer of style.layers) {
-            if ('source-layer' in layer && layer['source-layer'] === targetSourceLayer) {
+            if ('source-layer' in layer && layer['source-layer'] === 'building') {
               try {
                 map.setLayoutProperty(layer.id, 'visibility', visibility)
               } catch { /* skip */ }
@@ -74,65 +127,77 @@ export default function LayerToggle({ map }: LayerToggleProps) {
           }
         }
       }
+
+      // For housenumbers: toggle text visibility on the house icons layer
+      if (layerId === 'housenumbers') {
+        try {
+          if (newVisible) {
+            // Show numbers + labels below house icons
+            map.setLayoutProperty('house-icons', 'text-field', [
+              'format',
+              ['get', 'num'], { 'font-scale': 1.0 },
+              ['case', ['!=', ['get', 'label'], ''],
+                ['concat', '\n', ['get', 'label']],
+                '',
+              ], { 'font-scale': 0.85 },
+            ])
+          } else {
+            // Hide all text
+            map.setLayoutProperty('house-icons', 'text-field', '')
+          }
+        } catch { /* layer may not exist yet */ }
+      }
     },
     [map, visibleLayers, toggleLayer],
   )
 
   return (
     <div className="space-y-3">
-      {/* Map mode — segmented control */}
-      <div className="flex min-w-0 rounded-lg bg-input-bg p-0.5">
-        {MAP_MODES.map((mode) => (
-          <button
-            key={mode.value}
-            onClick={() => setMapMode(mode.value)}
-            className={`relative z-10 flex flex-1 items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[11px] font-semibold transition-colors duration-200 ${
-              effectiveMode === mode.value
-                ? 'bg-brand text-white shadow-sm'
-                : 'text-body hover:text-heading'
-            }`}
-          >
-            <mode.Icon size={12} strokeWidth={2} className="shrink-0" />
-            {mode.label}
-          </button>
-        ))}
-      </div>
+      {/* Map mode — segmented control with sliding indicator */}
+      <SegmentedControl
+        options={MAP_MODES}
+        value={effectiveMode}
+        onChange={(v) => setMapMode(v as 'satellite' | 'street' | 'clean')}
+      />
 
       {/* Layers */}
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">Layers</div>
-      {layers.map((layer) => {
-        const LayerIcon = LAYER_ICONS[layer.id]
-        const isChecked = visibleLayers[layer.id] || false
-        return (
-          <label key={layer.id} className="group flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors duration-150 hover:bg-brand-hover">
-            <div className="relative flex items-center">
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => handleToggle(layer.id, layer.layerIds)}
-                className="peer h-4.5 w-4.5 cursor-pointer appearance-none rounded border-[1.5px] border-divider bg-surface transition-colors duration-150 checked:border-brand checked:bg-brand"
-              />
-              <svg className="pointer-events-none absolute left-1 top-1 hidden h-3 w-3 text-white peer-checked:block" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2 6 5 9 10 3" />
-              </svg>
-            </div>
-            <span
-              className={`flex h-6.5 w-6.5 items-center justify-center rounded-md transition-transform duration-200 ${isChecked ? 'scale-110' : 'scale-100'}`}
-              style={{ backgroundColor: layer.color + (isChecked ? '25' : '12') }}
+      <div className="space-y-1.5">
+        {layers.map((layer) => {
+          const LayerIcon = LAYER_ICONS[layer.id]
+          const isChecked = visibleLayers[layer.id] || false
+          return (
+            <button
+              key={layer.id}
+              onClick={() => handleToggle(layer.id, layer.layerIds)}
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 transition-all duration-150 ${
+                isChecked
+                  ? ''
+                  : 'opacity-40 hover:opacity-60'
+              }`}
             >
-              {LayerIcon ? (
-                <LayerIcon size={16} strokeWidth={2} style={{ color: layer.color }} />
-              ) : (
-                <span
-                  className="block h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: layer.color }}
-                />
-              )}
-            </span>
-            <span className={`text-[13px] font-medium transition-colors duration-150 ${isChecked ? 'text-heading' : 'text-body'}`}>{layer.label}</span>
-          </label>
-        )
-      })}
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-all duration-200"
+                style={{
+                  backgroundColor: isChecked ? layer.color : '#C8C6C1',
+                }}
+              >
+                {LayerIcon ? (
+                  <LayerIcon
+                    size={16}
+                    strokeWidth={2}
+                    className="text-white"
+                  />
+                ) : (
+                  <span className="block h-2.5 w-2.5 rounded-full bg-white" />
+                )}
+              </span>
+              <span className="flex-1 text-left text-[13px] font-semibold text-heading">
+                {layer.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -46,13 +46,13 @@ export default class ErrorBoundary extends Component<Props, State> {
           <div className="mt-5 flex gap-2">
             <button
               onClick={this.handleReset}
-              className="flex-1 rounded-lg border border-divider px-4 py-2.5 text-[13px] font-medium text-heading transition-colors hover:bg-input-bg"
+              className="flex-1 rounded-full border border-divider px-4 py-2.5 text-[13px] font-medium text-heading transition-colors hover:bg-input-bg"
             >
               Try Again
             </button>
             <button
               onClick={this.handleReload}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-dark"
             >
               <RefreshCw size={14} strokeWidth={2} />
               Reload

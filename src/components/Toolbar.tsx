@@ -158,11 +158,11 @@ export default function Toolbar() {
             style={{ '--range-pct': rangePct(houseIconSize, 0.3, 2) } as React.CSSProperties}
             className={rangeClass}
           />
-          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-input-bg px-3 py-2">
-            <p className="text-[12px] text-body">Drag houses to reposition</p>
+          <div className="mt-2 flex items-center gap-2">
+            <p className="flex-1 text-[11px] leading-tight text-body/60">Drag to reposition, click to select, Delete key to remove</p>
             <button
               onClick={clearAllHouses}
-              className="rounded-md px-2 py-0.5 text-[12px] font-semibold text-red-500 transition-colors duration-150 hover:bg-red-50"
+              className="shrink-0 rounded-full border border-red-200 bg-red-50/60 px-2.5 py-1 text-[11px] font-semibold text-red-500 transition-all duration-150 hover:border-red-300 hover:bg-red-50"
             >
               Clear All
             </button>

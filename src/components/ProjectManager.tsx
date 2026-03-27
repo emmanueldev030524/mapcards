@@ -74,28 +74,36 @@ export default function ProjectManager() {
 
   return (
     <div className="space-y-3">
-      <div className="flex min-w-0 gap-1.5">
-        <button
-          onClick={handleNew}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full border border-brand bg-transparent px-2 py-1.5 text-[12px] font-medium text-brand transition-colors duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
-        >
-          <Plus size={13} strokeWidth={2} className="shrink-0" />
-          <span className="truncate">New</span>
-        </button>
+      <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={handleExportJSON}
-          className="flex min-w-0 flex-[1.3] items-center justify-center gap-1 rounded-full bg-brand px-2 py-1.5 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3),0_2px_8px_rgba(75,108,167,0.15)] transition-colors duration-150 hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.97]"
         >
           <Save size={13} strokeWidth={2} className="shrink-0" />
-          <span className="truncate">Save</span>
+          Save Project
         </button>
-        <button
-          onClick={handleImportJSON}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full border border-brand bg-transparent px-2 py-1.5 text-[12px] font-medium text-brand transition-colors duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97]"
-        >
-          <Upload size={13} strokeWidth={2} className="shrink-0" />
-          <span className="truncate">Load</span>
-        </button>
+        <div className="group relative">
+          <button
+            onClick={handleImportJSON}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95]"
+          >
+            <Upload size={15} strokeWidth={2} />
+          </button>
+          <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-150 group-hover:opacity-100">
+            Load project
+          </span>
+        </div>
+        <div className="group relative">
+          <button
+            onClick={handleNew}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95]"
+          >
+            <Plus size={15} strokeWidth={2} />
+          </button>
+          <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-150 group-hover:opacity-100">
+            New project
+          </span>
+        </div>
       </div>
       <input
         ref={fileInputRef}

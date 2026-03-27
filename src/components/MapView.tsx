@@ -796,12 +796,20 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         return
       }
 
-      canvas.style.cursor = 'grabbing'
       const snap = useStore.getState().snapToGrid
       const spacing = useStore.getState().gridSpacingMeters
       const [lng, lat] = snap
         ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
         : [e.lngLat.lng, e.lngLat.lat]
+
+      // Block drag outside boundary
+      const bnd = useStore.getState().boundary
+      if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) {
+        canvas.style.cursor = 'not-allowed'
+        return
+      }
+
+      canvas.style.cursor = 'grabbing'
       moveHousePoint(dragId, lng, lat)
     }
 
@@ -870,6 +878,11 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       const [lng, lat] = snap
         ? snapCoord(lngLat.lng, lngLat.lat, spacing)
         : [lngLat.lng, lngLat.lat]
+
+      // Block drag outside boundary
+      const bnd = useStore.getState().boundary
+      if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) return
+
       moveHousePoint(dragId, lng, lat)
     }
 
