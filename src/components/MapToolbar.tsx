@@ -340,6 +340,18 @@ export default function MapToolbar({
                 <Undo2 size={isTablet ? 16 : 15} strokeWidth={2} />
               </button>
             )}
+            {isPlacing && canUndo && (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); undoAction() }}
+                aria-label="Undo last placement"
+                className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+                  isTablet ? 'h-9 w-9' : 'h-8 w-8'
+                }`}
+              >
+                <Undo2 size={isTablet ? 16 : 15} strokeWidth={2} />
+              </button>
+            )}
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onModeChange(null) }}

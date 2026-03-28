@@ -19,6 +19,7 @@ import TreeActionPopup from './components/TreeActionPopup'
 import RoadDeleteButton from './components/RoadDeleteButton'
 import SidebarSection from './components/SidebarSection'
 import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
+import Toast from './components/Toast'
 import AriaLiveRegion from './components/AriaLiveRegion'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
@@ -399,6 +400,7 @@ export default function App() {
       />
 
       <ConfirmDialog />
+      <Toast />
       <AriaLiveRegion />
     </div>
   )

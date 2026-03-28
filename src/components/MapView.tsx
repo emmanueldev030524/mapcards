@@ -8,6 +8,7 @@ import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
 import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon } from '../lib/mapPins'
+import { showToast } from './Toast'
 
 interface MapViewProps {
   center?: [number, number]
@@ -571,8 +572,29 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         const [lng, lat] = snap
           ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
           : [e.lngLat.lng, e.lngLat.lat]
+
+        // Prevent duplicate — skip if an existing house is within 10px on screen
+        const clickPx = map.project([lng, lat])
+        const tooClose = state.housePoints.some((h) => {
+          const hPx = map.project(h.geometry.coordinates as [number, number])
+          const dx = hPx.x - clickPx.x
+          const dy = hPx.y - clickPx.y
+          return dx * dx + dy * dy < 100 // 10px radius squared
+        })
+        if (tooClose) { showToast('House already exists here'); return }
+
         addHousePoint(lng, lat)
       } else if (mode === 'tree') {
+        // Prevent duplicate tree in same spot
+        const clickPx = map.project([e.lngLat.lng, e.lngLat.lat])
+        const tooClose = state.treePoints.some((t) => {
+          const tPx = map.project(t.geometry.coordinates as [number, number])
+          const dx = tPx.x - clickPx.x
+          const dy = tPx.y - clickPx.y
+          return dx * dx + dy * dy < 100
+        })
+        if (tooClose) { showToast('Tree already exists here'); return }
+
         state.addTreePoint(e.lngLat.lng, e.lngLat.lat)
       }
     }

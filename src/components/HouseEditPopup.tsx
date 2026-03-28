@@ -1,9 +1,10 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
 import { X, Plus } from 'lucide-react'
 import { showConfirm } from './ConfirmDialog'
+import { useIsTablet } from '../hooks/useMediaQuery'
 
 /**
  * Renders the SVG icon from a PinCategory at the given size.
@@ -46,6 +47,21 @@ export default function HouseEditPopup() {
   const [swipeY, setSwipeY] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const touchStartY = useRef(0)
+  const isTablet = useIsTablet()
+  const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window
+
+  // Track keyboard visibility via visualViewport API (iOS Safari)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv || !isTouch) return
+    const onResize = () => {
+      // If visual viewport is significantly shorter than layout viewport, keyboard is open
+      setKeyboardOpen(window.innerHeight - vv.height > 100)
+    }
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [isTouch])
 
   const house = selectedId ? housePoints.find((p) => p.id === selectedId) : null
   const houseIndex = house ? housePoints.indexOf(house) + 1 : 0
@@ -72,7 +88,9 @@ export default function HouseEditPopup() {
   const placeCats = PIN_CATEGORIES.filter((c) => c.group === 'place')
 
   return (
-    <div className="absolute bottom-4 left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0">
+    <div className={`absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200 ${
+      keyboardOpen && isTablet ? 'top-4' : 'bottom-4'
+    }`}>
       <div
         className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-sm sm:w-80"
         onTouchStart={(e) => {
@@ -140,7 +158,7 @@ export default function HouseEditPopup() {
               onChange={(e) => updateLabel(house.id, e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
               placeholder="e.g. Garcia Family"
-              autoFocus
+              autoFocus={!isTouch}
               className="w-full rounded-lg border border-divider bg-surface px-2.5 py-1.5 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
             />
           </div>
