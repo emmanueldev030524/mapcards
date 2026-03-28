@@ -22,18 +22,22 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
   const boundary = useStore((s) => s.boundary)
   const houseCount = useStore((s) => s.housePoints.length)
   const activeDrawMode = useStore((s) => s.activeDrawMode)
+  const selectedHouseId = useStore((s) => s.selectedHouseId)
+  const selectedTreeId = useStore((s) => s.selectedTreeId)
+  const selectedRoadId = useStore((s) => s.selectedRoadId)
 
   const hasContent = boundary !== null || houseCount > 0
   const hasActiveMode = activeDrawMode !== null
+  const hasSelection = selectedHouseId !== null || selectedTreeId !== null || selectedRoadId !== null
 
-  // Auto-open when boundary exists and no tool active (unless dismissed)
+  // Auto-open when boundary exists and no tool/selection active (unless dismissed)
   useEffect(() => {
-    if (hasActiveMode) {
+    if (hasActiveMode || hasSelection) {
       setOpen(false)
     } else if (hasContent && !dismissed) {
       setOpen(true)
     }
-  }, [hasContent, hasActiveMode, dismissed])
+  }, [hasContent, hasActiveMode, hasSelection, dismissed])
 
   // When exiting any tool mode, reset dismissed and reopen (only if user hasn't interacted)
   useEffect(() => {
@@ -67,11 +71,23 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // When dismissed, reopen only on clicks INSIDE the boundary
+  // When dismissed, reopen only on clicks on EMPTY space inside the boundary
   useEffect(() => {
     if (!dismissed || !boundary || !map || hasActiveMode) return
 
     const handler = (e: maplibregl.MapMouseEvent) => {
+      // Skip if click hit a house, tree, or road — let element selection handle it
+      const hitLayers = ['house-icons', 'tree-icons', 'custom-roads-fill'].filter((l) => map.getLayer(l))
+      if (hitLayers.length > 0) {
+        const tolerance = 12
+        const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+          [e.point.x - tolerance, e.point.y - tolerance],
+          [e.point.x + tolerance, e.point.y + tolerance],
+        ]
+        const hits = map.queryRenderedFeatures(bbox, { layers: hitLayers })
+        if (hits.length > 0) return
+      }
+
       const pt = point([e.lngLat.lng, e.lngLat.lat])
       if (booleanPointInPolygon(pt, boundary)) {
         setDismissed(false)
