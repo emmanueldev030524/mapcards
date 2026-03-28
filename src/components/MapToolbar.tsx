@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
+import { useIsTablet } from '../hooks/useMediaQuery'
 import {
   Hexagon,
   Route,
@@ -54,7 +55,6 @@ function Tip({ label, shortcut }: { label: string; shortcut?: string }) {
 
 /* Shared button base — animation handled by .btn-press in CSS */
 const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
-const btnSize = 'h-9 w-9'
 const btnInteractive = 'hover:bg-black/[0.06]'
 const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1'
 
@@ -70,6 +70,9 @@ export default function MapToolbar({
 }: MapToolbarProps) {
   const isDrawing = activeMode === 'boundary' || activeMode === 'road'
   const isPlacing = activeMode === 'house' || activeMode === 'tree'
+  const isTablet = useIsTablet()
+  const btnSize = isTablet ? 'h-11 w-11' : 'h-9 w-9'
+  const iconSize = isTablet ? 20 : 17
   const canUndo = useStore((s) => s.canUndo)
   const canRedo = useStore((s) => s.canRedo)
   const undoAction = useStore((s) => s.undoAction)
@@ -144,7 +147,7 @@ export default function MapToolbar({
                 : 'cursor-not-allowed text-slate-300'
             }`}
           >
-            <Undo2 size={17} strokeWidth={2} />
+            <Undo2 size={iconSize} strokeWidth={2} />
             <Tip label="Undo" shortcut={`${MOD}Z`} />
           </button>
           <button
@@ -160,7 +163,7 @@ export default function MapToolbar({
                 : 'cursor-not-allowed text-slate-300'
             }`}
           >
-            <Redo2 size={17} strokeWidth={2} />
+            <Redo2 size={iconSize} strokeWidth={2} />
             <Tip label="Redo" shortcut={`${MOD}⇧Z`} />
           </button>
         </div>
@@ -178,7 +181,7 @@ export default function MapToolbar({
             }`}
           >
             <span className="flex items-center gap-1">
-              <Check size={14} strokeWidth={2.5} />
+              <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
             <Tip label="Finish" shortcut="Enter" />
@@ -191,7 +194,7 @@ export default function MapToolbar({
             className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600`}
           >
             <span className="flex items-center gap-1">
-              <Check size={14} strokeWidth={2.5} />
+              <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
             <Tip label="Exit mode" shortcut="Esc" />
@@ -222,7 +225,7 @@ export default function MapToolbar({
                       : `text-slate-700 ${btnInteractive}`
                 }`}
               >
-                <Icon size={17} strokeWidth={isActive ? 2.2 : 2} />
+                <Icon size={iconSize} strokeWidth={isActive ? 2.2 : 2} />
                 <Tip label={label} shortcut={shortcut} />
               </button>
             )
@@ -238,7 +241,7 @@ export default function MapToolbar({
               aria-label="Clear boundary"
               className={`${btnBase} ${btnSize} ${btnFocusRing} shrink-0 text-slate-400 hover:text-red-500`}
             >
-              <Trash2 size={17} strokeWidth={2} />
+              <Trash2 size={iconSize} strokeWidth={2} />
               <Tip label="Clear" shortcut="Del" />
             </button>
           </>
