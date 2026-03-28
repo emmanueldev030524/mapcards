@@ -376,7 +376,7 @@ export default function App() {
           getVertexCount={getVertexCount}
           onLocationSelect={handleLocationSelect}
         />
-        <HouseEditPopup />
+        <HouseEditPopup map={mapInstance} />
         <TreeActionPopup />
         <RoadDeleteButton />
         <MapModeThumbnail

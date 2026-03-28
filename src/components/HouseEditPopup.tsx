@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
+import type maplibregl from 'maplibre-gl'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
@@ -29,7 +30,11 @@ const PRESET_COLORS = [
   '#9b59b6', '#1abc9c', '#34495e', '#95a5a6', '#d35400',
 ]
 
-export default function HouseEditPopup() {
+interface HouseEditPopupProps {
+  map: maplibregl.Map | null
+}
+
+export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const selectedId = useStore((s) => s.selectedHouseId)
   const housePoints = useStore((s) => s.housePoints)
   const updateLabel = useStore((s) => s.updateHouseLabel)
@@ -82,14 +87,35 @@ export default function HouseEditPopup() {
     setAdding(false)
   }
 
+  // Determine if popup should be top or bottom based on house screen position
+  const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('bottom')
+  useEffect(() => {
+    if (!house || !map) { setPopupPosition('bottom'); return }
+
+    const updatePosition = () => {
+      const coords = house.geometry.coordinates as [number, number]
+      const screenPt = map.project(coords)
+      const canvas = map.getCanvas()
+      // If house is in the bottom 45% of the screen, show popup at top
+      setPopupPosition(screenPt.y > canvas.height * 0.55 ? 'top' : 'bottom')
+    }
+
+    updatePosition()
+    // Re-check when map moves (pan/zoom could shift the house)
+    map.on('moveend', updatePosition)
+    return () => { map.off('moveend', updatePosition) }
+  }, [house, map])
+
   if (!house) return null
 
   const tags = house.properties.tags || []
   const placeCats = PIN_CATEGORIES.filter((c) => c.group === 'place')
 
+  const showAtTop = keyboardOpen && isTablet ? true : popupPosition === 'top'
+
   return (
     <div className={`absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200 ${
-      keyboardOpen && isTablet ? 'top-4' : 'bottom-4'
+      showAtTop ? 'top-4' : 'bottom-4'
     }`}>
       <div
         className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-sm sm:w-80"
