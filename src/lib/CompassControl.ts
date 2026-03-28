@@ -66,6 +66,7 @@ export class CompassControl implements maplibregl.IControl {
 
   onAdd(map: maplibregl.Map): HTMLElement {
     this.map = map
+    const isTablet = window.matchMedia('(max-width: 1023px)').matches
 
     // --- Wrapper ---
     this.wrapper = document.createElement('div')
@@ -99,7 +100,7 @@ export class CompassControl implements maplibregl.IControl {
       pointerEvents: 'none',
       transition: 'transform 0.15s ease-out',
     })
-    this.needle.appendChild(createCompassSvg(24))
+    this.needle.appendChild(createCompassSvg(isTablet ? 28 : 24))
     this.compassBtn.appendChild(this.needle)
 
     this.compassBtn.addEventListener('click', (e) => {
@@ -157,13 +158,13 @@ export class CompassControl implements maplibregl.IControl {
       background: 'none',
       border: 'none',
       color: '#9ca3af',
-      fontSize: '14px',
+      fontSize: isTablet ? '16px' : '14px',
       cursor: 'pointer',
       lineHeight: '1',
-      padding: '4px',
+      padding: isTablet ? '6px' : '4px',
       borderRadius: '50%',
-      width: '24px',
-      height: '24px',
+      width: isTablet ? '32px' : '24px',
+      height: isTablet ? '32px' : '24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -186,7 +187,7 @@ export class CompassControl implements maplibregl.IControl {
     this.panel.appendChild(header)
 
     // --- Tilt slider (hidden) ---
-    const tiltSlider = this.createSliderRow('Tilt', '\u00b0')
+    const tiltSlider = this.createSliderRow('Tilt', '\u00b0', isTablet)
     this.tiltTrack = tiltSlider.track
     this.tiltFill = tiltSlider.fill
     this.tiltThumb = tiltSlider.thumb
@@ -195,7 +196,7 @@ export class CompassControl implements maplibregl.IControl {
     this.panel.appendChild(this.tiltRow)
 
     // --- Heading slider ---
-    const headingSlider = this.createSliderRow('Heading', '\u00b0')
+    const headingSlider = this.createSliderRow('Heading', '\u00b0', isTablet)
     this.headingTrack = headingSlider.track
     this.headingFill = headingSlider.fill
     this.headingThumb = headingSlider.thumb
@@ -206,14 +207,14 @@ export class CompassControl implements maplibregl.IControl {
     const resetBtn = document.createElement('button')
     Object.assign(resetBtn.style, {
       color: BRAND,
-      fontSize: '11px',
+      fontSize: isTablet ? '13px' : '11px',
       fontWeight: '600',
       fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
       background: 'rgba(75,108,167,0.06)',
       border: 'none',
       cursor: 'pointer',
       alignSelf: 'flex-end',
-      padding: '5px 12px',
+      padding: isTablet ? '8px 16px' : '5px 12px',
       borderRadius: '9999px',
       transition: 'background 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     })
@@ -281,7 +282,7 @@ export class CompassControl implements maplibregl.IControl {
 
   // --- Slider row builder (light theme) ---
 
-  private createSliderRow(label: string, unit: string) {
+  private createSliderRow(label: string, unit: string, isTablet = false) {
     const row = document.createElement('div')
     Object.assign(row.style, {
       display: 'flex',
@@ -305,7 +306,7 @@ export class CompassControl implements maplibregl.IControl {
     const track = document.createElement('div')
     Object.assign(track.style, {
       flex: '1',
-      height: '28px',
+      height: isTablet ? '36px' : '28px',
       display: 'flex',
       alignItems: 'center',
       cursor: 'pointer',
@@ -351,8 +352,8 @@ export class CompassControl implements maplibregl.IControl {
     // Thumb (matches existing range inputs)
     const thumb = document.createElement('div')
     Object.assign(thumb.style, {
-      width: '14px',
-      height: '14px',
+      width: isTablet ? '18px' : '14px',
+      height: isTablet ? '18px' : '14px',
       borderRadius: '50%',
       background: '#ffffff',
       border: `2.5px solid ${BRAND}`,
