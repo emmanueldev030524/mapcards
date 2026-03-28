@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import { useIsTablet } from '../hooks/useMediaQuery'
+import * as turf from '@turf/turf'
+import type maplibregl from 'maplibre-gl'
 import Toolbar from './Toolbar'
 import { useStore } from '../store'
 
-export default function FloatingSettings() {
+interface FloatingSettingsProps {
+  map: maplibregl.Map | null
+}
+
+export default function FloatingSettings({ map }: FloatingSettingsProps) {
   const [open, setOpen] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [settingsInteracted, setSettingsInteracted] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const isTablet = useIsTablet()
   const prevModeRef = useRef<string | null>(null)
@@ -27,21 +34,22 @@ export default function FloatingSettings() {
     }
   }, [hasContent, hasActiveMode, dismissed])
 
-  // When exiting any tool mode, reset dismissed and reopen
+  // When exiting any tool mode, reset dismissed and reopen (only if user hasn't interacted)
   useEffect(() => {
     const hadMode = prevModeRef.current !== null
-    if (hadMode && !hasActiveMode && hasContent) {
+    if (hadMode && !hasActiveMode && hasContent && !settingsInteracted) {
       setDismissed(false)
       setOpen(true)
     }
     prevModeRef.current = activeDrawMode
-  }, [activeDrawMode, hasContent, hasActiveMode])
+  }, [activeDrawMode, hasContent, hasActiveMode, settingsInteracted])
 
   // Reset when boundary removed
   useEffect(() => {
     if (!boundary) {
       setDismissed(false)
       setOpen(false)
+      setSettingsInteracted(false)
     }
   }, [boundary])
 
@@ -58,25 +66,21 @@ export default function FloatingSettings() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // When dismissed, listen for clicks on the map canvas to reopen
+  // When dismissed, reopen only on clicks INSIDE the boundary
   useEffect(() => {
-    if (!dismissed || !hasContent || hasActiveMode) return
+    if (!dismissed || !boundary || !map || hasActiveMode) return
 
-    const canvas = document.querySelector('.maplibregl-canvas') as HTMLElement
-    if (!canvas) return
-
-    const handler = () => {
-      setDismissed(false)
-      setOpen(true)
+    const handler = (e: maplibregl.MapMouseEvent) => {
+      const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
+      if (turf.booleanPointInPolygon(pt, boundary)) {
+        setDismissed(false)
+        setOpen(true)
+      }
     }
 
-    canvas.addEventListener('click', handler)
-    canvas.addEventListener('touchend', handler)
-    return () => {
-      canvas.removeEventListener('click', handler)
-      canvas.removeEventListener('touchend', handler)
-    }
-  }, [dismissed, hasContent, hasActiveMode])
+    map.on('click', handler)
+    return () => { map.off('click', handler) }
+  }, [dismissed, boundary, map, hasActiveMode])
 
   if (!open || !hasContent) return null
 
@@ -100,7 +104,9 @@ export default function FloatingSettings() {
 
         {/* Content */}
         <div className="px-4 pb-3">
-          <Toolbar />
+          <div onPointerDown={() => setSettingsInteracted(true)}>
+            <Toolbar />
+          </div>
         </div>
       </div>
     </div>

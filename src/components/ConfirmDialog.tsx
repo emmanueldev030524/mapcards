@@ -126,7 +126,7 @@ export default function ConfirmDialog() {
       onClick={() => handleClose(false)}
     >
       <div
-        className="mx-4 w-full max-w-[22rem] animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.16),0_8px_16px_rgba(0,0,0,0.08)]"
+        className="mx-4 w-full max-w-[22rem] animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.18),0_8px_16px_rgba(0,0,0,0.1)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Icon */}

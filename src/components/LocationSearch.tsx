@@ -133,18 +133,19 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         </button>
       )}
       {open && results.length > 0 && (
-        <ul className={`absolute z-50 mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-divider/60 bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl ${
-          compact ? 'left-0 w-72' : 'w-full'
+        <ul className={`absolute z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-divider/50 bg-white/98 py-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.14),0_4px_10px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
+          compact ? 'left-0 w-80' : 'w-full'
         }`}>
-          {results.map((r) => (
+          {results.map((r, i) => (
             <li key={r.place_id}>
+              {i > 0 && <div className="mx-3 border-t border-divider/30" />}
               <button
                 onClick={() => handleSelect(r)}
-                className="w-full border-b border-divider/30 px-3 py-2.5 text-left text-[12px] text-body transition-colors duration-100 last:border-b-0 hover:bg-brand-hover"
+                className="w-full px-4 py-3 text-left transition-colors duration-100 hover:bg-brand-hover active:bg-brand-hover"
               >
-                <span className="font-medium text-heading">{r.display_name.split(',')[0]}</span>
-                <span className="mt-0.5 block text-[10px] text-body/70">
-                  {r.display_name.split(',').slice(1).join(',').trim()}
+                <span className="block text-[13px] font-semibold text-heading">{r.display_name.split(',')[0]}</span>
+                <span className="mt-0.5 block text-[11px] leading-relaxed text-body/60">
+                  {r.display_name.split(',').slice(1, 4).join(',').trim()}
                 </span>
               </button>
             </li>

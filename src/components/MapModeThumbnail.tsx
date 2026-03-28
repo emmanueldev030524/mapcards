@@ -129,7 +129,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
       <button
         onClick={() => setPanelOpen((v) => !v)}
         title="Basemap settings"
-        className={`flex flex-col items-center justify-end overflow-hidden rounded-xl border-2 border-white/80 bg-linear-to-b shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] active:scale-95 ${current.gradient} ${
+        className={`touch-active flex flex-col items-center justify-end overflow-hidden rounded-xl border-2 border-white/80 bg-linear-to-b shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] active:scale-95 ${current.gradient} ${
           isTablet ? 'h-20 w-20' : 'h-16 w-16'
         } ${panelOpen ? 'ring-2 ring-brand/40' : ''}`}
       >
@@ -149,7 +149,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
 
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
-        <div className={`absolute left-0 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
+        <div className={`absolute left-0 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-xl ${
           isTablet ? 'bottom-24 w-72' : 'bottom-20 w-64'
         }`}>
           {/* Header */}
@@ -177,7 +177,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
                   <button
                     key={mode.value}
                     onClick={() => onModeChange(mode.value)}
-                    className={`flex flex-col items-center gap-2 transition-all duration-150 ${
+                    className={`touch-active flex flex-col items-center gap-2 transition-all duration-150 ${
                       active ? '' : 'opacity-50 hover:opacity-80'
                     }`}
                   >
@@ -235,7 +235,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
           <div className="px-5 pt-1 pb-4">
             <button
               onClick={() => onModeChange('clean')}
-              className="flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
+              className="touch-active flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
             >
               <FileText
                 size={isTablet ? 18 : 17}

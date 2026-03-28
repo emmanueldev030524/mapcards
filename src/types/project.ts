@@ -1,6 +1,6 @@
 import type { Feature, Polygon, LineString, Point, Geometry } from 'geojson'
 
-export type DrawMode = 'boundary' | 'road' | 'house' | 'tree' | 'bulkFill' | 'select' | null
+export type DrawMode = 'boundary' | 'road' | 'house' | 'tree' | 'bulkFill' | 'select' | 'startMarker' | null
 
 export type HouseTag = string
 
@@ -27,6 +27,7 @@ export interface ProjectData {
   boundary: Feature<Polygon> | null
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
+  startMarker?: Feature<Point> | null
 }
 
 export const DEFAULT_PROJECT: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'> = {

@@ -19,6 +19,7 @@ import TreeActionPopup from './components/TreeActionPopup'
 import RoadDeleteButton from './components/RoadDeleteButton'
 import SidebarSection from './components/SidebarSection'
 import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
+import AriaLiveRegion from './components/AriaLiveRegion'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
 import { useAutoSave, useLoadOnStart } from './hooks/useProject'
@@ -26,6 +27,8 @@ import { useAutoSave, useLoadOnStart } from './hooks/useProject'
 export default function App() {
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   const searchMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const [showSaved, setShowSaved] = useState(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   useAutoSave()
   useLoadOnStart()
@@ -39,6 +42,18 @@ export default function App() {
   const housePoints = useStore((s) => s.housePoints)
   const mapMode = useStore((s) => s.mapMode)
   const setMapMode = useStore((s) => s.setMapMode)
+
+  // Auto-save indicator
+  useEffect(() => {
+    const unsub = useStore.subscribe(() => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        setShowSaved(true)
+        saveTimerRef.current = setTimeout(() => setShowSaved(false), 2500)
+      }, 600) // slightly after the 500ms debounce
+    })
+    return () => { unsub(); if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [])
 
   const handleBoundaryComplete = useCallback(
     (feature: Feature<Polygon>) => {
@@ -93,7 +108,12 @@ export default function App() {
         return
       }
       setActiveDrawMode(mode)
-      setMode(mode)
+      // Only call useDraw's setMode for line-drawing modes it handles
+      if (mode === 'boundary' || mode === 'road' || mode === null) {
+        setMode(mode)
+      } else {
+        setMode(null) // clear any active drawing state
+      }
     },
     [setMode, setActiveDrawMode],
   )
@@ -186,7 +206,7 @@ export default function App() {
         className={[
           'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg',
           isTablet
-            ? `fixed inset-y-0 left-0 z-40 w-[280px] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+            ? `fixed inset-y-0 left-0 z-40 w-[280px] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
             : `transition-[width] duration-300 ease-out ${
@@ -232,15 +252,51 @@ export default function App() {
             </SidebarSection>
           </div>
 
-          {/* Empty state guidance */}
-          {!boundary && housePoints.length === 0 && customRoads.length === 0 && (
-            <div className="mx-5 mt-3 rounded-xl bg-brand/5 px-4 py-5 text-center">
-              <div className="mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-brand/10">
-                <BoundaryPolygonIcon size={18} strokeWidth={2} className="text-brand" />
+          {/* Workflow progress dots */}
+          <div className="flex items-center justify-center gap-2 px-5 pt-3">
+            {[
+              { label: 'Boundary', done: boundary !== null },
+              { label: 'Roads', done: customRoads.length > 0 },
+              { label: 'Houses', done: housePoints.length > 0 },
+              { label: 'Export', done: false },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`h-2 w-2 rounded-full transition-all duration-300 ${
+                    step.done ? 'bg-brand scale-100' : 'bg-slate-200 scale-90'
+                  }`} style={step.done ? { animation: 'dot-fill 300ms ease-out' } : undefined} />
+                  <span className={`text-[9px] font-medium ${step.done ? 'text-brand' : 'text-body/40'}`}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < 3 && <div className={`mb-3 h-px w-4 ${step.done ? 'bg-brand/30' : 'bg-slate-200'}`} />}
               </div>
-              <p className="text-[13px] font-semibold text-heading">Draw a territory</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-body/70">
-                Use the toolbar above the map to trace your boundary, then place houses and roads.
+            ))}
+          </div>
+
+          {/* Contextual guidance */}
+          {!boundary && (
+            <div className="mx-5 mt-3 rounded-xl bg-brand/5 px-4 py-4 text-center">
+              <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
+                <BoundaryPolygonIcon size={16} strokeWidth={2} className="text-brand" />
+              </div>
+              <p className="text-[12px] font-semibold text-heading">Draw a boundary</p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-body/60">
+                Define your territory on the map to get started.
+              </p>
+            </div>
+          )}
+          {boundary && customRoads.length === 0 && (
+            <div className="mx-5 mt-2 rounded-lg bg-slate-50 px-3 py-2.5 text-center">
+              <p className="text-[11px] text-body/60">
+                <span className="font-medium text-body/80">Next:</span> Add roads to help navigate
+              </p>
+            </div>
+          )}
+          {boundary && customRoads.length > 0 && housePoints.length === 0 && (
+            <div className="mx-5 mt-2 rounded-lg bg-slate-50 px-3 py-2.5 text-center">
+              <p className="text-[11px] text-body/60">
+                <span className="font-medium text-body/80">Next:</span> Place houses in your territory
               </p>
             </div>
           )}
@@ -263,10 +319,21 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Auto-save indicator */}
+        <div className="shrink-0 border-t border-divider/30 px-5 py-2">
+          <p className={`text-[10px] font-medium text-body/40 transition-opacity duration-150 ${showSaved ? 'save-indicator' : 'opacity-0'}`}>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5 align-middle" />
+            Saved
+          </p>
+        </div>
       </aside>
 
       {/* Map */}
-      <main className="relative min-w-0 flex-1">
+      <main className={`relative min-w-0 flex-1 ${
+        activeDrawMode === 'boundary' ? 'drawing-glow-boundary' :
+        activeDrawMode === 'road' ? 'drawing-glow-road' : ''
+      }`}>
         <MapView onMapReady={handleMapReady} />
 
         {/* Sidebar collapse/expand tab — Google Earth style edge handle */}
@@ -290,7 +357,7 @@ export default function App() {
         </button>
         )}
 
-        <FloatingSettings />
+        <FloatingSettings map={mapInstance} />
 
         <MapToolbar
           activeMode={activeDrawMode}
@@ -340,6 +407,7 @@ export default function App() {
       />
 
       <ConfirmDialog />
+      <AriaLiveRegion />
     </div>
   )
 }

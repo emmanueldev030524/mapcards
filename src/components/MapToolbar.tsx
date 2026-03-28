@@ -179,7 +179,7 @@ export default function MapToolbar({
         {/* ── Search ── */}
         {onLocationSelect && (
           <>
-            <div className={`shrink-0 ${isTablet ? 'w-40' : 'w-48'}`}>
+            <div className={`shrink-0 ${isTablet ? 'w-48' : 'w-56'}`}>
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
@@ -238,6 +238,13 @@ export default function MapToolbar({
             <span className="flex items-center gap-1">
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
+              {vertexCount > 0 && (
+                <span className={`ml-0.5 rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
+                  canFinish ? 'bg-white/25' : 'bg-black/8'
+                }`}>
+                  {vertexCount}
+                </span>
+              )}
             </span>
             {!activeMode && <Tip label="Finish" shortcut="Enter" />}
           </button>
@@ -349,6 +356,20 @@ export default function MapToolbar({
             <p className="text-[13px] leading-relaxed text-heading/80">{hintMessage}</p>
           </div>
         </div>
+      </div>
+    )}
+
+    {/* Floating undo pill — tablet only, during drawing */}
+    {isTablet && isDrawing && vertexCount > 0 && (
+      <div className="absolute right-3 z-10" style={{ top: isTablet ? 'calc(5.5rem + 8.5rem)' : 'calc(3.5rem + 7rem)' }}>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
+          className="flex items-center gap-1.5 rounded-full border border-divider/40 bg-white/95 px-3.5 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-xl transition-all duration-150 active:scale-90 active:bg-slate-50"
+        >
+          <Undo2 size={15} strokeWidth={2} />
+          Undo point
+        </button>
       </div>
     )}
     </>

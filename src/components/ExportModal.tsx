@@ -20,6 +20,8 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [pngBlob, setPngBlob] = useState<Blob | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [progressStage, setProgressStage] = useState('')
+  const [previewNaturalWidth, setPreviewNaturalWidth] = useState<number | null>(null)
 
   const boundary = useStore((s) => s.boundary)
   const territoryName = useStore((s) => s.territoryName)
@@ -55,14 +57,17 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
 
     let cancelled = false
     setState('generating')
+    setProgressStage('Capturing map...')
     setPreviewUrl(null)
     setPngBlob(null)
     setErrorMsg('')
+    setPreviewNaturalWidth(null)
 
     exportToPng(exportOptionsRef.current())
       .then((blob) => {
         if (cancelled) return
         setPngBlob(blob)
+        setProgressStage('Building preview...')
         const url = URL.createObjectURL(blob)
         setPreviewUrl(url)
         setState('ready')
@@ -78,12 +83,30 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, boundaryId])
 
+  // Reset progressStage when modal opens fresh
+  useEffect(() => {
+    if (open) {
+      setProgressStage('')
+      setPreviewNaturalWidth(null)
+    }
+  }, [open])
+
+  // Reset image dimensions when preview URL changes
+  useEffect(() => {
+    setPreviewNaturalWidth(null)
+  }, [previewUrl])
+
   // Cleanup preview URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  const handlePreviewLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    setPreviewNaturalWidth(img.naturalWidth)
+  }, [])
 
   const handleDownloadPng = useCallback(() => {
     if (!pngBlob) return
@@ -94,8 +117,11 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const handleDownloadPdf = useCallback(async () => {
     if (!boundary) return
     setState('generating')
+    setProgressStage('Capturing map...')
     try {
+      setProgressStage('Building legend...')
       const blob = await exportToPdf(getExportOptions())
+      setProgressStage('Generating PDF...')
       const filename = `territory-${territoryNumber || territoryName || 'map'}.pdf`
       saveAs(blob, filename)
       setState('ready')
@@ -111,10 +137,24 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     setPreviewUrl(null)
     setPngBlob(null)
     setState('preview')
+    setProgressStage('')
+    setPreviewNaturalWidth(null)
     onClose()
   }
 
   if (!open) return null
+
+  const dpi = previewNaturalWidth ? Math.round(previewNaturalWidth / cardWidthInches) : null
+
+  const dpiBadge = dpi !== null ? (
+    dpi >= 250 ? (
+      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Print Ready</span>
+    ) : dpi >= 150 ? (
+      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{dpi} DPI</span>
+    ) : (
+      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">Low Resolution</span>
+    )
+  ) : null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -142,7 +182,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           {state === 'generating' && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={32} strokeWidth={2} className="animate-spin text-brand" />
-              <p className="mt-4 text-[14px] font-medium text-heading">Generating your printable file...</p>
+              <p className="mt-4 text-[14px] font-medium text-heading">{progressStage || 'Generating your printable file...'}</p>
               <p className="mt-1 text-[12px] text-body">This may take a few seconds</p>
             </div>
           )}
@@ -164,12 +204,18 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           )}
 
           {state === 'ready' && previewUrl && (
-            <div className="overflow-hidden rounded-xl border border-divider bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+            <div className="overflow-hidden rounded-xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
               <img
                 src={previewUrl}
                 alt="Territory card preview"
                 className="w-full"
+                style={{ aspectRatio: `${cardWidthInches} / ${cardHeightInches}` }}
+                onLoad={handlePreviewLoad}
               />
+              <div className="flex items-center justify-center gap-2 pb-1 pt-2">
+                <span className="text-[11px] text-body/60">{cardWidthInches} &times; {cardHeightInches} in</span>
+                {dpiBadge}
+              </div>
             </div>
           )}
         </div>

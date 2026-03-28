@@ -1,8 +1,27 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
+import type { PinCategory } from '../lib/mapPins'
 import { X, Plus } from 'lucide-react'
 import { showConfirm } from './ConfirmDialog'
+
+/**
+ * Renders the SVG icon from a PinCategory at the given size.
+ * Safe: iconPaths are hardcoded string literals from mapPins.ts, not user input.
+ */
+function CategoryIcon({ cat, size = 16, className }: { cat: PinCategory; size?: number; className?: string }) {
+  // eslint-disable-next-line react/no-danger -- iconPaths are static SVG fragments from our own codebase
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      className={className}
+      dangerouslySetInnerHTML={{ __html: cat.iconPaths }}
+    />
+  )
+}
 
 const PRESET_COLORS = [
   '#f39c12', '#e74c3c', '#e67e22', '#2ecc71', '#3498db',
@@ -23,6 +42,10 @@ export default function HouseEditPopup() {
   const [adding, setAdding] = useState(false)
   const [newLabel, setNewLabel] = useState('')
   const [newColor, setNewColor] = useState(PRESET_COLORS[0])
+
+  const [swipeY, setSwipeY] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const touchStartY = useRef(0)
 
   const house = selectedId ? housePoints.find((p) => p.id === selectedId) : null
   const houseIndex = house ? housePoints.indexOf(house) + 1 : 0
@@ -50,7 +73,34 @@ export default function HouseEditPopup() {
 
   return (
     <div className="absolute bottom-4 left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0">
-      <div className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_12px_28px_rgba(0,0,0,0.12),0_4px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm sm:w-80">
+      <div
+        className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-sm sm:w-80"
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY
+          setSwiping(true)
+        }}
+        onTouchMove={(e) => {
+          const dy = e.touches[0].clientY - touchStartY.current
+          if (dy > 0) setSwipeY(dy) // only track downward swipe
+        }}
+        onTouchEnd={() => {
+          if (swipeY > 60) {
+            setSelected(null) // dismiss
+          }
+          setSwipeY(0)
+          setSwiping(false)
+        }}
+        style={{
+          transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
+          opacity: swipeY > 0 ? Math.max(0.3, 1 - swipeY / 150) : undefined,
+          transition: swiping ? 'none' : 'transform 250ms ease, opacity 250ms ease',
+        }}
+      >
+        {/* Drag handle — swipe down to dismiss */}
+        <div className="flex justify-center pt-2 pb-0.5">
+          <div className="h-1 w-8 rounded-full bg-slate-200" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-divider px-3 py-2">
           <div className="flex items-center gap-2">
@@ -95,14 +145,16 @@ export default function HouseEditPopup() {
             />
           </div>
 
-          {/* Status — grid layout like Place Type, user-manageable */}
+          {/* Status — pill chips, user-manageable */}
           <div>
             <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
               Status
             </label>
-            <div className="grid grid-cols-5 gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {customStatuses.map((status) => {
                 const active = tags.includes(status.id)
+                // Find matching pin category for icon (if exists)
+                const pinCat = PIN_CATEGORIES.find((c) => c.id === status.id)
                 return (
                   <button
                     key={status.id}
@@ -117,23 +169,25 @@ export default function HouseEditPopup() {
                       if (ok) removeCustomStatus(status.id)
                     }}
                     title={`${status.label} (right-click to remove)`}
-                    className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 ${
                       active
-                        ? 'text-white shadow-sm'
+                        ? 'text-white shadow-sm ring-1 ring-inset ring-white/20'
                         : 'bg-input-bg text-body hover:bg-divider'
                     }`}
                     style={active ? { backgroundColor: status.color } : undefined}
                   >
-                    <span
-                      className="flex h-5 w-5 items-center justify-center rounded-full"
-                      style={{ backgroundColor: active ? 'rgba(255,255,255,0.25)' : status.color + '20' }}
-                    >
+                    {pinCat ? (
+                      <CategoryIcon cat={pinCat} size={12} className={active ? 'opacity-90' : 'opacity-60'} />
+                    ) : (
                       <span
-                        className="block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: active ? '#fff' : status.color }}
+                        className="block h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor: active ? 'rgba(255,255,255,0.35)' : status.color,
+                          boxShadow: active ? 'none' : `0 0 0 1px ${status.color}30 inset`,
+                        }}
                       />
-                    </span>
-                    <span className="text-[9px] leading-tight">{status.label}</span>
+                    )}
+                    {status.label}
                   </button>
                 )
               })}
@@ -142,12 +196,10 @@ export default function HouseEditPopup() {
               {!adding && (
                 <button
                   onClick={() => setAdding(true)}
-                  className="flex flex-col items-center gap-0.5 rounded-lg bg-input-bg px-1 py-1.5 text-body transition-colors hover:bg-divider"
+                  className="flex items-center gap-1 rounded-full bg-input-bg px-2.5 py-1.5 text-[11px] font-medium text-body transition-colors hover:bg-divider"
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-divider">
-                    <Plus size={10} strokeWidth={2.5} />
-                  </span>
-                  <span className="text-[9px] leading-tight">Add</span>
+                  <Plus size={12} strokeWidth={2.5} />
+                  Add
                 </button>
               )}
             </div>
@@ -193,12 +245,12 @@ export default function HouseEditPopup() {
             )}
           </div>
 
-          {/* Place type icons */}
+          {/* Place type — icon tiles */}
           <div>
             <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
               Place Type
             </label>
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-5 gap-1.5">
               {placeCats.map((cat) => {
                 const active = tags.includes(cat.id)
                 return (
@@ -206,23 +258,38 @@ export default function HouseEditPopup() {
                     key={cat.id}
                     onClick={() => toggleTag(house.id, cat.id)}
                     title={cat.label}
-                    className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition-colors ${
+                    className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center transition-all duration-150 ${
                       active
-                        ? 'text-white shadow-sm'
-                        : 'bg-input-bg text-body hover:bg-divider'
+                        ? 'shadow-sm ring-1 ring-inset ring-white/20'
+                        : 'bg-input-bg hover:bg-divider'
                     }`}
                     style={active ? { backgroundColor: cat.color } : undefined}
                   >
                     <span
-                      className="flex h-5 w-5 items-center justify-center rounded-full"
-                      style={{ backgroundColor: active ? 'rgba(255,255,255,0.25)' : cat.color + '20' }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{
+                        backgroundColor: active ? 'rgba(255,255,255,0.2)' : cat.color + '15',
+                      }}
                     >
-                      <span
-                        className="block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: active ? '#fff' : cat.color }}
+                      <CategoryIcon
+                        cat={{
+                          ...cat,
+                          // Recolor icon strokes/fills for inactive state
+                          iconPaths: active
+                            ? cat.iconPaths
+                            : cat.iconPaths
+                                .replace(/stroke="#fff"/g, `stroke="${cat.color}"`)
+                                .replace(/fill="#fff"/g, `fill="${cat.color}"`)
+                                .replace(/fill="rgba\(255,255,255,0\.9\)"/g, `fill="${cat.color}"`)
+                        }}
+                        size={16}
                       />
                     </span>
-                    <span className="text-[9px] leading-tight">{cat.label}</span>
+                    <span className={`text-[9px] font-medium leading-tight ${
+                      active ? 'text-white' : 'text-body/70'
+                    }`}>
+                      {cat.label}
+                    </span>
                   </button>
                 )
               })}

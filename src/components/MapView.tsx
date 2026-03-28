@@ -69,7 +69,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const selectedHouseId = useStore((s) => s.selectedHouseId)
   const addHousePoint = useStore((s) => s.addHousePoint)
   const mapMode = useStore((s) => s.mapMode)
-
   // Derive the effective view mode
   const effectiveMode: MapViewMode = mapMode === 'auto'
     ? (boundary === null ? 'satellite' : 'street')
@@ -598,35 +597,37 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     try { applyMapMode(map, effectiveMode) } catch { /* layers may not exist yet */ }
   }, [effectiveMode, mapReady])
 
-  // Handle click-to-place houses
+  // Handle click-to-place houses, trees, start marker
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    if (!map || !mapReady) return
 
     const handleClick = (e: maplibregl.MapMouseEvent) => {
       const state = useStore.getState()
+      const mode = state.activeDrawMode
 
       // Enforce boundary containment — only place inside the polygon
-      if (state.boundary && (activeDrawMode === 'house' || activeDrawMode === 'tree')) {
+      if (state.boundary && (mode === 'house' || mode === 'tree')) {
         const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
         if (!turf.booleanPointInPolygon(pt, state.boundary)) return
       }
 
-      if (activeDrawMode === 'house') {
+      if (mode === 'house') {
         const snap = state.snapToGrid
         const spacing = state.gridSpacingMeters
         const [lng, lat] = snap
           ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
           : [e.lngLat.lng, e.lngLat.lat]
         addHousePoint(lng, lat)
-      } else if (activeDrawMode === 'tree') {
+      } else if (mode === 'tree') {
         state.addTreePoint(e.lngLat.lng, e.lngLat.lat)
       }
     }
 
     map.on('click', handleClick)
     return () => { map.off('click', handleClick) }
-  }, [activeDrawMode, addHousePoint])
+  }, [mapReady, addHousePoint])
+
 
   // Sync selected house highlight
   useEffect(() => {

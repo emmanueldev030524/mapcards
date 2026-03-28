@@ -11,10 +11,10 @@ export interface PinCategory {
 
 export const PIN_CATEGORIES: PinCategory[] = [
   // Status tags
-  { id: 'notHome', label: 'Not Home', color: '#f39c12', group: 'status',
-    iconPaths: '<text x="8" y="12" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial">?</text>' },
-  { id: 'dnc', label: 'Do Not Call', color: '#95a5a6', group: 'status',
-    iconPaths: '<line x1="4" y1="4" x2="12" y2="12" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="4" x2="4" y2="12" stroke="#fff" stroke-width="2" stroke-linecap="round"/>' },
+  { id: 'rv', label: 'Return Visit', color: '#2ecc71', group: 'status',
+    iconPaths: '<path d="M4 8.5l3 3 5-5.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { id: 'bs', label: 'Bible Study', color: '#3498db', group: 'status',
+    iconPaths: '<rect x="4.5" y="3" width="7" height="10" rx="1" fill="none" stroke="#fff" stroke-width="1.3"/><line x1="6.5" y1="5.5" x2="9.5" y2="5.5" stroke="#fff" stroke-width="1"/><line x1="6.5" y1="7.5" x2="9.5" y2="7.5" stroke="#fff" stroke-width="1"/><line x1="6.5" y1="9.5" x2="8.5" y2="9.5" stroke="#fff" stroke-width="1"/>' },
 
   // Place types
   { id: 'store', label: 'Store', color: '#e74c3c', group: 'place',
@@ -84,50 +84,46 @@ interface HouseIconSpec {
   bodyColor: string
   roofColor: string
   statusColor: string | null  // corner badge color
-  statusSymbol: string | null // '?' or '✕'
+  statusIcon: string | null   // SVG paths for badge icon (16x16 viewBox)
+}
+
+/** Darken a hex color by a percentage (e.g. 15 = 15% darker) */
+function darkenHex(hex: string, percent: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const f = 1 - percent / 100
+  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v * f)))
+  return `#${c(r).toString(16).padStart(2, '0')}${c(g).toString(16).padStart(2, '0')}${c(b).toString(16).padStart(2, '0')}`
 }
 
 /**
- * Generate a crisp house SVG icon at 48x48 for pixel-perfect rendering.
- * Clean outlined design with rounded corners. Anchor point is center-bottom.
- * Shape/size/stroke never change — only fill colors change per status.
+ * Generate a solid-filled house SVG icon at 48x48 for sharp rendering on
+ * screen and in print. White window/door cutouts provide detail at larger
+ * sizes while the solid shape reads clearly even at 13px.
+ * Anchor point is center-bottom. Shape/size never change — only colors.
  */
 function buildHouseSVG(spec: HouseIconSpec): string {
-  const { bodyColor, roofColor, statusColor, statusSymbol } = spec
-
-  // Status badge in top-right (if present)
-  const badge = statusColor
-    ? `<circle cx="39" cy="8" r="6" fill="${statusColor}" stroke="#fff" stroke-width="1.5"/>
-       <text x="39" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="#fff" font-family="sans-serif">${statusSymbol || ''}</text>`
-    : ''
+  const { bodyColor, roofColor } = spec
+  const bodyStroke = darkenHex(bodyColor, 15)
+  const roofStroke = darkenHex(roofColor, 15)
+  const detailStroke = darkenHex(bodyColor, 10)
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
   <defs>
-    <filter id="ds" x="-10%" y="-5%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.15"/>
+    <filter id="ds" x="-15%" y="-5%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.8" flood-color="#000" flood-opacity="0.25"/>
     </filter>
   </defs>
   <g filter="url(#ds)">
-    <!-- Roof fill -->
-    <path d="M24 6L7 19h34L24 6z" fill="${roofColor}" opacity="0.18"/>
-    <!-- Body fill -->
-    <rect x="10" y="19" width="28" height="20" rx="2" fill="${bodyColor}" opacity="0.12"/>
-    <!-- Body outline -->
-    <rect x="10" y="19" width="28" height="20" rx="2" fill="none" stroke="${bodyColor}" stroke-width="2" stroke-linejoin="round"/>
-    <!-- Roof outline -->
-    <path d="M24 6L7 19h34L24 6z" fill="none" stroke="${roofColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <!-- Door -->
-    <rect x="20" y="28" width="8" height="11" rx="1.5" fill="#fff" opacity="0.9"/>
-    <rect x="20" y="28" width="8" height="11" rx="1.5" fill="none" stroke="${bodyColor}" stroke-width="1.5"/>
-    <!-- Windows -->
-    <rect x="12.5" y="22" width="6" height="5" rx="1" fill="#fff" opacity="0.85"/>
-    <rect x="12.5" y="22" width="6" height="5" rx="1" fill="none" stroke="${bodyColor}" stroke-width="1.2"/>
-    <rect x="29.5" y="22" width="6" height="5" rx="1" fill="#fff" opacity="0.85"/>
-    <rect x="29.5" y="22" width="6" height="5" rx="1" fill="none" stroke="${bodyColor}" stroke-width="1.2"/>
-    <!-- Door knob -->
-    <circle cx="26" cy="34" r="0.8" fill="${bodyColor}"/>
+    <rect x="10" y="19" width="28" height="20" rx="2" fill="${bodyColor}" stroke="${bodyStroke}" stroke-width="1.5"/>
+    <path d="M24 6L7 19h34L24 6z" fill="${roofColor}" stroke="${roofStroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="10" y1="19" x2="38" y2="19" stroke="${bodyColor}" stroke-width="2"/>
+    <rect x="12.5" y="22" width="6" height="5" rx="1" fill="#fff" stroke="${detailStroke}" stroke-width="0.8"/>
+    <rect x="29.5" y="22" width="6" height="5" rx="1" fill="#fff" stroke="${detailStroke}" stroke-width="0.8"/>
+    <rect x="20" y="28" width="8" height="11" rx="1.5" fill="#fff" stroke="${detailStroke}" stroke-width="1"/>
+    <circle cx="26" cy="34" r="0.8" fill="${detailStroke}"/>
   </g>
-  ${badge}
 </svg>`
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
@@ -166,12 +162,10 @@ export function resolveHouseIcon(tags: string[], customStatuses?: StatusLike[]):
   const bodyColor = placeColor1 || firstStatus?.color || HOUSE_DEFAULT_COLOR
   const roofColor = placeColor2 || (placeColor1 && firstStatus ? firstStatus.color : bodyColor)
 
-  // Corner badge for status
+  // Corner badge for status — use actual SVG icon from PIN_CATEGORIES when available
   const statusColor = firstStatus?.color || null
-  const isBuiltinStatus = firstStatus ? PIN_CATEGORIES.some((c) => c.id === firstStatus.id) : false
-  const statusSymbol = firstStatus
-    ? (isBuiltinStatus ? (firstStatus.id === 'notHome' ? '?' : '✕') : '●')
-    : null
+  const pinCat = firstStatus ? PIN_CATEGORIES.find((c) => c.id === firstStatus.id) : null
+  const statusIcon = pinCat?.iconPaths || null
 
   // Build a deterministic cache key
   const parts = ['house']
@@ -180,7 +174,7 @@ export function resolveHouseIcon(tags: string[], customStatuses?: StatusLike[]):
   if (firstStatus) parts.push(firstStatus.id)
   const key = parts.join('-')
 
-  return { key, spec: { bodyColor, roofColor, statusColor, statusSymbol } }
+  return { key, spec: { bodyColor, roofColor, statusColor, statusIcon } }
 }
 
 /**
@@ -207,7 +201,7 @@ export async function ensureHouseIcons(
   customStatuses?: StatusLike[],
 ): Promise<void> {
   // Always ensure default exists
-  const defaultSpec: HouseIconSpec = { bodyColor: HOUSE_DEFAULT_COLOR, roofColor: HOUSE_DEFAULT_COLOR, statusColor: null, statusSymbol: null }
+  const defaultSpec: HouseIconSpec = { bodyColor: HOUSE_DEFAULT_COLOR, roofColor: HOUSE_DEFAULT_COLOR, statusColor: null, statusIcon: null }
   const needed = new Map<string, HouseIconSpec>([['house-default', defaultSpec]])
 
   for (const h of houses) {
@@ -218,6 +212,35 @@ export async function ensureHouseIcons(
   await Promise.all(
     Array.from(needed.entries()).map(([key, spec]) => ensureHouseIcon(map, key, spec)),
   )
+}
+
+// ─── Direction & start markers ───
+
+/** Direction chevron for road walking direction (16x16) */
+export function generateChevronSVG(): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <path d="M5 3l6 5-6 5" fill="none" stroke="#6B7A8D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+}
+
+/** Green "Starts Here" pin marker (32x40) */
+export function generateStartMarkerSVG(): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+    <defs>
+      <filter id="s" x="-20%" y="-10%" width="140%" height="130%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.3"/>
+      </filter>
+    </defs>
+    <path d="M16 38c0 0-12-15-12-22a12 12 0 0124 0c0 7-12 22-12 22z"
+          fill="#22c55e" filter="url(#s)"/>
+    <circle cx="16" cy="15" r="9" fill="rgba(255,255,255,0.2)"/>
+    <g transform="translate(8,7)">
+      <path d="M5 2v12" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M5 2h7l-2 3 2 3H5" fill="rgba(255,255,255,0.9)" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/>
+    </g>
+  </svg>`
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
 
 // ─── Legend data for export ───

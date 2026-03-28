@@ -10,9 +10,13 @@ interface UseDrawOptions {
   onRoadComplete: (feature: Feature<LineString>) => void
 }
 
-/** Snap radius in screen pixels */
-const SNAP_VERTEX_PX = 14
-const SNAP_LINE_PX = 10
+/** Snap radius in screen pixels — larger on tablet where fingers cover ~40px */
+function getSnapVertexPx(): number {
+  return window.innerWidth <= 1279 ? 20 : 14
+}
+function getSnapLinePx(): number {
+  return window.innerWidth <= 1279 ? 16 : 10
+}
 
 /**
  * Find nearest snap target from existing roads + boundary.
@@ -40,7 +44,7 @@ function findSnapTarget(
     }
   }
 
-  let bestDist = SNAP_VERTEX_PX
+  let bestDist = getSnapVertexPx()
   let bestCoord: [number, number] | null = null
 
   for (const coord of vertices) {
@@ -71,7 +75,7 @@ function findSnapTarget(
     const dx = projected.x - clickPoint.x
     const dy = projected.y - clickPoint.y
     const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < SNAP_LINE_PX && dist < bestDist) {
+    if (dist < getSnapLinePx() && dist < bestDist) {
       bestDist = dist
       bestCoord = nearestCoord
     }
@@ -87,7 +91,7 @@ function findSnapTarget(
     const dx = projected.x - clickPoint.x
     const dy = projected.y - clickPoint.y
     const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < SNAP_LINE_PX && dist < bestDist) {
+    if (dist < getSnapLinePx() && dist < bestDist) {
       bestDist = dist
       bestCoord = nearestCoord
     }
@@ -131,6 +135,7 @@ export function useDraw(options: UseDrawOptions) {
   const undoStackRef = useRef<[number, number][]>([])
   const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null)
   const cursorHintRef = useRef<HTMLDivElement | null>(null)
+  const lastSnapRef = useRef<string | null>(null)
   optionsRef.current = options
 
   const updateLayers = useCallback(() => {
@@ -201,6 +206,11 @@ export function useDraw(options: UseDrawOptions) {
         properties: {},
       }
       clearDraw()
+      // Boundary is one-shot — deactivate the internal draw mode so
+      // the mousemove handler stops showing cursor hints
+      activeModeRef.current = null
+      const map = mapRef.current
+      if (map) map.getCanvas().style.cursor = ''
       optionsRef.current.onBoundaryComplete(polygon)
     } else if (mode === 'road') {
       const line: Feature<LineString> = {
@@ -433,6 +443,10 @@ export function useDraw(options: UseDrawOptions) {
 
       // Check for snap target
       const snapped = findSnapTarget(map, e.point)
+      const snapKey = snapped ? `${snapped[0].toFixed(6)},${snapped[1].toFixed(6)}` : null
+      const snapChanged = snapKey !== lastSnapRef.current
+      lastSnapRef.current = snapKey
+
       const snapSource = map.getSource(SNAP_SOURCE) as maplibregl.GeoJSONSource | undefined
       if (snapSource) {
         if (snapped) {
@@ -441,6 +455,15 @@ export function useDraw(options: UseDrawOptions) {
             geometry: { type: 'Point', coordinates: snapped },
             properties: {},
           })
+          // Only pulse on new snap target
+          if (snapChanged) {
+            try {
+              map.setPaintProperty(SNAP_LAYER, 'circle-radius', 14)
+              setTimeout(() => {
+                try { map.setPaintProperty(SNAP_LAYER, 'circle-radius', 10) } catch {}
+              }, 150)
+            } catch {}
+          }
         } else {
           snapSource.setData({ type: 'FeatureCollection', features: [] })
         }

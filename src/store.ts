@@ -16,6 +16,7 @@ interface UndoSnapshot {
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
   treePoints: FeatureWithMeta<Point>[]
+  startMarker: Feature<Point> | null
 }
 
 const MAX_UNDO = 50
@@ -33,6 +34,7 @@ interface MapCardsStore {
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
   treePoints: FeatureWithMeta<Point>[]
+  startMarker: Feature<Point> | null
   customStatuses: CustomStatus[]
 
   // UI state (not persisted)
@@ -75,6 +77,7 @@ interface MapCardsStore {
   bulkAddHouses: (points: Array<{ lng: number; lat: number }>) => void
   updateHouseLabel: (id: string, label: string) => void
   toggleHouseTag: (id: string, tag: string) => void
+  setStartMarker: (f: Feature<Point> | null) => void
   addTreePoint: (lng: number, lat: number) => void
   removeTreePoint: (id: string) => void
   clearAllTrees: () => void
@@ -104,6 +107,26 @@ interface MapCardsStore {
   getProjectData: () => ProjectData
 }
 
+const DEFAULT_STATUSES: CustomStatus[] = [
+  { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
+  { id: 'bs', label: 'Bible Study', color: '#3498db' },
+]
+
+/** Strip legacy/duplicate statuses and ensure current defaults exist */
+function migrateStatuses(statuses: CustomStatus[]): CustomStatus[] {
+  const legacyIds = new Set(['notHome', 'dnc'])
+  const duplicateLabels = new Set(['rv', 'return visit', 'bible study', 'bs'])
+  const migrated = statuses.filter((s) =>
+    !legacyIds.has(s.id) &&
+    !duplicateLabels.has(s.label.toLowerCase()),
+  )
+  if (migrated.length === 0) return DEFAULT_STATUSES
+  for (const def of DEFAULT_STATUSES) {
+    if (!migrated.some((s) => s.id === def.id)) migrated.unshift(def)
+  }
+  return migrated
+}
+
 /** Push current project data onto undo stack, then apply changes */
 function setWithUndo(
   get: () => MapCardsStore,
@@ -116,6 +139,7 @@ function setWithUndo(
     customRoads: s.customRoads,
     housePoints: s.housePoints,
     treePoints: s.treePoints,
+    startMarker: s.startMarker,
   }
   const newUndo = [...s._undoStack.slice(-(MAX_UNDO - 1)), snapshot]
   if (typeof changes === 'function') {
@@ -150,9 +174,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   customRoads: DEFAULT_PROJECT.customRoads,
   housePoints: DEFAULT_PROJECT.housePoints,
   treePoints: [],
+  startMarker: null,
   customStatuses: [
-    { id: 'notHome', label: 'Not Home', color: '#f39c12' },
-    { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
+    { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
+    { id: 'bs', label: 'Bible Study', color: '#3498db' },
   ],
 
   activeDrawMode: null,
@@ -183,6 +208,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         customRoads: s.customRoads,
         housePoints: s.housePoints,
         treePoints: s.treePoints,
+        startMarker: s.startMarker,
       }
       const newUndo = s._undoStack.slice(0, -1)
       return {
@@ -203,6 +229,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         customRoads: s.customRoads,
         housePoints: s.housePoints,
         treePoints: s.treePoints,
+        startMarker: s.startMarker,
       }
       const newRedo = s._redoStack.slice(0, -1)
       return {
@@ -222,6 +249,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setMapView: (center, zoom) => set({ mapCenter: center, mapZoom: zoom }),
 
   // Drawing (all undoable)
+  setStartMarker: (f) => setWithUndo(get, set, { startMarker: f }),
   setBoundary: (f) => setWithUndo(get, set, { boundary: f }),
 
   addCustomRoad: (f) =>
@@ -406,10 +434,13 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       customRoads: data.customRoads,
       housePoints: data.housePoints,
       treePoints: (data as unknown as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
-      customStatuses: ((data as unknown as Record<string, unknown>).customStatuses as CustomStatus[]) || [
-        { id: 'notHome', label: 'Not Home', color: '#f39c12' },
-        { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
-      ],
+      startMarker: (data as unknown as Record<string, unknown>).startMarker as Feature<Point> | null || null,
+      customStatuses: migrateStatuses(
+        ((data as unknown as Record<string, unknown>).customStatuses as CustomStatus[]) || [
+          { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
+          { id: 'bs', label: 'Bible Study', color: '#3498db' },
+        ],
+      ),
     }),
 
   clearProject: () =>
@@ -417,9 +448,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       projectId: uuid(),
       ...DEFAULT_PROJECT,
       treePoints: [],
+      startMarker: null,
       customStatuses: [
-        { id: 'notHome', label: 'Not Home', color: '#f39c12' },
-        { id: 'dnc', label: 'Do Not Call', color: '#95a5a6' },
+        { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
+        { id: 'bs', label: 'Bible Study', color: '#3498db' },
       ],
       activeDrawMode: null,
       visibleLayers: {},
@@ -442,6 +474,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       customRoads: s.customRoads,
       housePoints: s.housePoints,
       treePoints: s.treePoints,
+      startMarker: s.startMarker,
       customStatuses: s.customStatuses,
     } as ProjectData
   },
