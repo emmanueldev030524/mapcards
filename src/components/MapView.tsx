@@ -52,13 +52,9 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const [error, setError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
-  // housePoints, treePoints, customRoads are synced via direct Zustand subscription
-  // (bypasses React render cycle for instant MapLibre updates)
+  // housePoints, treePoints, customRoads, opacity/size sliders are synced via
+  // direct Zustand subscription (bypasses React render cycle for instant updates)
   const boundary = useStore((s) => s.boundary)
-  const boundaryOpacity = useStore((s) => s.boundaryOpacity)
-  const maskOpacity = useStore((s) => s.maskOpacity)
-  const houseIconSize = useStore((s) => s.houseIconSize)
-  const badgeIconSize = useStore((s) => s.badgeIconSize)
   const snapToGrid = useStore((s) => s.snapToGrid)
   const gridSpacingMeters = useStore((s) => s.gridSpacingMeters)
   const activeDrawMode = useStore((s) => s.activeDrawMode)
@@ -545,22 +541,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
   }, [snapToGrid, gridSpacingMeters, boundary, mapReady])
 
-  // Sync boundary fill opacity
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    try {
-      map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity)
-    } catch { /* layer may not exist yet */ }
-  }, [boundaryOpacity, mapReady])
-
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    try {
-      map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity)
-    } catch { /* layer may not exist yet */ }
-  }, [maskOpacity, mapReady])
+  // boundaryOpacity, maskOpacity synced via direct Zustand subscription below
 
   // Switch map view mode (satellite / street / clean)
   useEffect(() => {
@@ -701,12 +682,35 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       source.setData({ type: 'FeatureCollection', features: [] })
     }
 
+    /** Helper: sync boundary/mask opacity (slider-driven) */
+    const syncOpacity = () => {
+      const { boundaryOpacity, maskOpacity } = useStore.getState()
+      try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch {}
+      try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch {}
+    }
+
+    /** Helper: sync house/badge icon size (slider-driven) */
+    const syncIconSize = () => {
+      const { houseIconSize, badgeIconSize } = useStore.getState()
+      try {
+        map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
+          'interpolate', ['linear'], ['zoom'],
+          13, 0.35 * houseIconSize,
+          16, 0.55 * houseIconSize,
+          19, 0.7 * houseIconSize,
+        ])
+      } catch {}
+      try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch {}
+    }
+
     // Run all syncs once on mount (populate from loaded project data)
     syncHouses()
     syncTrees()
     syncRoads()
     syncSelectedHouse()
     syncSelectedRoad()
+    syncOpacity()
+    syncIconSize()
 
     // Subscribe — Zustand fires this synchronously on every state change.
     // We compare slices to only run the sync that actually changed.
@@ -717,6 +721,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (next.customRoads !== prev.customRoads) syncRoads()
       if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
       if (next.selectedRoadId !== prev.selectedRoadId || next.customRoads !== prev.customRoads) syncSelectedRoad()
+      if (next.boundaryOpacity !== prev.boundaryOpacity || next.maskOpacity !== prev.maskOpacity) syncOpacity()
+      if (next.houseIconSize !== prev.houseIconSize || next.badgeIconSize !== prev.badgeIconSize) syncIconSize()
       prev = next
     })
 
@@ -743,30 +749,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     return () => cancelAnimationFrame(rafId)
   }, [selectedHouseId, mapReady])
 
-  // Sync house icon size
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    try {
-      // Multiply zoom interpolation by slider scale (preserves zoom-based sizing)
-      const scale = houseIconSize
-      map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
-        'interpolate', ['linear'], ['zoom'],
-        13, 0.35 * scale,
-        16, 0.55 * scale,
-        19, 0.7 * scale,
-      ])
-    } catch { /* layer may not exist yet */ }
-  }, [houseIconSize, mapReady])
-
-  // Sync badge icon size
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    try {
-      map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize)
-    } catch { /* layer may not exist yet */ }
-  }, [badgeIconSize, mapReady])
+  // houseIconSize, badgeIconSize synced via direct Zustand subscription below
 
   // Drag-to-move houses & trees (requires 5px movement before drag starts)
   useEffect(() => {
