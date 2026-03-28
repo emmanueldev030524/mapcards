@@ -267,6 +267,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.3,
               'circle-translate': [0, -14],
+              'circle-translate-anchor': 'viewport',
             },
           })
 
@@ -283,6 +284,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-stroke-color': '#4B6CA7',
               'circle-stroke-opacity': 0.5,
               'circle-translate': [0, -14],
+              'circle-translate-anchor': 'viewport',
             },
           })
 
