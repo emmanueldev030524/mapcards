@@ -150,8 +150,8 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
         <div className={`absolute left-0 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-xl ${
-          isTablet ? 'bottom-24 w-72' : 'bottom-20 w-64'
-        }`}>
+          isTablet ? 'bottom-24 w-72 max-h-[calc(100dvh-8rem)]' : 'bottom-20 w-64 max-h-[calc(100dvh-6rem)]'
+        } flex flex-col overflow-hidden`}>
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-4 pb-2.5">
             <h3 className="text-[15px] font-bold text-heading">Basemap</h3>
@@ -165,6 +165,9 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
               <X size={isTablet ? 18 : 16} strokeWidth={2} />
             </button>
           </div>
+
+          {/* ── Scrollable content ── */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
 
           {/* ── Type section ── */}
           <div className="px-5 pb-4">
@@ -259,6 +262,8 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
               </div>
             </button>
           </div>
+
+          </div>{/* end scrollable content */}
         </div>
       )}
     </div>
