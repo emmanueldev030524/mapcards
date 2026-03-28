@@ -230,5 +230,10 @@
   .maplibregl-canvas-container {
     touch-action: none;
   }
+
+  /* Sidebar drawer overlay — prevent body scroll on tablet */
+  aside.fixed {
+    overscroll-behavior: contain;
+  }
 }
 

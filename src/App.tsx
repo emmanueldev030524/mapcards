@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Feature, Polygon, LineString } from 'geojson'
 import maplibregl from 'maplibre-gl'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useIsTablet } from './hooks/useMediaQuery'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
 import Toolbar from './components/Toolbar'
@@ -67,6 +68,19 @@ export default function App() {
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const isTablet = useIsTablet()
+
+  // Auto-close sidebar on tablet when entering draw mode
+  useEffect(() => {
+    if (isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road')) {
+      setSidebarOpen(false)
+    }
+  }, [isTablet, activeDrawMode])
+
+  // Start with sidebar closed on tablet
+  useEffect(() => {
+    if (isTablet) setSidebarOpen(false)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleModeChange = useCallback(
     (mode: typeof activeDrawMode) => {
@@ -152,18 +166,33 @@ export default function App() {
 
   return (
     <div className="touch-lock flex h-dvh w-full">
+      {/* Backdrop — tablet overlay only */}
+      {isTablet && sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`flex shrink-0 flex-col border-r border-divider bg-sidebar-bg transition-[width] duration-300 ease-out ${
-          sidebarOpen ? 'w-68' : 'w-0 overflow-hidden border-r-0'
-        } ${
-          activeDrawMode === 'boundary' || activeDrawMode === 'road' ? 'sidebar-drawing' : ''
-        }`}
+        className={[
+          'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg',
+          isTablet
+            ? `fixed inset-y-0 left-0 z-40 w-[280px] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+              }`
+            : `transition-[width] duration-300 ease-out ${
+                sidebarOpen ? 'w-68' : 'w-0 overflow-hidden border-r-0'
+              }`,
+          !isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road') ? 'sidebar-drawing' : '',
+        ].filter(Boolean).join(' ')}
         onMouseEnter={(e) => {
-          if (activeDrawMode) e.currentTarget.classList.remove('sidebar-drawing')
+          if (!isTablet && activeDrawMode) e.currentTarget.classList.remove('sidebar-drawing')
         }}
         onMouseLeave={(e) => {
-          if (activeDrawMode === 'boundary' || activeDrawMode === 'road')
+          if (!isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road'))
             e.currentTarget.classList.add('sidebar-drawing')
         }}
       >
@@ -258,10 +287,12 @@ export default function App() {
         {/* Sidebar toggle */}
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="absolute left-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-xl border border-white/50 bg-white/85 text-slate-700 shadow-[0_2px_8px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-95"
+          className={`absolute left-3 top-3 z-10 flex items-center justify-center rounded-xl border border-white/50 bg-white/85 text-slate-700 shadow-[0_2px_8px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-95 ${
+            isTablet ? 'h-11 w-11' : 'h-9 w-9'
+          }`}
           title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
-          {sidebarOpen ? <PanelLeftClose size={16} strokeWidth={2} /> : <PanelLeftOpen size={16} strokeWidth={2} />}
+          {sidebarOpen ? <PanelLeftClose size={isTablet ? 20 : 16} strokeWidth={2} /> : <PanelLeftOpen size={isTablet ? 20 : 16} strokeWidth={2} />}
         </button>
 
         <MapToolbar
