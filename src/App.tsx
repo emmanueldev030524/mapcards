@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Feature, Polygon, LineString } from 'geojson'
 import maplibregl from 'maplibre-gl'
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+// No lucide imports needed — sidebar tab uses custom SVG triangles
+import BoundaryPolygonIcon from './components/icons/BoundaryPolygonIcon'
 import { useIsTablet } from './hooks/useMediaQuery'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
@@ -70,6 +71,7 @@ export default function App() {
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [basemapPanelOpen, setBasemapPanelOpen] = useState(false)
   const isTablet = useIsTablet()
 
   // Auto-close sidebar on tablet when entering draw mode
@@ -234,9 +236,7 @@ export default function App() {
           {!boundary && housePoints.length === 0 && customRoads.length === 0 && (
             <div className="mx-5 mt-3 rounded-xl bg-brand/5 px-4 py-5 text-center">
               <div className="mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-brand/10">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand">
-                  <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
-                </svg>
+                <BoundaryPolygonIcon size={18} strokeWidth={2} className="text-brand" />
               </div>
               <p className="text-[13px] font-semibold text-heading">Draw a territory</p>
               <p className="mt-1 text-[11px] leading-relaxed text-body/70">
@@ -269,16 +269,26 @@ export default function App() {
       <main className="relative min-w-0 flex-1">
         <MapView onMapReady={handleMapReady} />
 
-        {/* Sidebar toggle */}
+        {/* Sidebar collapse/expand tab — Google Earth style edge handle */}
+        {!basemapPanelOpen && (
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className={`absolute left-3 top-3 z-10 flex items-center justify-center rounded-xl border border-white/50 bg-white/85 text-slate-700 shadow-[0_2px_8px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-95 ${
-            isTablet ? 'h-11 w-11' : 'h-9 w-9'
+          aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
+            isTablet
+              ? 'left-0 h-10 w-5 rounded-r-lg border-y border-r border-white/30 bg-white/80 text-slate-500 shadow-[2px_0_6px_rgba(0,0,0,0.1)] backdrop-blur-md hover:bg-white hover:text-slate-700'
+              : 'left-0 h-12 w-5 rounded-r-lg border-y border-r border-divider/50 bg-sidebar-bg text-slate-400 shadow-[2px_0_6px_rgba(0,0,0,0.06)] hover:text-slate-600'
           }`}
-          title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
-          {sidebarOpen ? <PanelLeftClose size={isTablet ? 20 : 16} strokeWidth={2} /> : <PanelLeftOpen size={isTablet ? 20 : 16} strokeWidth={2} />}
+          <svg width={isTablet ? 8 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
+            {sidebarOpen
+              ? <path d="M6 0L0 6l6 6V0z" />
+              : <path d="M2 0l6 6-6 6V0z" />
+            }
+          </svg>
         </button>
+        )}
 
         <FloatingSettings />
 
@@ -313,6 +323,7 @@ export default function App() {
           currentMode={mapMode === 'auto' ? (boundary === null ? 'satellite' : 'street') : mapMode}
           onModeChange={setMapMode}
           map={mapInstance}
+          onPanelToggle={setBasemapPanelOpen}
         />
       </main>
 

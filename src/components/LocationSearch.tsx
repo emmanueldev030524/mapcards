@@ -97,7 +97,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body/50">
+      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body/70">
         <Search size={compact ? 13 : 14} strokeWidth={2} />
       </div>
       <input
@@ -112,10 +112,10 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
             e.currentTarget.blur()
           }
         }}
-        placeholder="Search..."
+        placeholder={compact ? 'Search location...' : 'Search...'}
         className={
           compact
-            ? 'w-full border-0 bg-transparent py-2 pl-8 pr-7 text-[12px] text-heading placeholder-body/40 outline-none'
+            ? 'h-9 w-full rounded-full border border-slate-200/80 bg-slate-100/60 pl-8 pr-7 text-[12px] text-heading placeholder-body/60 outline-none transition-all duration-150 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.2)]'
             : 'w-full rounded-lg border-0 bg-input-bg py-2 pl-9 pr-8 text-[13px] text-heading placeholder-body outline-none transition-shadow duration-150 focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
         }
       />
@@ -126,9 +126,10 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
       ) : query.length > 0 && (
         <button
           onClick={() => { setQuery(''); setResults([]); setOpen(false) }}
-          className={`absolute top-1/2 -translate-y-1/2 rounded-full p-0.5 text-body transition-colors duration-150 hover:bg-divider hover:text-heading ${compact ? 'right-1.5' : 'right-2.5'}`}
+          aria-label="Clear search"
+          className={`absolute top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/60 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? 'right-1' : 'right-2'}`}
         >
-          <X size={12} strokeWidth={2} />
+          <X size={13} strokeWidth={2.5} />
         </button>
       )}
       {open && results.length > 0 && (

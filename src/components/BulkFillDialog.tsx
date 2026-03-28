@@ -114,7 +114,7 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
             <button
               onClick={startDrawLine}
               disabled={drawing}
-              className="w-full rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 text-xs font-medium text-primary shadow-[0_1px_2px_rgba(74,109,167,0.1)] transition-all duration-150 hover:bg-primary/10 hover:shadow-[0_2px_4px_rgba(74,109,167,0.15)] disabled:opacity-50"
+              className="w-full rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 text-xs font-medium text-primary shadow-[0_1px_2px_rgba(74,109,167,0.1)] transition-all duration-150 hover:bg-primary/10 hover:shadow-[0_2px_4px_rgba(74,109,167,0.15)] disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
             >
               {drawing
                 ? `Drawing... (${clickedPoints.length} points, double-click to finish)`
@@ -130,14 +130,14 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
         <div className="flex gap-2">
           <button
             onClick={handleCancel}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50"
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={!line}
-            className="flex-1 rounded-lg bg-linear-to-b from-primary-light to-primary px-3 py-2 text-xs font-semibold text-white shadow-[0_1px_3px_rgba(74,109,167,0.3)] transition-all duration-150 hover:shadow-[0_2px_6px_rgba(74,109,167,0.35)] hover:brightness-110 disabled:opacity-50 disabled:shadow-none"
+            className="flex-1 rounded-lg bg-linear-to-b from-primary-light to-primary px-3 py-2 text-xs font-semibold text-white shadow-[0_1px_3px_rgba(74,109,167,0.3)] transition-all duration-150 hover:shadow-[0_2px_6px_rgba(74,109,167,0.35)] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
           >
             Place Houses
           </button>

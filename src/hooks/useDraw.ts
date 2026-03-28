@@ -109,6 +109,20 @@ const CURSOR_LAYER = 'draw-cursor-line-layer'
 const SNAP_SOURCE = 'draw-snap-indicator'
 const SNAP_LAYER = 'draw-snap-ring'
 
+/** Create a cursor-following hint label on the map (direct DOM for 60fps) */
+function createCursorHintEl(): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'cursor-hint-label'
+  el.style.cssText =
+    'position:fixed;z-index:50;pointer-events:none;opacity:0;transition:opacity 150ms ease;' +
+    'background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' +
+    'border-radius:9999px;padding:4px 12px;font-size:12px;font-weight:600;font-family:inherit;' +
+    'color:#374151;box-shadow:0 2px 8px rgba(0,0,0,0.12),0 1px 3px rgba(0,0,0,0.06);' +
+    'white-space:nowrap;'
+  document.body.appendChild(el)
+  return el
+}
+
 export function useDraw(options: UseDrawOptions) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const optionsRef = useRef(options)
@@ -116,6 +130,7 @@ export function useDraw(options: UseDrawOptions) {
   const coordsRef = useRef<[number, number][]>([])
   const undoStackRef = useRef<[number, number][]>([])
   const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null)
+  const cursorHintRef = useRef<HTMLDivElement | null>(null)
   optionsRef.current = options
 
   const updateLayers = useCallback(() => {
@@ -150,6 +165,12 @@ export function useDraw(options: UseDrawOptions) {
         lineSource.setData({ type: 'FeatureCollection', features: [] })
       }
     }
+
+    // Clear cursor follow line when no vertices to connect from
+    if (coords.length === 0) {
+      const cursorSource = map.getSource(CURSOR_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (cursorSource) cursorSource.setData({ type: 'FeatureCollection', features: [] })
+    }
   }, [])
 
   const clearDraw = useCallback(() => {
@@ -169,6 +190,8 @@ export function useDraw(options: UseDrawOptions) {
     const coords = coordsRef.current
     const mode = activeModeRef.current
     if (!mode || coords.length < 2) return
+    // Hide cursor hint
+    if (cursorHintRef.current) cursorHintRef.current.style.opacity = '0'
 
     if (mode === 'boundary' && coords.length >= 3) {
       const closedCoords = [...coords, coords[0]]
@@ -193,6 +216,12 @@ export function useDraw(options: UseDrawOptions) {
   const initDraw = useCallback((map: maplibregl.Map) => {
     if (mapRef.current) return
     mapRef.current = map
+
+    // Cursor hint label — desktop only (tablet users get the helper card instead)
+    const isTouch = window.matchMedia('(max-width: 1279px)').matches
+    if (!isTouch && !cursorHintRef.current) {
+      cursorHintRef.current = createCursorHintEl()
+    }
 
     // Drawn line layer — bright yellow with dark outline for max visibility on satellite
     if (!map.getSource(DRAW_SOURCE)) {
@@ -314,6 +343,18 @@ export function useDraw(options: UseDrawOptions) {
         }
       }
 
+      // Check if clicking near last vertex to finish (road mode, 2+ points)
+      if (activeModeRef.current === 'road' && coords.length >= 2) {
+        const lastCoord = coords[coords.length - 1]
+        const lastPx = map.project(new maplibregl.LngLat(lastCoord[0], lastCoord[1]))
+        const clickPx = e.point
+        const dist = Math.sqrt((lastPx.x - clickPx.x) ** 2 + (lastPx.y - clickPx.y) ** 2)
+        if (dist < 20) {
+          finishDrawing()
+          return
+        }
+      }
+
       // Magnetic snap: check for nearby existing vertices
       const snapped = findSnapTarget(map, e.point)
       const coord: [number, number] = snapped || [e.lngLat.lng, e.lngLat.lat]
@@ -323,10 +364,71 @@ export function useDraw(options: UseDrawOptions) {
       updateLayers()
     })
 
-    // Mouse move — dashed line from last vertex to cursor + close hint + snap indicator
+    // Mouse move — dashed line from last vertex to cursor + close hint + snap indicator + cursor hint
     map.on('mousemove', (e: maplibregl.MapMouseEvent) => {
-      if (!activeModeRef.current) return
+      const hint = cursorHintRef.current
+      if (!activeModeRef.current) {
+        if (hint) hint.style.opacity = '0'
+        return
+      }
+
       const coords = coordsRef.current
+      const mode = activeModeRef.current
+      let nearFirst = false
+      let nearLast = false
+
+      // Detect proximity to first vertex (boundary close)
+      if (mode === 'boundary' && coords.length >= 3) {
+        const firstPx = map.project(new maplibregl.LngLat(coords[0][0], coords[0][1]))
+        const dist = Math.sqrt((firstPx.x - e.point.x) ** 2 + (firstPx.y - e.point.y) ** 2)
+        nearFirst = dist < 15
+      }
+
+      // Detect proximity to last vertex (road finish)
+      if (mode === 'road' && coords.length >= 2) {
+        const lastCoord = coords[coords.length - 1]
+        const lastPx = map.project(new maplibregl.LngLat(lastCoord[0], lastCoord[1]))
+        const dist = Math.sqrt((lastPx.x - e.point.x) ** 2 + (lastPx.y - e.point.y) ** 2)
+        nearLast = dist < 20
+      }
+
+      // Update cursor hint label
+      if (hint) {
+        let hintText = ''
+        let highlight = false
+        if (mode === 'boundary') {
+          if (coords.length === 0) hintText = 'Add first point'
+          else if (coords.length === 1) hintText = 'Add second point'
+          else if (coords.length === 2) hintText = 'Add next point'
+          else if (nearFirst) { hintText = 'Close boundary'; highlight = true }
+          else hintText = 'Add point or close'
+        } else if (mode === 'road') {
+          if (coords.length === 0) hintText = 'Add first point'
+          else if (coords.length === 1) hintText = 'Add next point'
+          else if (nearLast) { hintText = 'Done paving road'; highlight = true }
+          else hintText = 'Add point or double-click to finish'
+        }
+
+        if (hintText) {
+          hint.textContent = hintText
+          hint.style.opacity = '1'
+          // Highlight when actionable (close boundary / finish road)
+          if (highlight) {
+            hint.style.background = 'rgba(75,108,167,0.95)'
+            hint.style.color = '#ffffff'
+          } else {
+            hint.style.background = 'rgba(255,255,255,0.95)'
+            hint.style.color = '#374151'
+          }
+          // Position: offset below-right of cursor
+          const canvas = map.getCanvas().getBoundingClientRect()
+          hint.style.left = `${canvas.left + e.point.x + 16}px`
+          hint.style.top = `${canvas.top + e.point.y + 20}px`
+        } else {
+          hint.style.opacity = '0'
+        }
+      }
+
       if (coords.length === 0) return
 
       // Check for snap target
@@ -348,20 +450,19 @@ export function useDraw(options: UseDrawOptions) {
       const cursorCoord: [number, number] = snapped || [e.lngLat.lng, e.lngLat.lat]
 
       // Cursor logic: not-allowed outside boundary for road mode
-      if (activeModeRef.current === 'road') {
+      if (mode === 'road') {
         const boundary = useStore.getState().boundary
         if (boundary) {
           const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
           if (!turf.booleanPointInPolygon(pt, boundary)) {
             map.getCanvas().style.cursor = 'not-allowed'
+            if (hint) hint.style.opacity = '0'
             return
           }
         }
         map.getCanvas().style.cursor = snapped ? 'grab' : 'crosshair'
-      } else if (activeModeRef.current === 'boundary' && coords.length >= 3) {
-        const firstPx = map.project(new maplibregl.LngLat(coords[0][0], coords[0][1]))
-        const dist = Math.sqrt((firstPx.x - e.point.x) ** 2 + (firstPx.y - e.point.y) ** 2)
-        map.getCanvas().style.cursor = dist < 15 ? 'pointer' : snapped ? 'grab' : 'crosshair'
+      } else if (mode === 'boundary' && coords.length >= 3) {
+        map.getCanvas().style.cursor = nearFirst ? 'pointer' : snapped ? 'grab' : 'crosshair'
       } else {
         map.getCanvas().style.cursor = snapped ? 'grab' : 'crosshair'
       }
@@ -386,6 +487,28 @@ export function useDraw(options: UseDrawOptions) {
       e.preventDefault()
       finishDrawing()
     })
+
+    // Touch preview — show dashed line from last vertex to touch point on tablets
+    // Uses MapLibre's event system (not raw canvas events) for reliable coordinate handling
+    const handleTouchPreview = (e: maplibregl.MapTouchEvent) => {
+      if (!activeModeRef.current) return
+      const coords = coordsRef.current
+      if (coords.length === 0 || e.points.length !== 1) return
+
+      const cursorSource = map.getSource(CURSOR_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (cursorSource) {
+        cursorSource.setData({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [coords[coords.length - 1], [e.lngLat.lng, e.lngLat.lat]],
+          },
+          properties: {},
+        })
+      }
+    }
+    map.on('touchstart', handleTouchPreview)
+    map.on('touchmove', handleTouchPreview)
 
     // Enter key to finish drawing (stored for cleanup)
     const onKeyDown = (e: KeyboardEvent) => {
@@ -438,9 +561,12 @@ export function useDraw(options: UseDrawOptions) {
         break
     }
 
-    // Update cursor
+    // Update cursor + hide hint when not in line-drawing mode
     if (map) {
       map.getCanvas().style.cursor = activeModeRef.current ? 'crosshair' : ''
+    }
+    if (!activeModeRef.current && cursorHintRef.current) {
+      cursorHintRef.current.style.opacity = '0'
     }
   }, [clearDraw, finishDrawing])
 
@@ -467,6 +593,10 @@ export function useDraw(options: UseDrawOptions) {
       if (keydownRef.current) {
         window.removeEventListener('keydown', keydownRef.current)
         keydownRef.current = null
+      }
+      if (cursorHintRef.current) {
+        cursorHintRef.current.remove()
+        cursorHintRef.current = null
       }
       mapRef.current = null
     }

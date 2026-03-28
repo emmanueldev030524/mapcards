@@ -12,6 +12,7 @@ interface MapModeThumbnailProps {
   currentMode: MapMode
   onModeChange: (mode: MapMode) => void
   map: maplibregl.Map | null
+  onPanelToggle?: (open: boolean) => void
 }
 
 const MAP_TYPES: { value: MapMode; label: string; Icon: typeof Satellite; gradient: string }[] = [
@@ -28,27 +29,34 @@ const DETAIL_ICONS: Record<string, LucideIcon> = {
   'poi-hospitals': Cross,
 }
 
-/** Toggle switch */
+/** Toggle switch — matches Toolbar.tsx iOS-style toggle */
 function Toggle({ checked }: { checked: boolean }) {
   return (
     <span
       role="switch"
       aria-checked={checked}
-      className={`relative inline-flex h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+      className={`relative inline-flex h-[26px] w-[46px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
         checked ? 'bg-brand' : 'bg-slate-200'
       }`}
     >
       <span
-        className={`absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
-          checked ? 'translate-x-4' : 'translate-x-0'
+        className={`absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
+          checked ? 'translate-x-5' : 'translate-x-0'
         }`}
       />
     </span>
   )
 }
 
-export default function MapModeThumbnail({ currentMode, onModeChange, map }: MapModeThumbnailProps) {
-  const [panelOpen, setPanelOpen] = useState(false)
+export default function MapModeThumbnail({ currentMode, onModeChange, map, onPanelToggle }: MapModeThumbnailProps) {
+  const [panelOpen, _setPanelOpen] = useState(false)
+  const setPanelOpen = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    _setPanelOpen((prev) => {
+      const next = typeof v === 'function' ? v(prev) : v
+      onPanelToggle?.(next)
+      return next
+    })
+  }, [onPanelToggle])
   const panelRef = useRef<HTMLDivElement>(null)
   const isTablet = useIsTablet()
 
@@ -121,7 +129,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
       <button
         onClick={() => setPanelOpen((v) => !v)}
         title="Basemap settings"
-        className={`flex flex-col items-center justify-end overflow-hidden rounded-xl border-2 border-white/80 bg-gradient-to-b shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] active:scale-95 ${current.gradient} ${
+        className={`flex flex-col items-center justify-end overflow-hidden rounded-xl border-2 border-white/80 bg-linear-to-b shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] active:scale-95 ${current.gradient} ${
           isTablet ? 'h-20 w-20' : 'h-16 w-16'
         } ${panelOpen ? 'ring-2 ring-brand/40' : ''}`}
       >
@@ -142,23 +150,26 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
         <div className={`absolute left-0 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
-          isTablet ? 'bottom-24 w-64' : 'bottom-20 w-56'
+          isTablet ? 'bottom-24 w-72' : 'bottom-20 w-64'
         }`}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-            <h3 className="text-[14px] font-bold text-heading">Basemap</h3>
+          <div className="flex items-center justify-between px-5 pt-4 pb-2.5">
+            <h3 className="text-[15px] font-bold text-heading">Basemap</h3>
             <button
               onClick={() => setPanelOpen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-body/50 transition-colors hover:bg-input-bg hover:text-heading"
+              aria-label="Close"
+              className={`flex items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-slate-200/60 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${
+                isTablet ? 'h-9 w-9' : 'h-8 w-8'
+              }`}
             >
-              <X size={14} strokeWidth={2} />
+              <X size={isTablet ? 18 : 16} strokeWidth={2} />
             </button>
           </div>
 
           {/* ── Type section ── */}
-          <div className="px-4 pb-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-body/50">Type</p>
-            <div className="flex gap-3">
+          <div className="px-5 pb-4">
+            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-body/70">Type</p>
+            <div className="flex gap-4">
               {MAP_TYPES.map((mode) => {
                 const active = currentMode === mode.value
                 const light = mode.value !== 'satellite'
@@ -166,16 +177,16 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
                   <button
                     key={mode.value}
                     onClick={() => onModeChange(mode.value)}
-                    className={`flex flex-col items-center gap-1.5 transition-all duration-150 ${
+                    className={`flex flex-col items-center gap-2 transition-all duration-150 ${
                       active ? '' : 'opacity-50 hover:opacity-80'
                     }`}
                   >
-                    <div className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-b shadow-sm ${mode.gradient} ${
-                      active ? 'ring-2 ring-brand ring-offset-1' : ''
-                    }`}>
-                      <mode.Icon size={20} strokeWidth={1.5} className={light ? 'text-slate-500' : 'text-white/80'} />
+                    <div className={`flex items-center justify-center overflow-hidden rounded-xl bg-linear-to-b shadow-sm ${mode.gradient} ${
+                      isTablet ? 'h-18 w-18' : 'h-16 w-16'
+                    } ${active ? 'ring-2 ring-brand ring-offset-2' : ''}`}>
+                      <mode.Icon size={isTablet ? 24 : 22} strokeWidth={1.5} className={light ? 'text-slate-500' : 'text-white/80'} />
                     </div>
-                    <span className={`text-[11px] font-medium ${active ? 'text-heading' : 'text-body/60'}`}>
+                    <span className={`text-[11px] font-semibold ${active ? 'text-heading' : 'text-body/60'}`}>
                       {mode.label}
                     </span>
                   </button>
@@ -184,11 +195,11 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
             </div>
           </div>
 
-          <div className="mx-4 border-t border-divider/40" />
+          <div className="mx-5 border-t border-divider/40" />
 
           {/* ── Details section (layer toggles) ── */}
-          <div className="px-4 pt-2.5 pb-2">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-body/50">Details</p>
+          <div className="px-5 pt-3 pb-1">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-body/70">Details</p>
             {layers.map((layer, i) => {
               const LayerIcon = DETAIL_ICONS[layer.id]
               const isChecked = visibleLayers[layer.id] || false
@@ -197,18 +208,18 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
                   {i > 0 && <div className="border-t border-divider/30" />}
                   <button
                     onClick={() => handleLayerToggle(layer.id, layer.layerIds)}
-                    className="flex min-h-[40px] w-full items-center gap-2.5 py-2 transition-colors active:bg-input-bg/50"
+                    className="flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
                   >
                     {LayerIcon && (
                       <LayerIcon
-                        size={15}
+                        size={isTablet ? 18 : 17}
                         strokeWidth={2}
                         style={{ color: isChecked ? layer.color : '#9ca3af' }}
                         className="shrink-0 transition-colors duration-200"
                       />
                     )}
-                    <span className={`flex-1 text-left text-[12px] font-medium transition-colors duration-200 ${
-                      isChecked ? 'text-heading' : 'text-body/50'
+                    <span className={`flex-1 text-left text-[13px] font-medium transition-colors duration-200 ${
+                      isChecked ? 'text-heading' : 'text-body/70'
                     }`}>
                       {layer.label}
                     </span>
@@ -220,24 +231,24 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map }: Map
           </div>
 
           {/* Clean mode option */}
-          <div className="mx-4 border-t border-divider/40" />
-          <div className="px-4 pt-2 pb-3">
+          <div className="mx-5 border-t border-divider/40" />
+          <div className="px-5 pt-1 pb-4">
             <button
               onClick={() => onModeChange('clean')}
-              className={`flex min-h-[40px] w-full items-center gap-2.5 py-2 transition-colors active:bg-input-bg/50`}
+              className="flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
             >
               <FileText
-                size={15}
+                size={isTablet ? 18 : 17}
                 strokeWidth={2}
                 className={`shrink-0 ${currentMode === 'clean' ? 'text-brand' : 'text-body/40'}`}
               />
               <div className="flex-1 text-left">
-                <span className={`block text-[12px] font-medium ${currentMode === 'clean' ? 'text-heading' : 'text-body/50'}`}>
+                <span className={`block text-[13px] font-medium ${currentMode === 'clean' ? 'text-heading' : 'text-body/70'}`}>
                   Clean
                 </span>
-                <span className="block text-[10px] text-body/40">No labels, places, or roads</span>
+                <span className="block text-[10px] text-body/50">No labels, places, or roads</span>
               </div>
-              <div className={`h-5 w-5 rounded-full border-2 transition-colors ${
+              <div className={`h-6 w-6 rounded-full border-2 transition-colors ${
                 currentMode === 'clean' ? 'border-brand bg-brand' : 'border-slate-300'
               }`}>
                 {currentMode === 'clean' && (

@@ -130,7 +130,8 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           </div>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-body transition-colors hover:bg-input-bg hover:text-heading"
+            aria-label="Close"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
           >
             <X size={18} strokeWidth={2} />
           </button>
@@ -178,14 +179,14 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           <div className="flex items-center gap-3 border-t border-divider px-5 py-3.5">
             <button
               onClick={handleDownloadPng}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-colors hover:bg-brand-dark"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-colors hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <Download size={15} strokeWidth={2} />
               Download PNG
             </button>
             <button
               onClick={handleDownloadPdf}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <FileText size={15} strokeWidth={2} />
               Download PDF

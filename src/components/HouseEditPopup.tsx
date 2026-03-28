@@ -62,15 +62,17 @@ export default function HouseEditPopup() {
           <div className="flex items-center gap-1">
             <button
               onClick={handleDelete}
-              className="rounded px-1.5 py-0.5 text-[10px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              aria-label="Delete house"
+              className="rounded-full px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
             >
               Delete
             </button>
             <button
               onClick={() => setSelected(null)}
-              className="rounded px-1 py-0.5 text-body transition-colors hover:text-heading"
+              aria-label="Close"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
             >
-              <X size={14} strokeWidth={2} />
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -89,7 +91,7 @@ export default function HouseEditPopup() {
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
               placeholder="e.g. Garcia Family"
               autoFocus
-              className="w-full rounded-lg border border-divider bg-surface px-2.5 py-1.5 text-[13px] text-heading placeholder:text-body/50 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
+              className="w-full rounded-lg border border-divider bg-surface px-2.5 py-1.5 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
             />
           </div>
 
@@ -160,7 +162,7 @@ export default function HouseEditPopup() {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddStatus(); if (e.key === 'Escape') setAdding(false) }}
                   placeholder="Status name..."
                   autoFocus
-                  className="w-full rounded-md border border-divider bg-surface px-2 py-1 text-[12px] text-heading placeholder:text-body/50 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
+                  className="w-full rounded-md border border-divider bg-surface px-2 py-1 text-[12px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
                 />
                 <div className="flex items-center gap-1.5">
                   {PRESET_COLORS.map((c) => (

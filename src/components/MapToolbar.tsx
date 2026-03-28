@@ -5,7 +5,6 @@ import { useIsTablet } from '../hooks/useMediaQuery'
 import LocationSearch from './LocationSearch'
 import type { LocationSelection } from './LocationSearch'
 import {
-  Hexagon,
   Road,
   Home,
   TreePine,
@@ -15,8 +14,9 @@ import {
   Redo2,
   Trash2,
   Check,
+  X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import BoundaryPolygonIcon from './icons/BoundaryPolygonIcon'
 
 interface MapToolbarProps {
   activeMode: DrawMode
@@ -33,8 +33,9 @@ interface MapToolbarProps {
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
 const MOD = isMac ? '⌘' : 'Ctrl+'
 
-const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string; shortcut?: string }[] = [
-  { mode: 'boundary', label: 'Boundary', Icon: Hexagon, desc: 'Draw territory boundary' },
+type ToolIcon = React.ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>
+const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shortcut?: string }[] = [
+  { mode: 'boundary', label: 'Boundary', Icon: BoundaryPolygonIcon, desc: 'Draw territory boundary' },
   { mode: 'road', label: 'Road', Icon: Road, desc: 'Draw custom road' },
   { mode: 'house', label: 'House', Icon: Home, desc: 'Place house marker' },
   { mode: 'tree', label: 'Tree', Icon: TreePine, desc: 'Place tree / landmark' },
@@ -42,23 +43,57 @@ const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string; sh
   { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
 
-/* Tooltip with optional keyboard shortcut badge */
-function Tip({ label, shortcut }: { label: string; shortcut?: string }) {
+/* Tooltip with optional description and keyboard shortcut badge */
+function Tip({ label, desc, shortcut, align = 'center' }: { label: string; desc?: string; shortcut?: string; align?: 'center' | 'end' }) {
   return (
-    <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1">
-      {label}
-      {shortcut && (
-        <kbd className="rounded bg-white/15 px-1.5 py-px text-[10px] font-medium tracking-wide text-white/70">
-          {shortcut}
-        </kbd>
+    <span className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1 ${
+      desc ? '-bottom-14' : '-bottom-9'
+    } ${align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+      <span className="flex items-center gap-1.5">
+        {label}
+        {shortcut && (
+          <kbd className="rounded bg-white/15 px-1.5 py-px text-[10px] font-medium tracking-wide text-white/70">
+            {shortcut}
+          </kbd>
+        )}
+      </span>
+      {desc && (
+        <span className="mt-0.5 block text-[10px] font-normal text-white/55">{desc}</span>
       )}
     </span>
   )
 }
 
+/** Step-by-step hint for the active drawing/placement mode */
+function getHintMessage(mode: DrawMode, vertexCount: number): string | null {
+  switch (mode) {
+    case 'boundary':
+      if (vertexCount === 0) return 'Click points on the map to draw your boundary'
+      if (vertexCount < 3) return `Keep clicking to add points (${vertexCount}/3 minimum)`
+      return 'Click first point to close, or press Done'
+    case 'road':
+      if (vertexCount === 0) return 'Click points on the map to draw a road'
+      if (vertexCount < 2) return 'Click to add another point'
+      return 'Double-click or press Done to finish'
+    case 'house':
+      return 'Click on the map to place a house'
+    case 'tree':
+      return 'Click on the map to place a tree or landmark'
+    case 'select':
+      return 'Click on a house, tree, or road to edit it'
+    default:
+      return null
+  }
+}
+
+/** Get tool metadata for the active mode */
+function getActiveTool(mode: DrawMode) {
+  return TOOLS.find((t) => t.mode === mode) || null
+}
+
 /* Shared button base — animation handled by .btn-press in CSS */
 const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
-const btnInteractive = 'hover:bg-black/[0.06]'
+const btnInteractive = 'hover:bg-black/6'
 const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1'
 
 export default function MapToolbar({
@@ -120,11 +155,16 @@ export default function MapToolbar({
     }
   }, [checkScroll])
 
+  const hintMessage = getHintMessage(activeMode, vertexCount)
+  const activeTool = getActiveTool(activeMode)
+
   return (
+    <>
+    <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center overflow-hidden rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
+      className="relative flex max-w-[calc(100vw-1rem)] items-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
     >
       {/* Left fade edge */}
       {canScrollLeft && (
@@ -134,12 +174,12 @@ export default function MapToolbar({
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="flex items-center gap-1 py-1.5 pl-1.5 pr-2"
+        className="flex items-center gap-1 overflow-x-clip overflow-y-visible py-1.5 pl-2.5 pr-2"
       >
         {/* ── Search ── */}
         {onLocationSelect && (
           <>
-            <div className={`shrink-0 ${isTablet ? 'w-36' : 'w-44'}`}>
+            <div className={`shrink-0 ${isTablet ? 'w-40' : 'w-48'}`}>
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
@@ -148,7 +188,7 @@ export default function MapToolbar({
         )}
 
         {/* ── History group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/4 px-1 py-0.5">
           <button
             onClick={() => {
               if (isDrawing && onDrawUndo) onDrawUndo()
@@ -159,11 +199,11 @@ export default function MapToolbar({
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canUndo
                 ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-300'
+                : 'cursor-not-allowed text-slate-400'
             }`}
           >
             <Undo2 size={iconSize} strokeWidth={2} />
-            <Tip label="Undo" shortcut={`${MOD}Z`} />
+            {!activeMode && <Tip label="Undo" shortcut={`${MOD}Z`} />}
           </button>
           <button
             onClick={() => {
@@ -175,11 +215,11 @@ export default function MapToolbar({
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canRedo
                 ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-300'
+                : 'cursor-not-allowed text-slate-400'
             }`}
           >
             <Redo2 size={iconSize} strokeWidth={2} />
-            <Tip label="Redo" shortcut={`${MOD}⇧Z`} />
+            {!activeMode && <Tip label="Redo" shortcut={`${MOD}⇧Z`} />}
           </button>
         </div>
 
@@ -192,14 +232,14 @@ export default function MapToolbar({
             className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold ${
               canFinish
                 ? 'bg-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600'
-                : 'cursor-not-allowed bg-black/[0.04] text-slate-300'
+                : 'cursor-not-allowed bg-black/4 text-slate-400'
             }`}
           >
             <span className="flex items-center gap-1">
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
-            <Tip label="Finish" shortcut="Enter" />
+            {!activeMode && <Tip label="Finish" shortcut="Enter" />}
           </button>
         )}
         {isPlacing && (
@@ -212,7 +252,7 @@ export default function MapToolbar({
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
-            <Tip label="Exit mode" shortcut="Esc" />
+            {!activeMode && <Tip label="Exit mode" shortcut="Esc" />}
           </button>
         )}
 
@@ -220,8 +260,8 @@ export default function MapToolbar({
         <div className="mx-0.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
 
         {/* ── Drawing tools group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
-          {TOOLS.map(({ mode, label, Icon, shortcut }) => {
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/4 px-1 py-0.5">
+          {TOOLS.map(({ mode, label, Icon, desc, shortcut }) => {
             const isActive = activeMode === mode
             const isDisabledTool = mode === 'boundary' && hasBoundary
 
@@ -236,12 +276,12 @@ export default function MapToolbar({
                   isActive
                     ? 'bg-brand text-white shadow-[0_2px_10px_rgba(75,108,167,0.35)]'
                     : isDisabledTool
-                      ? 'cursor-not-allowed text-slate-300'
+                      ? 'cursor-not-allowed text-slate-400'
                       : `text-slate-700 ${btnInteractive}`
                 }`}
               >
                 <Icon size={iconSize} strokeWidth={isActive ? 2.2 : 2} />
-                <Tip label={label} shortcut={shortcut} />
+                {!activeMode && <Tip label={label} desc={desc} shortcut={shortcut} />}
               </button>
             )
           })}
@@ -252,10 +292,10 @@ export default function MapToolbar({
           <button
             onClick={onClearBoundary}
             aria-label="Clear boundary"
-            className={`${btnBase} shrink-0 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 ${btnFocusRing} h-8 w-8`}
+            className={`${btnBase} shrink-0 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 ${btnFocusRing} ${btnSize}`}
           >
             <Trash2 size={iconSize} strokeWidth={2} />
-            <Tip label="Clear" shortcut="Del" />
+            {!activeMode && <Tip label="Clear" shortcut="Del" align="end" />}
           </button>
         )}
       </div>
@@ -265,5 +305,52 @@ export default function MapToolbar({
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 rounded-r-full bg-linear-to-l from-white/90 to-transparent" />
       )}
     </div>
+    </div>
+
+    {/* Contextual helper card — top-right, replaces FloatingSettings during active mode */}
+    {hintMessage && activeTool && (
+      <div className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
+        <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
+          isTablet ? 'w-72' : 'w-64'
+        }`}>
+          {/* Header row: icon + title + actions */}
+          <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">
+            <div className={`flex shrink-0 items-center justify-center rounded-xl bg-brand text-white ${
+              isTablet ? 'h-10 w-10' : 'h-9 w-9'
+            }`}>
+              <activeTool.Icon size={isTablet ? 20 : 18} strokeWidth={2} className="text-white" />
+            </div>
+            <span className="flex-1 text-[14px] font-bold text-heading">{activeTool.label}</span>
+            {isDrawing && (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
+                aria-label="Undo last point"
+                className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+                  isTablet ? 'h-9 w-9' : 'h-8 w-8'
+                }`}
+              >
+                <Undo2 size={isTablet ? 16 : 15} strokeWidth={2} />
+              </button>
+            )}
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onModeChange(null) }}
+              aria-label="Exit tool"
+              className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+                isTablet ? 'h-9 w-9' : 'h-8 w-8'
+              }`}
+            >
+              <X size={isTablet ? 16 : 15} strokeWidth={2} />
+            </button>
+          </div>
+          {/* Description */}
+          <div className="px-4 pb-3.5">
+            <p className="text-[13px] leading-relaxed text-heading/80">{hintMessage}</p>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

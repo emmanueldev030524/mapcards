@@ -35,7 +35,7 @@ export default function TreeActionPopup() {
         {/* Delete */}
         <button
           onClick={handleDelete}
-          className="btn-press flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-500 transition-colors hover:bg-red-100 hover:text-red-600"
+          className="btn-press flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1.5 text-[12px] font-semibold text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
         >
           <Trash2 size={13} strokeWidth={2.2} />
           Delete
@@ -44,9 +44,10 @@ export default function TreeActionPopup() {
         {/* Close */}
         <button
           onClick={() => setSelected(null)}
-          className="btn-press flex h-7 w-7 items-center justify-center rounded-full text-body transition-colors hover:bg-black/[0.06] hover:text-heading"
+          aria-label="Close"
+          className="btn-press flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
         >
-          <X size={14} strokeWidth={2} />
+          <X size={16} strokeWidth={2} />
         </button>
       </div>
     </div>

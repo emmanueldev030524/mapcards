@@ -16,26 +16,26 @@ export default function FloatingSettings() {
   const activeDrawMode = useStore((s) => s.activeDrawMode)
 
   const hasContent = boundary !== null || houseCount > 0
-  const isDrawing = activeDrawMode === 'boundary' || activeDrawMode === 'road'
+  const hasActiveMode = activeDrawMode !== null
 
-  // Auto-open when boundary exists and not drawing (unless dismissed)
+  // Auto-open when boundary exists and no tool active (unless dismissed)
   useEffect(() => {
-    if (isDrawing) {
+    if (hasActiveMode) {
       setOpen(false)
     } else if (hasContent && !dismissed) {
       setOpen(true)
     }
-  }, [hasContent, isDrawing, dismissed])
+  }, [hasContent, hasActiveMode, dismissed])
 
-  // When finishing a draw, reset dismissed and reopen
+  // When exiting any tool mode, reset dismissed and reopen
   useEffect(() => {
-    const wasDrawing = prevModeRef.current === 'boundary' || prevModeRef.current === 'road'
-    if (wasDrawing && !isDrawing && hasContent) {
+    const hadMode = prevModeRef.current !== null
+    if (hadMode && !hasActiveMode && hasContent) {
       setDismissed(false)
       setOpen(true)
     }
     prevModeRef.current = activeDrawMode
-  }, [activeDrawMode, hasContent, isDrawing])
+  }, [activeDrawMode, hasContent, hasActiveMode])
 
   // Reset when boundary removed
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function FloatingSettings() {
 
   // When dismissed, listen for clicks on the map canvas to reopen
   useEffect(() => {
-    if (!dismissed || !hasContent || isDrawing) return
+    if (!dismissed || !hasContent || hasActiveMode) return
 
     const canvas = document.querySelector('.maplibregl-canvas') as HTMLElement
     if (!canvas) return
@@ -76,15 +76,13 @@ export default function FloatingSettings() {
       canvas.removeEventListener('click', handler)
       canvas.removeEventListener('touchend', handler)
     }
-  }, [dismissed, hasContent, isDrawing])
+  }, [dismissed, hasContent, hasActiveMode])
 
   if (!open || !hasContent) return null
 
   return (
-    <div ref={panelRef} className="absolute right-3 top-14 z-10">
-      <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.04)] backdrop-blur-xl ${
-        isTablet ? 'w-72' : 'w-64'
-      }`}>
+    <div ref={panelRef} className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
+      <div className="w-64 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.04)] backdrop-blur-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3.5 pb-1">
           <div className="flex items-center gap-2">
@@ -93,7 +91,8 @@ export default function FloatingSettings() {
           </div>
           <button
             onClick={() => { setOpen(false); setDismissed(true) }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90"
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
           >
             <X size={16} strokeWidth={2.5} />
           </button>
