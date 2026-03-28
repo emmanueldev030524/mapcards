@@ -95,9 +95,10 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     const updatePosition = () => {
       const coords = house.geometry.coordinates as [number, number]
       const screenPt = map.project(coords)
-      const canvas = map.getCanvas()
-      // If house is in the bottom 45% of the screen, show popup at top
-      setPopupPosition(screenPt.y > canvas.height * 0.55 ? 'top' : 'bottom')
+      // Use clientHeight (CSS pixels) — canvas.height is device pixels (2-3× on retina)
+      const cssHeight = map.getCanvas().clientHeight
+      // If house is in the bottom 45% of the viewport, show popup at top
+      setPopupPosition(screenPt.y > cssHeight * 0.55 ? 'top' : 'bottom')
     }
 
     updatePosition()
