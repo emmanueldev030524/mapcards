@@ -97,6 +97,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         map.scrollZoom.setWheelZoomRate(1 / 150)
         map.scrollZoom.setZoomRate(1 / 100)
 
+        // Disable double-tap-to-zoom on touch devices — conflicts with
+        // rapid tapping to select/place houses. Users have pinch-to-zoom instead.
+        if ('ontouchstart' in window) {
+          map.doubleClickZoom.disable()
+        }
+
         // Compass first, then zoom — Google Earth layout (compass | − | +)
         const compassCtrl = new CompassControl()
         map.addControl(compassCtrl, 'bottom-right')
