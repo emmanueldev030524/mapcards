@@ -159,6 +159,12 @@
     animation: layer-pulse 300ms ease-out;
   }
 
+  /* Confirm dialog entrance */
+  @keyframes dialog-in {
+    0% { opacity: 0; transform: scale(0.92) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
   /* Drag feedback: lifted feel during touch drag */
   @keyframes grab-pulse {
     0% { transform: scale(1); }
@@ -171,18 +177,24 @@
     outline: none;
   }
 
-  /* ── MapLibre controls — frosted glass override ── */
+  /* ── MapLibre controls — horizontal pill, light frosted glass ── */
   .maplibregl-ctrl-group {
+    display: flex !important;
+    flex-direction: row !important;
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
     border: 1px solid rgba(255, 255, 255, 0.6) !important;
-    border-radius: 14px !important;
+    border-radius: 9999px !important;
     box-shadow:
       0 4px 16px rgba(0, 0, 0, 0.08),
       0 1px 3px rgba(0, 0, 0, 0.04),
       inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
     overflow: hidden;
+  }
+  /* Extra padding only on the zoom pill, not compass */
+  .maplibregl-ctrl-group:not(:has(.maplibregl-ctrl-compass)) {
+    padding: 0 2px !important;
   }
   .maplibregl-ctrl-group button {
     width: 36px !important;
@@ -199,9 +211,10 @@
     transform: scale(0.88);
     transition: transform 80ms ease-out;
   }
-  /* Remove the default 1px border-top divider between buttons */
+  /* Vertical divider between buttons (horizontal layout) */
   .maplibregl-ctrl-group button + button {
-    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+    border-top: none !important;
+    border-left: 1px solid rgba(0, 0, 0, 0.06) !important;
   }
   /* Style the +/- icons */
   .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
@@ -212,11 +225,15 @@
   .maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
     opacity: 1;
   }
-  /* Compass button in the nav group */
+  /* Compass container — perfect circle, no extra padding */
+  .maplibregl-ctrl-group:has(.maplibregl-ctrl-compass) {
+    border-radius: 50% !important;
+    padding: 0 !important;
+  }
   .maplibregl-ctrl-compass {
     width: 36px !important;
     height: 36px !important;
-    border-radius: 0 !important;
+    border-radius: 50% !important;
   }
   /* Attribution control — subtle */
   .maplibregl-ctrl-attrib {
@@ -225,6 +242,20 @@
     -webkit-backdrop-filter: blur(8px) !important;
     border-radius: 8px !important;
     font-size: 10px !important;
+  }
+
+  /* Bottom-right controls: horizontal flow (zoom pill + compass side by side) */
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+    float: right;
+    margin-right: 0;
+  }
+  .maplibregl-ctrl-bottom-right {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-end;
+    gap: 3px;
+    margin-bottom: 8px !important;
+    margin-right: 4px !important;
   }
 
   /* ── Touch zoom lock ── */
@@ -244,7 +275,7 @@
   }
 
   /* Tablet: larger map controls for touch */
-  @media (max-width: 1023px) {
+  @media (max-width: 1279px) {
     .maplibregl-ctrl-group button {
       width: 44px !important;
       height: 44px !important;

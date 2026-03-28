@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 
 interface SidebarSectionProps {
@@ -9,6 +9,20 @@ interface SidebarSectionProps {
 
 export default function SidebarSection({ title, children, defaultOpen = true }: SidebarSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | undefined>(undefined)
+
+  // Measure content height for smooth animation
+  useEffect(() => {
+    if (!contentRef.current) return
+    const ro = new ResizeObserver(() => {
+      if (contentRef.current) {
+        setHeight(contentRef.current.scrollHeight)
+      }
+    })
+    ro.observe(contentRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   return (
     <div>
@@ -22,16 +36,18 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         <ChevronRight
           size={13}
           strokeWidth={2}
-          className={`text-body transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+          className={`text-body transition-transform duration-300 ease-out ${open ? 'rotate-90' : ''}`}
         />
       </button>
       <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-        }`}
+        style={{
+          maxHeight: open ? (height ?? 1000) : 0,
+          opacity: open ? 1 : 0,
+        }}
+        className="overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
       >
-        <div className="overflow-hidden">
-          <div className="pt-1.5 pb-1">{children}</div>
+        <div ref={contentRef} className="pt-1.5 pb-1">
+          {children}
         </div>
       </div>
     </div>

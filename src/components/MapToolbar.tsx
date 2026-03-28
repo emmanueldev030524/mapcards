@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
 import { useIsTablet } from '../hooks/useMediaQuery'
+import LocationSearch from './LocationSearch'
+import type { LocationSelection } from './LocationSearch'
 import {
   Hexagon,
-  Route,
+  Road,
   Home,
   TreePine,
   LayoutGrid,
@@ -25,6 +27,7 @@ interface MapToolbarProps {
   onDrawRedo?: () => void
   onDrawFinish?: () => void
   getVertexCount?: () => number
+  onLocationSelect?: (selection: LocationSelection) => void
 }
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
@@ -32,7 +35,7 @@ const MOD = isMac ? '⌘' : 'Ctrl+'
 
 const TOOLS: { mode: DrawMode; label: string; Icon: LucideIcon; desc: string; shortcut?: string }[] = [
   { mode: 'boundary', label: 'Boundary', Icon: Hexagon, desc: 'Draw territory boundary' },
-  { mode: 'road', label: 'Road', Icon: Route, desc: 'Draw custom road' },
+  { mode: 'road', label: 'Road', Icon: Road, desc: 'Draw custom road' },
   { mode: 'house', label: 'House', Icon: Home, desc: 'Place house marker' },
   { mode: 'tree', label: 'Tree', Icon: TreePine, desc: 'Place tree / landmark' },
   { mode: 'bulkFill', label: 'Bulk Fill', Icon: LayoutGrid, desc: 'Place houses along a road' },
@@ -67,6 +70,7 @@ export default function MapToolbar({
   onDrawRedo,
   onDrawFinish,
   getVertexCount,
+  onLocationSelect,
 }: MapToolbarProps) {
   const isDrawing = activeMode === 'boundary' || activeMode === 'road'
   const isPlacing = activeMode === 'house' || activeMode === 'tree'
@@ -120,7 +124,7 @@ export default function MapToolbar({
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
+      className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center overflow-hidden rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
     >
       {/* Left fade edge */}
       {canScrollLeft && (
@@ -130,8 +134,19 @@ export default function MapToolbar({
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="flex items-center gap-1 px-1.5 py-1.5"
+        className="flex items-center gap-1 py-1.5 pl-1.5 pr-2"
       >
+        {/* ── Search ── */}
+        {onLocationSelect && (
+          <>
+            <div className={`shrink-0 ${isTablet ? 'w-36' : 'w-44'}`}>
+              <LocationSearch onLocationSelect={onLocationSelect} compact />
+            </div>
+            {/* Vertical divider */}
+            <div className="mx-0.5 h-5 w-px shrink-0 bg-slate-200" />
+          </>
+        )}
+
         {/* ── History group ── */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.04] px-1 py-0.5">
           <button
@@ -234,17 +249,14 @@ export default function MapToolbar({
 
         {/* ── Clear boundary ── */}
         {hasBoundary && onClearBoundary && (
-          <>
-            <div className="mx-0.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
-            <button
-              onClick={onClearBoundary}
-              aria-label="Clear boundary"
-              className={`${btnBase} ${btnSize} ${btnFocusRing} shrink-0 text-slate-400 hover:text-red-500`}
-            >
-              <Trash2 size={iconSize} strokeWidth={2} />
-              <Tip label="Clear" shortcut="Del" />
-            </button>
-          </>
+          <button
+            onClick={onClearBoundary}
+            aria-label="Clear boundary"
+            className={`${btnBase} shrink-0 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 ${btnFocusRing} h-8 w-8`}
+          >
+            <Trash2 size={iconSize} strokeWidth={2} />
+            <Tip label="Clear" shortcut="Del" />
+          </button>
         )}
       </div>
 

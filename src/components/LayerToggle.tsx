@@ -1,9 +1,8 @@
-import { useCallback, useRef, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { getToggleableLayers } from '../lib/mapStyle'
 import { useStore } from '../store'
 import {
-  Satellite, Map, FileText,
   Building2, Hash, ShoppingBag, GraduationCap, Church, Cross,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -21,81 +20,29 @@ const LAYER_ICONS: Record<string, LucideIcon> = {
   'poi-hospitals': Cross,
 }
 
-const MAP_MODES: { value: 'satellite' | 'street' | 'clean'; label: string; Icon: LucideIcon }[] = [
-  { value: 'satellite', label: 'Satellite', Icon: Satellite },
-  { value: 'street', label: 'Street', Icon: Map },
-  { value: 'clean', label: 'Clean', Icon: FileText },
-]
-
-/** Sliding pill segmented control */
-function SegmentedControl({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; label: string; Icon: LucideIcon }[]
-  value: string
-  onChange: (value: string) => void
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 })
-  const activeIndex = options.findIndex((o) => o.value === value)
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const buttons = container.querySelectorAll<HTMLButtonElement>('[data-segment]')
-    const btn = buttons[activeIndex]
-    if (!btn) return
-    setIndicator({
-      left: btn.offsetLeft,
-      width: btn.offsetWidth,
-    })
-  }, [activeIndex])
-
+/** Inline toggle switch — compact version for layer rows */
+function LayerSwitch({ checked }: { checked: boolean }) {
   return (
-    <div
-      ref={containerRef}
-      className="relative flex w-full overflow-hidden rounded-full border border-divider/60 bg-white p-0.5"
+    <span
+      role="switch"
+      aria-checked={checked}
+      className={`relative inline-flex h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+        checked ? 'bg-brand' : 'bg-slate-200'
+      }`}
     >
-      {/* Sliding indicator */}
-      <div
-        className="absolute top-0.5 bottom-0.5 rounded-full bg-brand shadow-[0_1px_3px_rgba(75,108,167,0.4)] transition-all duration-300 ease-in-out"
-        style={{ left: indicator.left, width: indicator.width }}
+      <span
+        className={`absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
+          checked ? 'translate-x-4' : 'translate-x-0'
+        }`}
       />
-      {options.map((opt) => {
-        const isActive = opt.value === value
-        return (
-          <button
-            key={opt.value}
-            data-segment
-            onClick={() => onChange(opt.value)}
-            className={`relative z-10 flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-1 py-2 text-[11px] transition-colors duration-200 ${
-              isActive
-                ? 'font-semibold text-white'
-                : 'font-medium text-body/50 hover:text-body/80'
-            }`}
-          >
-            <opt.Icon size={13} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
+    </span>
   )
 }
 
 export default function LayerToggle({ map }: LayerToggleProps) {
   const visibleLayers = useStore((s) => s.visibleLayers)
   const toggleLayer = useStore((s) => s.toggleLayer)
-  const boundary = useStore((s) => s.boundary)
-  const mapMode = useStore((s) => s.mapMode)
-  const setMapMode = useStore((s) => s.setMapMode)
   const layers = getToggleableLayers()
-
-  const effectiveMode = mapMode === 'auto'
-    ? (boundary === null ? 'satellite' : 'street')
-    : mapMode
 
   const handleToggle = useCallback(
     (layerId: string, mapLayerIds: string[]) => {
@@ -152,49 +99,49 @@ export default function LayerToggle({ map }: LayerToggleProps) {
   )
 
   return (
-    <div className="space-y-3">
-      {/* Map mode — segmented control with sliding indicator */}
-      <SegmentedControl
-        options={MAP_MODES}
-        value={effectiveMode}
-        onChange={(v) => setMapMode(v as 'satellite' | 'street' | 'clean')}
-      />
-
-      {/* Layers */}
-      <div className="space-y-1.5">
-        {layers.map((layer) => {
+    <div>
+      {/* Layers — grouped card */}
+      <div className="rounded-xl bg-input-bg/50 px-1 py-0.5">
+        {layers.map((layer, i) => {
           const LayerIcon = LAYER_ICONS[layer.id]
           const isChecked = visibleLayers[layer.id] || false
           return (
-            <button
-              key={layer.id}
-              onClick={() => handleToggle(layer.id, layer.layerIds)}
-              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 transition-all duration-150 ${
-                isChecked
-                  ? ''
-                  : 'opacity-40 hover:opacity-60'
-              }`}
-            >
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-all duration-200"
-                style={{
-                  backgroundColor: isChecked ? layer.color : '#C8C6C1',
-                }}
+            <div key={layer.id}>
+              {i > 0 && <div className="mx-2.5 border-t border-divider/40" />}
+              <button
+                onClick={() => handleToggle(layer.id, layer.layerIds)}
+                className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-all duration-150 active:bg-white/60"
               >
-                {LayerIcon ? (
-                  <LayerIcon
-                    size={16}
-                    strokeWidth={2}
-                    className="text-white"
-                  />
-                ) : (
-                  <span className="block h-2.5 w-2.5 rounded-full bg-white" />
-                )}
-              </span>
-              <span className="flex-1 text-left text-[13px] font-semibold text-heading">
-                {layer.label}
-              </span>
-            </button>
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200"
+                  style={{
+                    backgroundColor: isChecked
+                      ? `${layer.color}18`
+                      : 'rgba(0,0,0,0.04)',
+                  }}
+                >
+                  {LayerIcon ? (
+                    <LayerIcon
+                      size={17}
+                      strokeWidth={2}
+                      style={{ color: isChecked ? layer.color : '#9ca3af' }}
+                      className="transition-colors duration-200"
+                    />
+                  ) : (
+                    <span
+                      className="block h-2.5 w-2.5 rounded-full transition-colors duration-200"
+                      style={{ backgroundColor: isChecked ? layer.color : '#9ca3af' }}
+                    />
+                  )}
+                </span>
+                <span className={`flex-1 text-left text-[13px] font-medium transition-colors duration-200 ${
+                  isChecked ? 'text-heading' : 'text-body/50'
+                }`}>
+                  {layer.label}
+                </span>
+                <LayerSwitch checked={isChecked} />
+              </button>
+            </div>
           )
         })}
       </div>

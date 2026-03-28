@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import { X, Plus } from 'lucide-react'
+import { showConfirm } from './ConfirmDialog'
 
 const PRESET_COLORS = [
   '#f39c12', '#e74c3c', '#e67e22', '#2ecc71', '#3498db',
@@ -104,11 +105,14 @@ export default function HouseEditPopup() {
                   <button
                     key={status.id}
                     onClick={() => toggleTag(house.id, status.id)}
-                    onContextMenu={(e) => {
+                    onContextMenu={async (e) => {
                       e.preventDefault()
-                      if (confirm(`Remove "${status.label}" status?`)) {
-                        removeCustomStatus(status.id)
-                      }
+                      const ok = await showConfirm(
+                        `Remove "${status.label}"?`,
+                        'This status will be removed from all houses that use it.',
+                        { variant: 'destructive', confirmLabel: 'Remove' },
+                      )
+                      if (ok) removeCustomStatus(status.id)
                     }}
                     title={`${status.label} (right-click to remove)`}
                     className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition-colors ${

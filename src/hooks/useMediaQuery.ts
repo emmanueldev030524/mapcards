@@ -16,7 +16,7 @@ export function useMediaQuery(query: string): boolean {
   return matches
 }
 
-/** True when viewport is < 1024px (tablets and smaller) */
+/** True when viewport is < 1280px (tablets including iPad Air/Pro landscape) */
 export function useIsTablet(): boolean {
-  return useMediaQuery('(max-width: 1023px)')
+  return useMediaQuery('(max-width: 1279px)')
 }

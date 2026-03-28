@@ -66,27 +66,31 @@ export class CompassControl implements maplibregl.IControl {
 
   onAdd(map: maplibregl.Map): HTMLElement {
     this.map = map
-    const isTablet = window.matchMedia('(max-width: 1023px)').matches
+    const isTablet = window.matchMedia('(max-width: 1279px)').matches
 
-    // --- Wrapper ---
+    // --- Wrapper — styled as a maplibregl-ctrl-group for consistent pill styling ---
     this.wrapper = document.createElement('div')
+    this.wrapper.className = 'maplibregl-ctrl maplibregl-ctrl-group'
     Object.assign(this.wrapper.style, {
       position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'flex-end',
     })
 
-    // --- Compass button (styled as a native MapLibre nav button) ---
+    // --- Compass button ---
     this.compassBtn = document.createElement('button')
     this.compassBtn.className = 'maplibregl-ctrl-compass'
     this.compassBtn.title = 'Orientation'
+    const btnSize = isTablet ? '44px' : '36px'
     Object.assign(this.compassBtn.style, {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
       padding: '0',
+      width: btnSize,
+      height: btnSize,
+      border: 'none',
+      background: 'transparent',
+      cursor: 'pointer',
     })
 
     // Needle (the SVG contains its own ring + ticks)
@@ -113,7 +117,7 @@ export class CompassControl implements maplibregl.IControl {
     this.panel = document.createElement('div')
     Object.assign(this.panel.style, {
       position: 'absolute',
-      width: '220px',
+      width: window.matchMedia('(max-width: 1279px)').matches ? '180px' : '220px',
       background: 'rgba(255,255,255,0.92)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
@@ -412,21 +416,13 @@ export class CompassControl implements maplibregl.IControl {
     const group = this.compassBtn.closest('.maplibregl-ctrl-group') || this.compassBtn
     const groupRect = group.getBoundingClientRect()
 
-    // On narrow screens (<600px), position below the control group, right-aligned
-    // On wider screens, position to the left of the control group, top-aligned
-    const isNarrow = containerRect.width < 600
-    if (isNarrow) {
-      const right = containerRect.right - groupRect.right
-      const top = groupRect.bottom - containerRect.top + 8
-      this.panel.style.right = `${right}px`
-      this.panel.style.top = `${top}px`
-    } else {
-      const right = containerRect.right - groupRect.left + 8
-      const top = groupRect.top - containerRect.top
-      this.panel.style.right = `${right}px`
-      this.panel.style.top = `${top}px`
-    }
-    this.panel.style.bottom = 'auto'
+    // Position above the compass, right-aligned near screen edge
+    const right = 12
+    const bottom = containerRect.bottom - groupRect.top + 8
+    this.panel.style.right = `${right}px`
+    this.panel.style.bottom = `${bottom}px`
+    this.panel.style.top = 'auto'
+    this.panel.style.left = 'auto'
   }
 
   private closePanel() {

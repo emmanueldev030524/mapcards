@@ -99,21 +99,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         map.scrollZoom.setWheelZoomRate(1 / 150)
         map.scrollZoom.setZoomRate(1 / 100)
 
-        const navCtrl = new maplibregl.NavigationControl({ showCompass: false })
-        map.addControl(navCtrl, 'top-right')
-        // Inject compass into the nav control group so +, -, compass form one unified stack
+        // Compass first, then zoom — Google Earth layout (compass | − | +)
         const compassCtrl = new CompassControl()
-        map.addControl(compassCtrl, 'top-right')
-        const navGroup = (navCtrl as unknown as { _container: HTMLElement })._container
-        const compassBtn = (compassCtrl as unknown as { compassBtn: HTMLElement }).compassBtn
-        if (navGroup && compassBtn) {
-          // Move compass button into the nav group (CSS handles the separator)
-          navGroup.appendChild(compassBtn)
-          // Remove the now-empty compass wrapper from the control container
-          const emptyWrapper = (compassCtrl as unknown as { wrapper: HTMLElement }).wrapper
-          emptyWrapper.parentElement?.removeChild(emptyWrapper)
-        }
-        map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
+        map.addControl(compassCtrl, 'bottom-right')
+        const navCtrl = new maplibregl.NavigationControl({ showCompass: false })
+        map.addControl(navCtrl, 'bottom-right')
+        // Attribution hidden — OpenFreeMap + OpenMapTiles credited in app docs
 
         map.on('load', () => {
           if (cancelled) return
@@ -353,14 +344,16 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
                 'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.35, 16, 0.55, 19, 0.7],
                 'icon-allow-overlap': true,
                 'icon-anchor': 'bottom',
-                'text-field': [
-                  'format',
-                  ['get', 'num'], { 'font-scale': 1.0 },
-                  ['case', ['!=', ['get', 'label'], ''],
-                    ['concat', '\n', ['get', 'label']],
-                    '',
-                  ], { 'font-scale': 0.85 },
-                ],
+                'text-field': useStore.getState().visibleLayers['housenumbers']
+                  ? [
+                      'format',
+                      ['get', 'num'], { 'font-scale': 1.0 },
+                      ['case', ['!=', ['get', 'label'], ''],
+                        ['concat', '\n', ['get', 'label']],
+                        '',
+                      ], { 'font-scale': 0.85 },
+                    ]
+                  : '',
                 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 7, 16, 9, 19, 11],
                 'text-anchor': 'top',
                 'text-offset': [0, 0.2],

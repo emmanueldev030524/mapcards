@@ -5,11 +5,10 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useIsTablet } from './hooks/useMediaQuery'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
-import Toolbar from './components/Toolbar'
-import LocationSearch from './components/LocationSearch'
+import FloatingSettings from './components/FloatingSettings'
 import type { LocationSelection } from './components/LocationSearch'
+import MapModeThumbnail from './components/MapModeThumbnail'
 import CardSettings from './components/CardSettings'
-import LayerToggle from './components/LayerToggle'
 import ProjectManager from './components/ProjectManager'
 import ExportPanel from './components/ExportPanel'
 import ExportModal from './components/ExportModal'
@@ -18,6 +17,7 @@ import HouseEditPopup from './components/HouseEditPopup'
 import TreeActionPopup from './components/TreeActionPopup'
 import RoadDeleteButton from './components/RoadDeleteButton'
 import SidebarSection from './components/SidebarSection'
+import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
 import { useAutoSave, useLoadOnStart } from './hooks/useProject'
@@ -36,6 +36,8 @@ export default function App() {
   const addCustomRoad = useStore((s) => s.addCustomRoad)
   const customRoads = useStore((s) => s.customRoads)
   const housePoints = useStore((s) => s.housePoints)
+  const mapMode = useStore((s) => s.mapMode)
+  const setMapMode = useStore((s) => s.setMapMode)
 
   const handleBoundaryComplete = useCallback(
     (feature: Feature<Polygon>) => {
@@ -97,6 +99,8 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't fire shortcuts while typing in an input
+      if (document.activeElement?.tagName === 'INPUT') return
       if (e.key === 'Escape') {
         setActiveDrawMode(null)
         setMode(null)
@@ -203,10 +207,9 @@ export default function App() {
         </div>
 
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-          {/* Project + Search */}
-          <div className="space-y-3 px-5 pt-5 pb-3">
+          {/* Project */}
+          <div className="px-5 pt-5 pb-3">
             <ProjectManager />
-            <LocationSearch onLocationSelect={handleLocationSelect} />
           </div>
 
           <div className="mx-5 border-t border-divider/50" />
@@ -215,24 +218,6 @@ export default function App() {
           <div className="px-5 py-2.5">
             <SidebarSection title="Card Settings">
               <CardSettings />
-            </SidebarSection>
-          </div>
-
-          <div className="mx-5 border-t border-divider/50" />
-
-          {/* Settings — sliders, grid snap (contextual) */}
-          <div className="px-5 py-2.5">
-            <SidebarSection title="Settings">
-              <Toolbar />
-            </SidebarSection>
-          </div>
-
-          <div className="mx-5 border-t border-divider/50" />
-
-          {/* Map View & Layers */}
-          <div className="px-5 py-2.5">
-            <SidebarSection title="Map View & Layers">
-              <LayerToggle map={mapInstance} />
             </SidebarSection>
           </div>
 
@@ -295,17 +280,23 @@ export default function App() {
           {sidebarOpen ? <PanelLeftClose size={isTablet ? 20 : 16} strokeWidth={2} /> : <PanelLeftOpen size={isTablet ? 20 : 16} strokeWidth={2} />}
         </button>
 
+        <FloatingSettings />
+
         <MapToolbar
           activeMode={activeDrawMode}
           onModeChange={handleModeChange}
           hasBoundary={boundary !== null}
-          onClearBoundary={() => {
-            if (!confirm('Clear everything? This removes the boundary, all houses, trees, and roads.')) return
+          onClearBoundary={async () => {
+            const ok = await showConfirm(
+              'Clear Everything?',
+              'This removes the boundary, all houses, trees, and roads. This action cannot be undone.',
+              { variant: 'destructive', confirmLabel: 'Clear All' },
+            )
+            if (!ok) return
             setBoundary(null)
             clearAll()
             useStore.getState().clearAllHouses()
             useStore.getState().clearAllTrees()
-            // Clear custom roads one by one (no bulk clear in store)
             const roads = useStore.getState().customRoads
             for (const r of roads) useStore.getState().removeCustomRoad(r.id as string)
           }}
@@ -313,10 +304,16 @@ export default function App() {
           onDrawRedo={redo}
           onDrawFinish={finish}
           getVertexCount={getVertexCount}
+          onLocationSelect={handleLocationSelect}
         />
         <HouseEditPopup />
         <TreeActionPopup />
         <RoadDeleteButton />
+        <MapModeThumbnail
+          currentMode={mapMode === 'auto' ? (boundary === null ? 'satellite' : 'street') : mapMode}
+          onModeChange={setMapMode}
+          map={mapInstance}
+        />
       </main>
 
       <BulkFillDialog
@@ -330,6 +327,8 @@ export default function App() {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
       />
+
+      <ConfirmDialog />
     </div>
   )
 }

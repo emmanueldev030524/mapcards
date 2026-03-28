@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver'
 import { Plus, Save, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { deleteProject } from '../lib/db'
+import { showConfirm, showAlert } from './ConfirmDialog'
 
 export default function ProjectManager() {
   const getProjectData = useStore((s) => s.getProjectData)
@@ -12,8 +13,13 @@ export default function ProjectManager() {
   const territoryNumber = useStore((s) => s.territoryNumber)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleNew = useCallback(() => {
-    if (!confirm('Start a new territory? Current work will be cleared.')) return
+  const handleNew = useCallback(async () => {
+    const ok = await showConfirm(
+      'New Territory?',
+      'Current work will be cleared. Make sure you\'ve saved your project first.',
+      { variant: 'destructive', confirmLabel: 'Start New' },
+    )
+    if (!ok) return
     clearProject()
     deleteProject().catch(console.error)
   }, [clearProject])
@@ -35,25 +41,25 @@ export default function ProjectManager() {
       if (!file) return
 
       const reader = new FileReader()
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const data = JSON.parse(reader.result as string)
 
           // Validate required structure
           if (data.version !== 1) {
-            alert('Unsupported project file version.')
+            await showAlert('Unsupported Version', 'This project file uses a version that isn\'t supported.')
             return
           }
           if (typeof data.id !== 'string' || !data.id) {
-            alert('Invalid project file: missing project ID.')
+            await showAlert('Invalid File', 'This project file is missing a project ID.')
             return
           }
           if (typeof data.cardWidthInches !== 'number' || typeof data.cardHeightInches !== 'number') {
-            alert('Invalid project file: missing card dimensions.')
+            await showAlert('Invalid File', 'This project file is missing card dimensions.')
             return
           }
           if (!Array.isArray(data.mapCenter) || data.mapCenter.length !== 2) {
-            alert('Invalid project file: missing map center.')
+            await showAlert('Invalid File', 'This project file is missing map center coordinates.')
             return
           }
           if (!Array.isArray(data.customRoads)) data.customRoads = []
@@ -61,7 +67,7 @@ export default function ProjectManager() {
 
           loadProjectToStore(data)
         } catch {
-          alert('Invalid project file. Please select a .mapcards.json file.')
+          await showAlert('Invalid File', 'Unable to read this file. Please select a valid .mapcards.json file.')
         }
       }
       reader.readAsText(file)

@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useStore } from '../store'
+import { Trash2 } from 'lucide-react'
+import { showConfirm } from './ConfirmDialog'
 
 /** Compute CSS percentage for range fill gradient */
 function rangePct(value: number, min: number, max: number) {
@@ -44,7 +46,7 @@ function EditableBadge({
         autoFocus
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
-        className="w-14 rounded-md bg-input-bg px-1.5 py-0.5 text-center text-[12px] font-semibold tabular-nums text-heading outline-none focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
+        className="w-14 rounded-full bg-input-bg px-2 py-0.5 text-center text-[12px] font-semibold tabular-nums text-heading outline-none focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
       />
     )
   }
@@ -53,14 +55,98 @@ function EditableBadge({
     <button
       onClick={() => setEditing(true)}
       title="Click to edit"
-      className="rounded-md bg-brand-tint px-2 py-0.5 text-[12px] font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15"
+      className="min-h-[28px] rounded-full bg-brand-tint px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15 active:scale-95"
     >
       {value}{suffix}
     </button>
   )
 }
 
-const rangeClass = 'h-2 w-full cursor-pointer appearance-none rounded-full'
+/** Slider row — label, badge, and range input */
+function SliderRow({
+  label,
+  value,
+  displayValue,
+  suffix,
+  min,
+  max,
+  step,
+  badgeMin,
+  badgeMax,
+  badgeStep,
+  onChange,
+  onBadgeChange,
+}: {
+  label: string
+  value: number
+  displayValue: number
+  suffix: string
+  min: string
+  max: string
+  step: string
+  badgeMin: number
+  badgeMax: number
+  badgeStep: number
+  onChange: (v: number) => void
+  onBadgeChange: (v: number) => void
+}) {
+  return (
+    <div className="space-y-2 py-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-medium text-body">{label}</span>
+        <EditableBadge
+          value={displayValue}
+          suffix={suffix}
+          min={badgeMin}
+          max={badgeMax}
+          step={badgeStep}
+          onChange={onBadgeChange}
+        />
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        style={{ '--range-pct': rangePct(value, parseFloat(min), parseFloat(max)) } as React.CSSProperties}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+      />
+    </div>
+  )
+}
+
+/** iOS-style toggle switch */
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+}) {
+  return (
+    <label className="flex min-h-[44px] cursor-pointer items-center justify-between rounded-xl px-1 py-1 transition-colors duration-150 active:bg-brand-hover">
+      <span className="text-[12px] font-medium text-body">{label}</span>
+      <button
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+          checked ? 'bg-brand' : 'bg-slate-200'
+        }`}
+      >
+        <span
+          className={`absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </label>
+  )
+}
 
 export default function Toolbar() {
   const boundaryOpacity = useStore((s) => s.boundaryOpacity)
@@ -82,135 +168,104 @@ export default function Toolbar() {
   if (!hasBoundary && houseCount === 0) return null
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
 
+      {/* ── Boundary controls card ── */}
       {hasBoundary && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium text-heading">Fill Opacity</span>
-              <EditableBadge
-                value={Math.round(boundaryOpacity * 100)}
-                suffix="%"
-                min={0}
-                max={100}
-                step={5}
-                onChange={(v) => setBoundaryOpacity(v / 100)}
-              />
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={boundaryOpacity}
-              onChange={(e) => setBoundaryOpacity(parseFloat(e.target.value))}
-              style={{ '--range-pct': rangePct(boundaryOpacity, 0, 1) } as React.CSSProperties}
-              className={rangeClass}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium text-heading">Mask Opacity</span>
-              <EditableBadge
-                value={Math.round(maskOpacity * 100)}
-                suffix="%"
-                min={0}
-                max={100}
-                step={5}
-                onChange={(v) => setMaskOpacity(v / 100)}
-              />
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={maskOpacity}
-              onChange={(e) => setMaskOpacity(parseFloat(e.target.value))}
-              style={{ '--range-pct': rangePct(maskOpacity, 0, 1) } as React.CSSProperties}
-              className={rangeClass}
-            />
-          </div>
+        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+          <SliderRow
+            label="Fill Opacity"
+            value={boundaryOpacity}
+            displayValue={Math.round(boundaryOpacity * 100)}
+            suffix="%"
+            min="0"
+            max="1"
+            step="0.05"
+            badgeMin={0}
+            badgeMax={100}
+            badgeStep={5}
+            onChange={setBoundaryOpacity}
+            onBadgeChange={(v) => setBoundaryOpacity(v / 100)}
+          />
+          <div className="border-t border-divider/40" />
+          <SliderRow
+            label="Mask Opacity"
+            value={maskOpacity}
+            displayValue={Math.round(maskOpacity * 100)}
+            suffix="%"
+            min="0"
+            max="1"
+            step="0.05"
+            badgeMin={0}
+            badgeMax={100}
+            badgeStep={5}
+            onChange={setMaskOpacity}
+            onBadgeChange={(v) => setMaskOpacity(v / 100)}
+          />
         </div>
       )}
 
+      {/* ── House controls card ── */}
       {houseCount > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] font-medium text-heading">House Size</span>
-            <EditableBadge
-              value={Math.round(houseIconSize * 100)}
-              suffix="%"
-              min={30}
-              max={200}
-              step={10}
-              onChange={(v) => setHouseIconSize(v / 100)}
-            />
-          </div>
-          <input
-            type="range"
+        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+          <SliderRow
+            label="House Size"
+            value={houseIconSize}
+            displayValue={Math.round(houseIconSize * 100)}
+            suffix="%"
             min="0.3"
             max="2"
             step="0.1"
-            value={houseIconSize}
-            onChange={(e) => setHouseIconSize(parseFloat(e.target.value))}
-            style={{ '--range-pct': rangePct(houseIconSize, 0.3, 2) } as React.CSSProperties}
-            className={rangeClass}
+            badgeMin={30}
+            badgeMax={200}
+            badgeStep={10}
+            onChange={setHouseIconSize}
+            onBadgeChange={(v) => setHouseIconSize(v / 100)}
           />
-          <div className="mt-2 flex items-center gap-2">
-            <p className="flex-1 text-[11px] leading-tight text-body/60">Drag to reposition, click to select, Delete key to remove</p>
-            <button
-              onClick={clearAllHouses}
-              className="shrink-0 rounded-full border border-red-200 bg-red-50/60 px-2.5 py-1 text-[11px] font-semibold text-red-500 transition-all duration-150 hover:border-red-300 hover:bg-red-50"
-            >
-              Clear All
-            </button>
-          </div>
+          <div className="border-t border-divider/40" />
+          <button
+            onClick={async () => {
+              const ok = await showConfirm(
+                'Clear All Houses?',
+                `Remove all ${houseCount} houses from the map.`,
+                { variant: 'destructive', confirmLabel: 'Clear All' },
+              )
+              if (ok) clearAllHouses()
+            }}
+            className="flex min-h-[40px] w-full items-center gap-2 rounded-lg py-2 text-[12px] font-medium text-red-500 transition-colors duration-150 active:bg-red-50"
+          >
+            <Trash2 size={14} strokeWidth={2} />
+            Clear all houses
+          </button>
         </div>
       )}
 
+      {/* ── Grid controls card ── */}
       {hasBoundary && (
-        <div className="mt-3 space-y-2 border-t border-divider pt-3">
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1 transition-colors duration-150 hover:bg-brand-hover">
-            <div className="relative flex items-center">
-              <input
-                type="checkbox"
-                checked={snapToGrid}
-                onChange={(e) => setSnapToGrid(e.target.checked)}
-                className="peer h-4.5 w-4.5 cursor-pointer appearance-none rounded border-[1.5px] border-divider bg-surface transition-colors duration-150 checked:border-brand checked:bg-brand"
-              />
-              <svg className="pointer-events-none absolute left-1 top-1 hidden h-3 w-3 text-white peer-checked:block" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2 6 5 9 10 3" />
-              </svg>
-            </div>
-            <span className="text-[13px] font-medium text-heading">Snap to Grid</span>
-          </label>
-
+        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+          <ToggleSwitch
+            checked={snapToGrid}
+            onChange={setSnapToGrid}
+            label="Snap to Grid"
+          />
           {snapToGrid && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-medium text-heading">Grid Spacing</span>
-                <EditableBadge
-                  value={gridSpacingMeters}
-                  suffix="m"
-                  min={5}
-                  max={50}
-                  step={5}
-                  onChange={setGridSpacing}
-                />
-              </div>
-              <input
-                type="range"
+            <>
+              <div className="border-t border-divider/40" />
+              <SliderRow
+                label="Grid Spacing"
+                value={gridSpacingMeters}
+                displayValue={gridSpacingMeters}
+                suffix="m"
                 min="5"
                 max="50"
                 step="5"
-                value={gridSpacingMeters}
-                onChange={(e) => setGridSpacing(parseInt(e.target.value))}
-                style={{ '--range-pct': rangePct(gridSpacingMeters, 5, 50) } as React.CSSProperties}
-                className={rangeClass}
+                badgeMin={5}
+                badgeMax={50}
+                badgeStep={5}
+                onChange={(v) => setGridSpacing(Math.round(v))}
+                onBadgeChange={setGridSpacing}
               />
-            </div>
+            </>
           )}
         </div>
       )}
