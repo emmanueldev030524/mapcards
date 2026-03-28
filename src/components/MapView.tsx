@@ -867,9 +867,33 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
 
     // Touch support for tablet users
+    // Disables both dragPan AND touchZoomRotate during drag to prevent
+    // accidental zoom from a second finger touching the screen.
+
+    /** Cancel any in-progress drag/pending state and restore map gestures */
+    const cancelTouchDrag = () => {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+      pendingId = null
+      startPoint = null
+      if (dragId) {
+        dragId = null
+        dragType = null
+        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
+        justDraggedRef.current = true
+        setTimeout(() => { justDraggedRef.current = false }, 300)
+      }
+      map.dragPan.enable()
+      map.touchZoomRotate.enable()
+    }
+
     const onTouchStart = (e: maplibregl.MapTouchEvent) => {
       if (activeDrawMode && activeDrawMode !== 'select') return
-      if (e.originalEvent.touches.length !== 1) return
+
+      // Multi-touch while pending/dragging → cancel drag, let map handle pinch
+      if (e.originalEvent.touches.length !== 1) {
+        if (pendingId || dragId) cancelTouchDrag()
+        return
+      }
 
       const touch = e.originalEvent.touches[0]
       const rect = canvas.getBoundingClientRect()
@@ -886,12 +910,22 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       pendingId = hit.id
       dragType = hit.type
       startPoint = point
+      // Disable BOTH pan and zoom to fully isolate the drag gesture
       map.dragPan.disable()
+      map.touchZoomRotate.disable()
     }
 
     const onTouchMove = (e: maplibregl.MapTouchEvent) => {
       if (!pendingId && !dragId) return
-      if (e.originalEvent.touches.length !== 1) return
+
+      // Multi-touch appeared mid-drag → cancel cleanly
+      if (e.originalEvent.touches.length !== 1) {
+        cancelTouchDrag()
+        return
+      }
+
+      // Prevent browser from interpreting as scroll/zoom during drag
+      if (dragId) e.originalEvent.preventDefault()
 
       if (rafId !== null) cancelAnimationFrame(rafId)
 
@@ -927,18 +961,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       })
     }
 
-    const onTouchEnd = () => {
-      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-      pendingId = null
-      startPoint = null
-      if (dragId) {
-        dragId = null
-        dragType = null
-        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
-        justDraggedRef.current = true
-        setTimeout(() => { justDraggedRef.current = false }, 300)
-      }
-      map.dragPan.enable()
+    const onTouchEnd = (e: maplibregl.MapTouchEvent) => {
+      // If fingers remain on screen, don't clean up yet
+      if (e.originalEvent.touches.length > 0) return
+      cancelTouchDrag()
     }
 
     map.on('mousedown', onMouseDown)
