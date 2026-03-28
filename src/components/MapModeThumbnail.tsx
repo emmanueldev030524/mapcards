@@ -149,12 +149,15 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
 
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
-        <div className={`absolute left-0 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-xl ${
-          isTablet ? 'bottom-24 w-72 max-h-[calc(100dvh-8rem)]' : 'bottom-20 w-64 max-h-[calc(100dvh-6rem)]'
-        } flex flex-col overflow-hidden`}>
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-4 pb-2.5">
-            <h3 className="text-[15px] font-bold text-heading">Basemap</h3>
+        <div
+          className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-xl ${
+            isTablet ? 'fixed left-3 bottom-28 w-72' : 'absolute left-0 bottom-20 w-64'
+          } flex flex-col`}
+          style={{ maxHeight: isTablet ? 'calc(100vh - 8rem)' : 'calc(100vh - 6rem)' }}
+        >
+          {/* Header — always visible */}
+          <div className="flex shrink-0 items-center justify-between px-5 pt-3 pb-2">
+            <h3 className="text-[14px] font-bold text-heading">Basemap</h3>
             <button
               onClick={() => setPanelOpen(false)}
               aria-label="Close"
@@ -166,13 +169,13 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
             </button>
           </div>
 
-          {/* ── Scrollable content ── */}
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          {/* Scrollable body */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
           {/* ── Type section ── */}
-          <div className="px-5 pb-4">
-            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-body/70">Type</p>
-            <div className="flex gap-4">
+          <div className="px-5 pb-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-body/70">Type</p>
+            <div className="flex gap-3">
               {MAP_TYPES.map((mode) => {
                 const active = currentMode === mode.value
                 const light = mode.value !== 'satellite'
@@ -180,14 +183,14 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
                   <button
                     key={mode.value}
                     onClick={() => onModeChange(mode.value)}
-                    className={`touch-active flex flex-col items-center gap-2 transition-all duration-150 ${
+                    className={`touch-active flex flex-col items-center gap-1.5 transition-all duration-150 ${
                       active ? '' : 'opacity-50 hover:opacity-80'
                     }`}
                   >
                     <div className={`flex items-center justify-center overflow-hidden rounded-xl bg-linear-to-b shadow-sm ${mode.gradient} ${
-                      isTablet ? 'h-18 w-18' : 'h-16 w-16'
+                      isTablet ? 'h-16 w-16' : 'h-14 w-14'
                     } ${active ? 'ring-2 ring-brand ring-offset-2' : ''}`}>
-                      <mode.Icon size={isTablet ? 24 : 22} strokeWidth={1.5} className={light ? 'text-slate-500' : 'text-white/80'} />
+                      <mode.Icon size={isTablet ? 22 : 20} strokeWidth={1.5} className={light ? 'text-slate-500' : 'text-white/80'} />
                     </div>
                     <span className={`text-[11px] font-semibold ${active ? 'text-heading' : 'text-body/60'}`}>
                       {mode.label}
@@ -201,8 +204,8 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
           <div className="mx-5 border-t border-divider/40" />
 
           {/* ── Details section (layer toggles) ── */}
-          <div className="px-5 pt-3 pb-1">
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-body/70">Details</p>
+          <div className="px-5 pt-2 pb-0.5">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-body/70">Details</p>
             {layers.map((layer, i) => {
               const LayerIcon = DETAIL_ICONS[layer.id]
               const isChecked = visibleLayers[layer.id] || false
@@ -211,17 +214,17 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
                   {i > 0 && <div className="border-t border-divider/30" />}
                   <button
                     onClick={() => handleLayerToggle(layer.id, layer.layerIds)}
-                    className="flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
+                    className="flex min-h-10 w-full items-center gap-3 py-1.5 transition-colors active:bg-input-bg/50"
                   >
                     {LayerIcon && (
                       <LayerIcon
-                        size={isTablet ? 18 : 17}
+                        size={isTablet ? 17 : 16}
                         strokeWidth={2}
                         style={{ color: isChecked ? layer.color : '#9ca3af' }}
                         className="shrink-0 transition-colors duration-200"
                       />
                     )}
-                    <span className={`flex-1 text-left text-[13px] font-medium transition-colors duration-200 ${
+                    <span className={`flex-1 text-left text-[12px] font-medium transition-colors duration-200 ${
                       isChecked ? 'text-heading' : 'text-body/70'
                     }`}>
                       {layer.label}
@@ -235,23 +238,23 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
 
           {/* Clean mode option */}
           <div className="mx-5 border-t border-divider/40" />
-          <div className="px-5 pt-1 pb-4">
+          <div className="px-5 pt-0.5 pb-3">
             <button
               onClick={() => onModeChange('clean')}
-              className="touch-active flex min-h-11 w-full items-center gap-3 py-2.5 transition-colors active:bg-input-bg/50"
+              className="touch-active flex min-h-10 w-full items-center gap-3 py-1.5 transition-colors active:bg-input-bg/50"
             >
               <FileText
-                size={isTablet ? 18 : 17}
+                size={isTablet ? 17 : 16}
                 strokeWidth={2}
                 className={`shrink-0 ${currentMode === 'clean' ? 'text-brand' : 'text-body/40'}`}
               />
               <div className="flex-1 text-left">
-                <span className={`block text-[13px] font-medium ${currentMode === 'clean' ? 'text-heading' : 'text-body/70'}`}>
+                <span className={`block text-[12px] font-medium ${currentMode === 'clean' ? 'text-heading' : 'text-body/70'}`}>
                   Clean
                 </span>
                 <span className="block text-[10px] text-body/50">No labels, places, or roads</span>
               </div>
-              <div className={`h-6 w-6 rounded-full border-2 transition-colors ${
+              <div className={`h-5 w-5 rounded-full border-2 transition-colors ${
                 currentMode === 'clean' ? 'border-brand bg-brand' : 'border-slate-300'
               }`}>
                 {currentMode === 'clean' && (
@@ -263,7 +266,7 @@ export default function MapModeThumbnail({ currentMode, onModeChange, map, onPan
             </button>
           </div>
 
-          </div>{/* end scrollable content */}
+          </div>{/* end scrollable body */}
         </div>
       )}
     </div>
