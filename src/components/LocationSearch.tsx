@@ -34,6 +34,15 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cleanup debounce timer and abort pending fetch on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
+    }
+  }, [])
 
   // Click-outside dismissal
   useEffect(() => {
@@ -54,17 +63,26 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
       return
     }
 
+    // Abort any in-flight request before starting a new one
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&polygon_geojson=1&polygon_threshold=0.0005`,
-        { headers: { 'Accept-Language': 'en' } },
+        {
+          headers: { 'Accept-Language': 'en', 'User-Agent': 'MapCards/1.0' },
+          signal: controller.signal,
+        },
       )
       if (!res.ok) throw new Error('Search failed')
       const data: SearchResult[] = await res.json()
       setResults(data)
       setOpen(data.length > 0)
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setResults([])
       setOpen(false)
     } finally {

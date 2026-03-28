@@ -27,7 +27,9 @@ export interface ProjectData {
   boundary: Feature<Polygon> | null
   customRoads: FeatureWithMeta<LineString>[]
   housePoints: FeatureWithMeta<Point>[]
+  treePoints?: FeatureWithMeta<Point>[]
   startMarker?: Feature<Point> | null
+  customStatuses?: Array<{ id: string; label: string; color: string }>
 }
 
 export const DEFAULT_PROJECT: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'> = {

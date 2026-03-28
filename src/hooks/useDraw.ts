@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react'
 import maplibregl from 'maplibre-gl'
-import * as turf from '@turf/turf'
+import { point, lineString } from '@turf/helpers'
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
+import { nearestPointOnLine } from '@turf/nearest-point-on-line'
 import type { Feature, Polygon, LineString } from 'geojson'
 import type { DrawMode } from '../types/project'
 import { useStore } from '../store'
@@ -64,12 +66,12 @@ function findSnapTarget(
   // --- Pass 2: nearest point on any road line segment ---
   // Enables clean T-intersections by snapping to the middle of a road
   const clickLngLat = map.unproject(clickPoint)
-  const clickPt = turf.point([clickLngLat.lng, clickLngLat.lat])
+  const clickPt = point([clickLngLat.lng, clickLngLat.lat])
 
   for (const road of state.customRoads) {
     if (road.geometry.coordinates.length < 2) continue
-    const line = turf.lineString(road.geometry.coordinates as [number, number][])
-    const nearest = turf.nearestPointOnLine(line, clickPt)
+    const line = lineString(road.geometry.coordinates as [number, number][])
+    const nearest = nearestPointOnLine(line, clickPt)
     const nearestCoord = nearest.geometry.coordinates as [number, number]
     const projected = map.project(new maplibregl.LngLat(nearestCoord[0], nearestCoord[1]))
     const dx = projected.x - clickPoint.x
@@ -84,8 +86,8 @@ function findSnapTarget(
   // Also snap to boundary edges for roads that start/end at the territory border
   if (state.boundary) {
     const ring = state.boundary.geometry.coordinates[0] as [number, number][]
-    const boundaryLine = turf.lineString(ring)
-    const nearest = turf.nearestPointOnLine(boundaryLine, clickPt)
+    const boundaryLine = lineString(ring)
+    const nearest = nearestPointOnLine(boundaryLine, clickPt)
     const nearestCoord = nearest.geometry.coordinates as [number, number]
     const projected = map.project(new maplibregl.LngLat(nearestCoord[0], nearestCoord[1]))
     const dx = projected.x - clickPoint.x
@@ -136,6 +138,13 @@ export function useDraw(options: UseDrawOptions) {
   const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null)
   const cursorHintRef = useRef<HTMLDivElement | null>(null)
   const lastSnapRef = useRef<string | null>(null)
+  // Store map event handlers for cleanup
+  const mapHandlersRef = useRef<{
+    click: ((e: maplibregl.MapMouseEvent) => void) | null
+    mousemove: ((e: maplibregl.MapMouseEvent) => void) | null
+    dblclick: ((e: maplibregl.MapMouseEvent) => void) | null
+    touchPreview: ((e: maplibregl.MapTouchEvent) => void) | null
+  }>({ click: null, mousemove: null, dblclick: null, touchPreview: null })
   optionsRef.current = options
 
   const updateLayers = useCallback(() => {
@@ -329,7 +338,7 @@ export function useDraw(options: UseDrawOptions) {
     }
 
     // Click to add vertex (or close polygon by clicking near first point)
-    map.on('click', (e: maplibregl.MapMouseEvent) => {
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
       if (!activeModeRef.current) return
       const coords = coordsRef.current
 
@@ -337,8 +346,8 @@ export function useDraw(options: UseDrawOptions) {
       if (activeModeRef.current === 'road') {
         const boundary = useStore.getState().boundary
         if (boundary) {
-          const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
-          if (!turf.booleanPointInPolygon(pt, boundary)) return
+          const pt = point([e.lngLat.lng, e.lngLat.lat])
+          if (!booleanPointInPolygon(pt, boundary)) return
         }
       }
 
@@ -372,10 +381,10 @@ export function useDraw(options: UseDrawOptions) {
       coords.push(coord)
       undoStackRef.current = []
       updateLayers()
-    })
+    }
 
     // Mouse move — dashed line from last vertex to cursor + close hint + snap indicator + cursor hint
-    map.on('mousemove', (e: maplibregl.MapMouseEvent) => {
+    const handleMousemove = (e: maplibregl.MapMouseEvent) => {
       const hint = cursorHintRef.current
       if (!activeModeRef.current) {
         if (hint) hint.style.opacity = '0'
@@ -476,8 +485,8 @@ export function useDraw(options: UseDrawOptions) {
       if (mode === 'road') {
         const boundary = useStore.getState().boundary
         if (boundary) {
-          const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
-          if (!turf.booleanPointInPolygon(pt, boundary)) {
+          const pt = point([e.lngLat.lng, e.lngLat.lat])
+          if (!booleanPointInPolygon(pt, boundary)) {
             map.getCanvas().style.cursor = 'not-allowed'
             if (hint) hint.style.opacity = '0'
             return
@@ -502,14 +511,14 @@ export function useDraw(options: UseDrawOptions) {
           properties: {},
         })
       }
-    })
+    }
 
     // Double-click to finish
-    map.on('dblclick', (e: maplibregl.MapMouseEvent) => {
+    const handleDblclick = (e: maplibregl.MapMouseEvent) => {
       if (!activeModeRef.current) return
       e.preventDefault()
       finishDrawing()
-    })
+    }
 
     // Touch preview — show dashed line from last vertex to touch point on tablets
     // Uses MapLibre's event system (not raw canvas events) for reliable coordinate handling
@@ -530,8 +539,21 @@ export function useDraw(options: UseDrawOptions) {
         })
       }
     }
+
+    // Register all map handlers
+    map.on('click', handleClick)
+    map.on('mousemove', handleMousemove)
+    map.on('dblclick', handleDblclick)
     map.on('touchstart', handleTouchPreview)
     map.on('touchmove', handleTouchPreview)
+
+    // Store refs for cleanup
+    mapHandlersRef.current = {
+      click: handleClick,
+      mousemove: handleMousemove,
+      dblclick: handleDblclick,
+      touchPreview: handleTouchPreview,
+    }
 
     // Enter key to finish drawing (stored for cleanup)
     const onKeyDown = (e: KeyboardEvent) => {
@@ -613,6 +635,20 @@ export function useDraw(options: UseDrawOptions) {
 
   useEffect(() => {
     return () => {
+      // Remove map event handlers
+      const map = mapRef.current
+      const h = mapHandlersRef.current
+      if (map) {
+        if (h.click) map.off('click', h.click)
+        if (h.mousemove) map.off('mousemove', h.mousemove)
+        if (h.dblclick) map.off('dblclick', h.dblclick)
+        if (h.touchPreview) {
+          map.off('touchstart', h.touchPreview)
+          map.off('touchmove', h.touchPreview)
+        }
+      }
+      mapHandlersRef.current = { click: null, mousemove: null, dblclick: null, touchPreview: null }
+
       if (keydownRef.current) {
         window.removeEventListener('keydown', keydownRef.current)
         keydownRef.current = null

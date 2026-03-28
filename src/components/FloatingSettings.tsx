@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import { useIsTablet } from '../hooks/useMediaQuery'
-import * as turf from '@turf/turf'
+import { point } from '@turf/helpers'
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
 import type maplibregl from 'maplibre-gl'
 import Toolbar from './Toolbar'
 import { useStore } from '../store'
@@ -71,8 +72,8 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
     if (!dismissed || !boundary || !map || hasActiveMode) return
 
     const handler = (e: maplibregl.MapMouseEvent) => {
-      const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
-      if (turf.booleanPointInPolygon(pt, boundary)) {
+      const pt = point([e.lngLat.lng, e.lngLat.lat])
+      if (booleanPointInPolygon(pt, boundary)) {
         setDismissed(false)
         setOpen(true)
       }

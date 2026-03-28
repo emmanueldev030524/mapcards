@@ -433,10 +433,10 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       boundary: data.boundary,
       customRoads: data.customRoads,
       housePoints: data.housePoints,
-      treePoints: (data as unknown as Record<string, unknown>).treePoints as FeatureWithMeta<Point>[] || [],
-      startMarker: (data as unknown as Record<string, unknown>).startMarker as Feature<Point> | null || null,
+      treePoints: data.treePoints || [],
+      startMarker: data.startMarker || null,
       customStatuses: migrateStatuses(
-        ((data as unknown as Record<string, unknown>).customStatuses as CustomStatus[]) || [
+        data.customStatuses || [
           { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
           { id: 'bs', label: 'Bible Study', color: '#3498db' },
         ],
@@ -476,6 +476,6 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       treePoints: s.treePoints,
       startMarker: s.startMarker,
       customStatuses: s.customStatuses,
-    } as ProjectData
+    }
   },
 }))

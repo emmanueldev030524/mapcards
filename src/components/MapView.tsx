@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import maplibregl from 'maplibre-gl'
-import * as turf from '@turf/turf'
+import { point } from '@turf/helpers'
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
 import { buildMapStyle, applyMapMode } from '../lib/mapStyle'
 import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
@@ -608,8 +609,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
       // Enforce boundary containment — only place inside the polygon
       if (state.boundary && (mode === 'house' || mode === 'tree')) {
-        const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
-        if (!turf.booleanPointInPolygon(pt, state.boundary)) return
+        const pt = point([e.lngLat.lng, e.lngLat.lat])
+        if (!booleanPointInPolygon(pt, state.boundary)) return
       }
 
       if (mode === 'house') {
@@ -830,7 +831,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
       // Block drag outside boundary
       const bnd = useStore.getState().boundary
-      if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) {
+      if (bnd && !booleanPointInPolygon([lng, lat], bnd)) {
         canvas.style.cursor = 'not-allowed'
         return
       }
@@ -908,7 +909,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           : [lngLat.lng, lngLat.lat]
 
         const bnd = useStore.getState().boundary
-        if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) return
+        if (bnd && !booleanPointInPolygon([lng, lat], bnd)) return
 
         moveDragged(dragId!, dragType!, lng, lat)
       })
@@ -1067,8 +1068,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
 
     const onMouseMove = (e: maplibregl.MapMouseEvent) => {
-      const pt = turf.point([e.lngLat.lng, e.lngLat.lat])
-      const inside = turf.booleanPointInPolygon(pt, boundary)
+      const pt = point([e.lngLat.lng, e.lngLat.lat])
+      const inside = booleanPointInPolygon(pt, boundary)
       map.getCanvas().style.cursor = inside ? 'crosshair' : 'not-allowed'
     }
 

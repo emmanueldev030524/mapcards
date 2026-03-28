@@ -2,15 +2,19 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { saveProject, loadProject } from '../lib/db'
 
-export function useAutoSave() {
+export function useAutoSave(onSaved?: () => void) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onSavedRef = useRef(onSaved)
+  onSavedRef.current = onSaved
 
   useEffect(() => {
     const unsub = useStore.subscribe(() => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
         const data = useStore.getState().getProjectData()
-        saveProject(data).catch(console.error)
+        saveProject(data)
+          .then(() => onSavedRef.current?.())
+          .catch(console.error)
       }, 500)
     })
 

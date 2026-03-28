@@ -30,7 +30,11 @@ export default function App() {
   const [showSaved, setShowSaved] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
-  useAutoSave()
+  useAutoSave(() => {
+    setShowSaved(true)
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => setShowSaved(false), 2500)
+  })
   useLoadOnStart()
 
   const activeDrawMode = useStore((s) => s.activeDrawMode)
@@ -42,18 +46,6 @@ export default function App() {
   const housePoints = useStore((s) => s.housePoints)
   const mapMode = useStore((s) => s.mapMode)
   const setMapMode = useStore((s) => s.setMapMode)
-
-  // Auto-save indicator
-  useEffect(() => {
-    const unsub = useStore.subscribe(() => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(() => {
-        setShowSaved(true)
-        saveTimerRef.current = setTimeout(() => setShowSaved(false), 2500)
-      }, 600) // slightly after the 500ms debounce
-    })
-    return () => { unsub(); if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  }, [])
 
   const handleBoundaryComplete = useCallback(
     (feature: Feature<Polygon>) => {

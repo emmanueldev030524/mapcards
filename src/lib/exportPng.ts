@@ -1,5 +1,5 @@
 import type maplibregl from 'maplibre-gl'
-import * as turf from '@turf/turf'
+import { bbox as turfBbox } from '@turf/bbox'
 import type { Feature, Polygon } from 'geojson'
 import type { LegendEntry } from './mapPins'
 
@@ -210,7 +210,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   await waitForIdle(map, 2000)
 
   // Measure legend bar height dynamically (may wrap to 2+ rows)
-  const bbox = turf.bbox(boundary) as [number, number, number, number]
+  const bbox = turfBbox(boundary) as [number, number, number, number]
   const measureCtx = document.createElement('canvas').getContext('2d')!
   const legendHeight = measureLegendHeight(
     measureCtx, totalWidth,

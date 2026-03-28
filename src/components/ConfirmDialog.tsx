@@ -101,7 +101,7 @@ export default function ConfirmDialog() {
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  })
+  }, [open])
 
   if (!open || !config) return null
 
