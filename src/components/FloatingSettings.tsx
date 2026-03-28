@@ -99,7 +99,7 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
     return () => { map.off('click', handler) }
   }, [dismissed, boundary, map, hasActiveMode])
 
-  if (!open || !hasContent) return null
+  if (!open || !hasContent || hasSelection) return null
 
   return (
     <div ref={panelRef} className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
