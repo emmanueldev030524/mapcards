@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import { useIsTablet } from '../hooks/useMediaQuery'
+import { point } from '@turf/helpers'
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
+import type maplibregl from 'maplibre-gl'
 import Toolbar from './Toolbar'
 import { useStore } from '../store'
 
-export default function FloatingSettings() {
+interface FloatingSettingsProps {
+  map: maplibregl.Map | null
+}
+
+export default function FloatingSettings({ map }: FloatingSettingsProps) {
   const [open, setOpen] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [settingsInteracted, setSettingsInteracted] = useState(false)
@@ -64,9 +71,32 @@ export default function FloatingSettings() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // Removed: no reopen-on-map-click behavior.
-  // Panel auto-opens on boundary creation and when exiting tool modes.
-  // Once dismissed, it stays dismissed until a tool mode cycle resets it.
+  // Reopen on empty-area click — only when panel is currently dismissed (closed).
+  // Skips clicks on houses/trees/roads. Won't re-trigger while already open.
+  useEffect(() => {
+    if (!dismissed || !boundary || !map || hasActiveMode || hasSelection) return
+
+    const handler = (e: maplibregl.MapMouseEvent) => {
+      // Skip if click hit an element
+      const hitLayers = ['house-icons', 'tree-icons', 'custom-roads-fill'].filter((l) => map.getLayer(l))
+      if (hitLayers.length > 0) {
+        const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+          [e.point.x - 12, e.point.y - 12],
+          [e.point.x + 12, e.point.y + 12],
+        ]
+        if (map.queryRenderedFeatures(bbox, { layers: hitLayers }).length > 0) return
+      }
+
+      const pt = point([e.lngLat.lng, e.lngLat.lat])
+      if (booleanPointInPolygon(pt, boundary)) {
+        setDismissed(false)
+        setOpen(true)
+      }
+    }
+
+    map.on('click', handler)
+    return () => { map.off('click', handler) }
+  }, [dismissed, boundary, map, hasActiveMode, hasSelection])
 
   if (!open || !hasContent || hasSelection) return null
 
