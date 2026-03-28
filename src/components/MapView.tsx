@@ -764,6 +764,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     let dragId: string | null = null
     let dragType: 'house' | 'tree' | null = null
     let startPoint: maplibregl.Point | null = null
+    let rafId: number | null = null
     const DRAG_THRESHOLD = 5
     const canvas = map.getCanvas()
     const DRAGGABLE_LAYERS = [HOUSE_LAYER, TREE_LAYER]
@@ -867,7 +868,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       const rect = canvas.getBoundingClientRect()
       const point = new maplibregl.Point(touch.clientX - rect.left, touch.clientY - rect.top)
 
-      const tolerance = 16
+      const tolerance = 20
       const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
         [point.x - tolerance, point.y - tolerance],
         [point.x + tolerance, point.y + tolerance],
@@ -885,6 +886,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (!pendingId && !dragId) return
       if (e.originalEvent.touches.length !== 1) return
 
+      if (rafId !== null) cancelAnimationFrame(rafId)
+
       const touch = e.originalEvent.touches[0]
       const rect = canvas.getBoundingClientRect()
       const point = new maplibregl.Point(touch.clientX - rect.left, touch.clientY - rect.top)
@@ -901,20 +904,24 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
       if (!dragId) return
 
-      const lngLat = map.unproject(point)
-      const snap = useStore.getState().snapToGrid
-      const spacing = useStore.getState().gridSpacingMeters
-      const [lng, lat] = snap
-        ? snapCoord(lngLat.lng, lngLat.lat, spacing)
-        : [lngLat.lng, lngLat.lat]
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        const lngLat = map.unproject(point)
+        const snap = useStore.getState().snapToGrid
+        const spacing = useStore.getState().gridSpacingMeters
+        const [lng, lat] = snap
+          ? snapCoord(lngLat.lng, lngLat.lat, spacing)
+          : [lngLat.lng, lngLat.lat]
 
-      const bnd = useStore.getState().boundary
-      if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) return
+        const bnd = useStore.getState().boundary
+        if (bnd && !turf.booleanPointInPolygon([lng, lat], bnd)) return
 
-      moveDragged(dragId, dragType!, lng, lat)
+        moveDragged(dragId!, dragType!, lng, lat)
+      })
     }
 
     const onTouchEnd = () => {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
       pendingId = null
       startPoint = null
       if (dragId) {
@@ -935,6 +942,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     map.on('touchend', onTouchEnd)
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId)
       map.off('mousedown', onMouseDown)
       map.off('mousemove', onMouseMove)
       map.off('mouseup', onMouseUp)

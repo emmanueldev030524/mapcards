@@ -159,6 +159,13 @@
     animation: layer-pulse 300ms ease-out;
   }
 
+  /* Drag feedback: lifted feel during touch drag */
+  @keyframes grab-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1.05); }
+  }
+
   /* MapLibre smooth zoom override */
   .maplibregl-canvas {
     outline: none;
@@ -234,6 +241,27 @@
   /* Sidebar drawer overlay — prevent body scroll on tablet */
   aside.fixed {
     overscroll-behavior: contain;
+  }
+
+  /* Tablet: larger map controls for touch */
+  @media (max-width: 1023px) {
+    .maplibregl-ctrl-group button {
+      width: 44px !important;
+      height: 44px !important;
+    }
+    .maplibregl-ctrl-compass {
+      width: 44px !important;
+      height: 44px !important;
+    }
+    /* Larger range slider thumbs for touch */
+    input[type="range"]::-webkit-slider-thumb {
+      width: 22px;
+      height: 22px;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+    }
   }
 }
 
