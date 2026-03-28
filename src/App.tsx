@@ -350,7 +350,7 @@ export default function App() {
         </button>
         )}
 
-        <FloatingSettings map={mapInstance} />
+        <FloatingSettings />
 
         <MapToolbar
           activeMode={activeDrawMode}
