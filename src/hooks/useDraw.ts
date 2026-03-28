@@ -384,6 +384,11 @@ export function useDraw(options: UseDrawOptions) {
     }
 
     // Mouse move — dashed line from last vertex to cursor + close hint + snap indicator + cursor hint
+    // Snap computation is throttled to ~30fps; cursor line + hints stay unthrottled for smooth UX
+    let lastSnapTime = 0
+    let cachedSnap: [number, number] | null = null
+    const SNAP_THROTTLE_MS = 32
+
     const handleMousemove = (e: maplibregl.MapMouseEvent) => {
       const hint = cursorHintRef.current
       if (!activeModeRef.current) {
@@ -450,33 +455,40 @@ export function useDraw(options: UseDrawOptions) {
 
       if (coords.length === 0) return
 
-      // Check for snap target
-      const snapped = findSnapTarget(map, e.point)
-      const snapKey = snapped ? `${snapped[0].toFixed(6)},${snapped[1].toFixed(6)}` : null
-      const snapChanged = snapKey !== lastSnapRef.current
-      lastSnapRef.current = snapKey
+      // Throttled snap computation — expensive geometry math runs at ~30fps max
+      const now = performance.now()
+      if (now - lastSnapTime >= SNAP_THROTTLE_MS) {
+        cachedSnap = findSnapTarget(map, e.point)
+        lastSnapTime = now
 
-      const snapSource = map.getSource(SNAP_SOURCE) as maplibregl.GeoJSONSource | undefined
-      if (snapSource) {
-        if (snapped) {
-          snapSource.setData({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: snapped },
-            properties: {},
-          })
-          // Only pulse on new snap target
-          if (snapChanged) {
-            try {
-              map.setPaintProperty(SNAP_LAYER, 'circle-radius', 14)
-              setTimeout(() => {
-                try { map.setPaintProperty(SNAP_LAYER, 'circle-radius', 10) } catch {}
-              }, 150)
-            } catch {}
+        const snapKey = cachedSnap ? `${cachedSnap[0].toFixed(6)},${cachedSnap[1].toFixed(6)}` : null
+        const snapChanged = snapKey !== lastSnapRef.current
+        lastSnapRef.current = snapKey
+
+        const snapSource = map.getSource(SNAP_SOURCE) as maplibregl.GeoJSONSource | undefined
+        if (snapSource) {
+          if (cachedSnap) {
+            snapSource.setData({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: cachedSnap },
+              properties: {},
+            })
+            // Only pulse on new snap target
+            if (snapChanged) {
+              try {
+                map.setPaintProperty(SNAP_LAYER, 'circle-radius', 14)
+                setTimeout(() => {
+                  try { map.setPaintProperty(SNAP_LAYER, 'circle-radius', 10) } catch {}
+                }, 150)
+              } catch {}
+            }
+          } else {
+            snapSource.setData({ type: 'FeatureCollection', features: [] })
           }
-        } else {
-          snapSource.setData({ type: 'FeatureCollection', features: [] })
         }
       }
+
+      const snapped = cachedSnap
 
       // Resolve the effective cursor coordinate (snapped or raw)
       const cursorCoord: [number, number] = snapped || [e.lngLat.lng, e.lngLat.lat]

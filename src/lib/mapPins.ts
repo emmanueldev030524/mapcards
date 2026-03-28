@@ -135,46 +135,68 @@ export interface StatusLike {
   label?: string
 }
 
+// Build lookup Sets once (module-level) so resolveHouseIcon avoids repeated .some() scans
+const PLACE_IDS = new Set(PIN_CATEGORIES.filter((c) => c.group === 'place').map((c) => c.id))
+const STATUS_PIN_IDS = new Set(PIN_CATEGORIES.filter((c) => c.group === 'status').map((c) => c.id))
+const PIN_COLOR_MAP = new Map(PIN_CATEGORIES.map((c) => [c.id, c.color]))
+const PIN_ICON_MAP = new Map(PIN_CATEGORIES.map((c) => [c.id, c.iconPaths]))
+
+// Per-render cache: cleared when customStatuses identity changes
+let _iconCache = new Map<string, { key: string; spec: HouseIconSpec }>()
+let _lastStatusRef: StatusLike[] | undefined
+
 /**
  * Resolve the full icon spec for a house from its tags.
  * Accepts optional customStatuses array so user-created statuses also tint the icon.
+ * Results are cached per tag combination (cache auto-clears when customStatuses changes).
  */
 export function resolveHouseIcon(tags: string[], customStatuses?: StatusLike[]): { key: string; spec: HouseIconSpec } {
-  const allStatuses: StatusLike[] = [
-    ...PIN_CATEGORIES.filter((c) => c.group === 'status'),
-    ...(customStatuses || []),
-  ]
+  // Invalidate cache when custom statuses change (reference check is sufficient —
+  // Zustand returns the same array unless statuses were actually modified)
+  if (customStatuses !== _lastStatusRef) {
+    _iconCache = new Map()
+    _lastStatusRef = customStatuses
+  }
 
-  const places = (tags || []).filter((t) => PIN_CATEGORIES.some((c) => c.id === t && c.group === 'place'))
-  const statuses = (tags || []).filter((t) => allStatuses.some((s) => s.id === t))
+  // Cache key: sorted tags (deterministic regardless of tag order)
+  const safeTags = tags || []
+  const cacheKey = safeTags.length === 0 ? '' : safeTags.slice().sort().join(',')
+  const cached = _iconCache.get(cacheKey)
+  if (cached) return cached
 
-  const firstStatus = statuses.length > 0 ? allStatuses.find((s) => s.id === statuses[0]) : null
-  const placeColor1 = places.length > 0
-    ? (PIN_CATEGORIES.find((c) => c.id === places[0])?.color || HOUSE_DEFAULT_COLOR)
+  // Build custom status lookup
+  const customStatusMap = new Map<string, StatusLike>()
+  if (customStatuses) {
+    for (const cs of customStatuses) customStatusMap.set(cs.id, cs)
+  }
+
+  const places = safeTags.filter((t) => PLACE_IDS.has(t))
+  const statuses = safeTags.filter((t) => STATUS_PIN_IDS.has(t) || customStatusMap.has(t))
+
+  const firstStatusId = statuses.length > 0 ? statuses[0] : null
+  const firstStatus = firstStatusId
+    ? (PIN_CATEGORIES.find((c) => c.id === firstStatusId) as StatusLike | undefined) || customStatusMap.get(firstStatusId) || null
     : null
-  const placeColor2 = places.length > 1
-    ? (PIN_CATEGORIES.find((c) => c.id === places[1])?.color || null)
-    : null
 
-  // Color combination logic (same pattern whether combining two places or place+status):
-  // - Body = first place type color, or status color, or default brand
-  // - Roof = second place type, or status color (if place is set), or same as body
+  const placeColor1 = places.length > 0 ? (PIN_COLOR_MAP.get(places[0]) || HOUSE_DEFAULT_COLOR) : null
+  const placeColor2 = places.length > 1 ? (PIN_COLOR_MAP.get(places[1]) || null) : null
+
   const bodyColor = placeColor1 || firstStatus?.color || HOUSE_DEFAULT_COLOR
   const roofColor = placeColor2 || (placeColor1 && firstStatus ? firstStatus.color : bodyColor)
 
-  // Corner badge for status — use actual SVG icon from PIN_CATEGORIES when available
   const statusColor = firstStatus?.color || null
-  const pinCat = firstStatus ? PIN_CATEGORIES.find((c) => c.id === firstStatus.id) : null
-  const statusIcon = pinCat?.iconPaths || null
+  const statusIcon = firstStatusId ? (PIN_ICON_MAP.get(firstStatusId) || null) : null
 
-  // Build a deterministic cache key
+  // Build a deterministic image key
   const parts = ['house']
   if (places.length > 0) parts.push(...places.slice(0, 2).sort())
   else parts.push('default')
   if (firstStatus) parts.push(firstStatus.id)
   const key = parts.join('-')
 
-  return { key, spec: { bodyColor, roofColor, statusColor, statusIcon } }
+  const result = { key, spec: { bodyColor, roofColor, statusColor, statusIcon } }
+  _iconCache.set(cacheKey, result)
+  return result
 }
 
 /**
@@ -192,6 +214,39 @@ async function ensureHouseIcon(map: MapImageHost, key: string, spec: HouseIconSp
 }
 
 /**
+ * Collect the set of icon keys needed for a list of houses.
+ * Returns a Map of key → spec for icons that DON'T yet exist on the map.
+ */
+function collectMissingIcons(
+  map: MapImageHost,
+  houses: Array<{ tags: string[] }>,
+  customStatuses?: StatusLike[],
+): Map<string, HouseIconSpec> {
+  const defaultSpec: HouseIconSpec = { bodyColor: HOUSE_DEFAULT_COLOR, roofColor: HOUSE_DEFAULT_COLOR, statusColor: null, statusIcon: null }
+  const missing = new Map<string, HouseIconSpec>()
+  if (!map.hasImage('house-default')) missing.set('house-default', defaultSpec)
+
+  for (const h of houses) {
+    const { key, spec } = resolveHouseIcon(h.tags, customStatuses)
+    if (!missing.has(key) && !map.hasImage(key)) missing.set(key, spec)
+  }
+
+  return missing
+}
+
+/**
+ * Synchronous check: do all needed house icons already exist on the map?
+ * When true, callers can skip the async ensureHouseIcons path entirely.
+ */
+export function allHouseIconsExist(
+  map: MapImageHost,
+  houses: Array<{ tags: string[] }>,
+  customStatuses?: StatusLike[],
+): boolean {
+  return collectMissingIcons(map, houses, customStatuses).size === 0
+}
+
+/**
  * Ensure all house icon variants needed for a set of houses exist on the map.
  * Call this before setting the GeoJSON source data.
  */
@@ -200,17 +255,11 @@ export async function ensureHouseIcons(
   houses: Array<{ tags: string[] }>,
   customStatuses?: StatusLike[],
 ): Promise<void> {
-  // Always ensure default exists
-  const defaultSpec: HouseIconSpec = { bodyColor: HOUSE_DEFAULT_COLOR, roofColor: HOUSE_DEFAULT_COLOR, statusColor: null, statusIcon: null }
-  const needed = new Map<string, HouseIconSpec>([['house-default', defaultSpec]])
-
-  for (const h of houses) {
-    const { key, spec } = resolveHouseIcon(h.tags, customStatuses)
-    if (!needed.has(key)) needed.set(key, spec)
-  }
+  const missing = collectMissingIcons(map, houses, customStatuses)
+  if (missing.size === 0) return
 
   await Promise.all(
-    Array.from(needed.entries()).map(([key, spec]) => ensureHouseIcon(map, key, spec)),
+    Array.from(missing.entries()).map(([key, spec]) => ensureHouseIcon(map, key, spec)),
   )
 }
 

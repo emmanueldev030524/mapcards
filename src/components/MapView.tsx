@@ -7,7 +7,7 @@ import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
-import { loadPinImages, ensureHouseIcons, resolveHouseIcon } from '../lib/mapPins'
+import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon } from '../lib/mapPins'
 
 interface MapViewProps {
   center?: [number, number]
@@ -285,22 +285,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             },
           })
 
-          // Animate the outer pulse ring (cancellable)
-          let pulsePhase = 0
-          let pulseRafId = 0
-          const animatePulse = () => {
-            pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
-            const scale = 1 + Math.sin(pulsePhase) * 0.3 // oscillate 0.7–1.3
-            const opacity = 0.15 + Math.sin(pulsePhase) * 0.15 // oscillate 0–0.3
-            try {
-              map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
-              map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
-            } catch { /* layer may not exist */ }
-            pulseRafId = requestAnimationFrame(animatePulse)
-          }
-          pulseRafId = requestAnimationFrame(animatePulse)
-          // Store the cancel function on the map instance for cleanup
-          ;(map as unknown as Record<string, unknown>)._cancelPulse = () => cancelAnimationFrame(pulseRafId)
+          // Pulse animation is started/stopped by the selectedHouseId effect (not always-on)
 
           // Selected road highlight (glowing line behind selected road)
           map.addSource(SELECTED_ROAD_SOURCE, {
@@ -488,9 +473,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     return () => {
       cancelled = true
       if (mapRef.current) {
-        // Cancel the pulse animation before removing the map
-        const cancelPulse = (mapRef.current as unknown as Record<string, unknown>)._cancelPulse as (() => void) | undefined
-        cancelPulse?.()
         mapRef.current.remove()
         mapRef.current = null
       }
@@ -630,7 +612,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   }, [mapReady, addHousePoint])
 
 
-  // Sync selected house highlight
+  // Sync selected house highlight + conditional pulse animation
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -645,7 +627,21 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           type: 'FeatureCollection',
           features: [house],
         })
-        return
+
+        // Start pulse animation only while a house is selected
+        let pulsePhase = 0
+        let rafId = requestAnimationFrame(function animate() {
+          pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
+          const scale = 1 + Math.sin(pulsePhase) * 0.3
+          const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+          try {
+            map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
+            map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+          } catch { /* layer may not exist */ }
+          rafId = requestAnimationFrame(animate)
+        })
+
+        return () => cancelAnimationFrame(rafId)
       }
     }
     source.setData({ type: 'FeatureCollection', features: [] })
@@ -696,10 +692,16 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         }
       })
 
-      // Ensure all needed icon variants exist, then set data
-      ensureHouseIcons(map, housePoints.map((p) => ({ tags: p.properties.tags || [] })), customStatuses).then(() => {
+      // Fast path: if all icons already exist, set data synchronously (no frame delay)
+      const houseTags = housePoints.map((p) => ({ tags: p.properties.tags || [] }))
+      if (allHouseIconsExist(map, houseTags, customStatuses)) {
         source.setData({ type: 'FeatureCollection', features })
-      })
+      } else {
+        // Slow path: generate missing icons first (only for new tag combinations)
+        ensureHouseIcons(map, houseTags, customStatuses).then(() => {
+          source.setData({ type: 'FeatureCollection', features })
+        })
+      }
     }
 
     // Status + place tags are now baked into the house icon — clear badge layer
