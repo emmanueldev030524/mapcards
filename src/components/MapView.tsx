@@ -52,9 +52,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const [error, setError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
-  const housePoints = useStore((s) => s.housePoints)
-  const treePoints = useStore((s) => s.treePoints)
-  const customRoads = useStore((s) => s.customRoads)
+  // housePoints, treePoints, customRoads are synced via direct Zustand subscription
+  // (bypasses React render cycle for instant MapLibre updates)
   const boundary = useStore((s) => s.boundary)
   const boundaryOpacity = useStore((s) => s.boundaryOpacity)
   const maskOpacity = useStore((s) => s.maskOpacity)
@@ -63,7 +62,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const snapToGrid = useStore((s) => s.snapToGrid)
   const gridSpacingMeters = useStore((s) => s.gridSpacingMeters)
   const activeDrawMode = useStore((s) => s.activeDrawMode)
-  const customStatuses = useStore((s) => s.customStatuses)
   const moveHousePoint = useStore((s) => s.moveHousePoint)
   const moveTreePoint = useStore((s) => s.moveTreePoint)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
@@ -541,21 +539,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     }
   }, [snapToGrid, gridSpacingMeters, boundary, mapReady])
 
-  // Sync custom roads to map
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const source = map.getSource(ROAD_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (source) {
-      // Ensure id is in properties for queryRenderedFeatures
-      const features = customRoads.map((r) => ({
-        ...r,
-        properties: { ...r.properties, id: r.id },
-      }))
-      source.setData({ type: 'FeatureCollection', features })
-    }
-  }, [customRoads, mapReady])
-
   // Sync boundary fill opacity
   useEffect(() => {
     const map = mapRef.current
@@ -611,74 +594,22 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     return () => { map.off('click', handleClick) }
   }, [mapReady, addHousePoint])
 
-
-  // Sync selected house highlight + conditional pulse animation
+  // ─── Direct Zustand subscriptions ───
+  // These bypass React's render → effect cycle entirely.
+  // State changes pipe straight to MapLibre sources (synchronous, zero-frame-delay).
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
-    const source = map.getSource(SELECTED_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (!source) return
+    /** Helper: sync house features to MapLibre source */
+    const syncHouses = () => {
+      const source = map.getSource(HOUSE_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { housePoints, customStatuses: statuses } = useStore.getState()
 
-    if (selectedHouseId) {
-      const house = housePoints.find((p) => p.id === selectedHouseId)
-      if (house) {
-        source.setData({
-          type: 'FeatureCollection',
-          features: [house],
-        })
-
-        // Start pulse animation only while a house is selected
-        let pulsePhase = 0
-        let rafId = requestAnimationFrame(function animate() {
-          pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
-          const scale = 1 + Math.sin(pulsePhase) * 0.3
-          const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
-          try {
-            map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
-            map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
-          } catch { /* layer may not exist */ }
-          rafId = requestAnimationFrame(animate)
-        })
-
-        return () => cancelAnimationFrame(rafId)
-      }
-    }
-    source.setData({ type: 'FeatureCollection', features: [] })
-  }, [selectedHouseId, housePoints, mapReady])
-
-  // Sync selected road highlight
-  const selectedRoadId = useStore((s) => s.selectedRoadId)
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-
-    const source = map.getSource(SELECTED_ROAD_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (!source) return
-
-    if (selectedRoadId) {
-      const road = customRoads.find((r) => r.id === selectedRoadId)
-      if (road) {
-        source.setData({ type: 'FeatureCollection', features: [road] })
-        return
-      }
-    }
-    source.setData({ type: 'FeatureCollection', features: [] })
-  }, [selectedRoadId, customRoads, mapReady])
-
-  // Sync house points + badges to map
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-
-    const source = map.getSource(HOUSE_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (source) {
-      // Build features with resolved icon keys
       const features = housePoints.map((p, i) => {
-        const num = i + 1
-        const label = p.properties.label || ''
         const tags = p.properties.tags || []
-        const { key, spec } = resolveHouseIcon(tags, customStatuses)
+        const { key, spec } = resolveHouseIcon(tags, statuses)
         return {
           ...p,
           properties: {
@@ -686,37 +617,31 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             id: p.id,
             iconImage: key,
             bodyColor: spec.bodyColor,
-            num: String(num),
-            label,
+            num: String(i + 1),
+            label: p.properties.label || '',
           },
         }
       })
 
-      // Fast path: if all icons already exist, set data synchronously (no frame delay)
       const houseTags = housePoints.map((p) => ({ tags: p.properties.tags || [] }))
-      if (allHouseIconsExist(map, houseTags, customStatuses)) {
+      if (allHouseIconsExist(map, houseTags, statuses)) {
         source.setData({ type: 'FeatureCollection', features })
       } else {
-        // Slow path: generate missing icons first (only for new tag combinations)
-        ensureHouseIcons(map, houseTags, customStatuses).then(() => {
+        ensureHouseIcons(map, houseTags, statuses).then(() => {
           source.setData({ type: 'FeatureCollection', features })
         })
       }
+
+      // Clear legacy badge layer
+      const badgeSource = map.getSource(BADGE_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (badgeSource) badgeSource.setData({ type: 'FeatureCollection', features: [] })
     }
 
-    // Status + place tags are now baked into the house icon — clear badge layer
-    const badgeSource = map.getSource(BADGE_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (badgeSource) {
-      badgeSource.setData({ type: 'FeatureCollection', features: [] })
-    }
-  }, [housePoints, customStatuses, mapReady])
-
-  // Sync tree points to map
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const source = map.getSource(TREE_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (source) {
+    /** Helper: sync tree features */
+    const syncTrees = () => {
+      const source = map.getSource(TREE_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { treePoints } = useStore.getState()
       source.setData({
         type: 'FeatureCollection',
         features: treePoints.map((t) => ({
@@ -725,7 +650,92 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         })),
       })
     }
-  }, [treePoints, mapReady])
+
+    /** Helper: sync custom roads */
+    const syncRoads = () => {
+      const source = map.getSource(ROAD_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { customRoads } = useStore.getState()
+      source.setData({
+        type: 'FeatureCollection',
+        features: customRoads.map((r) => ({
+          ...r,
+          properties: { ...r.properties, id: r.id },
+        })),
+      })
+    }
+
+    /** Helper: sync selected house highlight */
+    const syncSelectedHouse = () => {
+      const source = map.getSource(SELECTED_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { selectedHouseId: selId, housePoints } = useStore.getState()
+      if (selId) {
+        const house = housePoints.find((p) => p.id === selId)
+        if (house) {
+          source.setData({ type: 'FeatureCollection', features: [house] })
+          return
+        }
+      }
+      source.setData({ type: 'FeatureCollection', features: [] })
+    }
+
+    /** Helper: sync selected road highlight */
+    const syncSelectedRoad = () => {
+      const source = map.getSource(SELECTED_ROAD_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { selectedRoadId: selId, customRoads } = useStore.getState()
+      if (selId) {
+        const road = customRoads.find((r) => r.id === selId)
+        if (road) {
+          source.setData({ type: 'FeatureCollection', features: [road] })
+          return
+        }
+      }
+      source.setData({ type: 'FeatureCollection', features: [] })
+    }
+
+    // Run all syncs once on mount (populate from loaded project data)
+    syncHouses()
+    syncTrees()
+    syncRoads()
+    syncSelectedHouse()
+    syncSelectedRoad()
+
+    // Subscribe — Zustand fires this synchronously on every state change.
+    // We compare slices to only run the sync that actually changed.
+    let prev = useStore.getState()
+    const unsub = useStore.subscribe((next) => {
+      if (next.housePoints !== prev.housePoints || next.customStatuses !== prev.customStatuses) syncHouses()
+      if (next.treePoints !== prev.treePoints) syncTrees()
+      if (next.customRoads !== prev.customRoads) syncRoads()
+      if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
+      if (next.selectedRoadId !== prev.selectedRoadId || next.customRoads !== prev.customRoads) syncSelectedRoad()
+      prev = next
+    })
+
+    return unsub
+  }, [mapReady])
+
+  // Pulse animation for selected house — driven by React selector (changes rarely)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !selectedHouseId) return
+
+    let pulsePhase = 0
+    let rafId = requestAnimationFrame(function animate() {
+      pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
+      const scale = 1 + Math.sin(pulsePhase) * 0.3
+      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+      try {
+        map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
+        map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+      } catch { /* layer may not exist */ }
+      rafId = requestAnimationFrame(animate)
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [selectedHouseId, mapReady])
 
   // Sync house icon size
   useEffect(() => {
