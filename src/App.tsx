@@ -151,7 +151,7 @@ export default function App() {
   )
 
   return (
-    <div className="flex h-dvh w-full">
+    <div className="touch-lock flex h-dvh w-full">
       {/* Sidebar */}
       <aside
         className={`flex shrink-0 flex-col border-r border-divider bg-sidebar-bg transition-[width] duration-300 ease-out ${

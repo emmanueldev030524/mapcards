@@ -219,5 +219,16 @@
     border-radius: 8px !important;
     font-size: 10px !important;
   }
+
+  /* ── Touch zoom lock ── */
+  /* Prevent browser zoom on all UI elements; allow tap + scroll only */
+  .touch-lock {
+    touch-action: manipulation;
+  }
+
+  /* Map canvas: browser must not interfere — MapLibre handles all gestures */
+  .maplibregl-canvas-container {
+    touch-action: none;
+  }
 }
 
