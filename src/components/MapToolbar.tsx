@@ -160,11 +160,11 @@ export default function MapToolbar({
 
   return (
     <>
-    <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
+    <div className="absolute left-1/2 top-3 z-10 w-[calc(100%-1rem)] max-w-max -translate-x-1/2">
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="relative flex max-w-[calc(100vw-1rem)] items-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] will-change-transform"
+      className="relative flex w-full max-w-[calc(100vw-1rem)] items-center rounded-full border border-white/60 bg-white/92 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-xl will-change-transform"
     >
       {/* Left fade edge */}
       {canScrollLeft && (
@@ -174,12 +174,12 @@ export default function MapToolbar({
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="flex items-center gap-1 overflow-x-clip overflow-y-visible py-1.5 pl-2.5 pr-2"
+        className="scrollbar-hide flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-visible py-1.5 pl-2.5 pr-2"
       >
         {/* ── Search ── */}
         {onLocationSelect && (
           <>
-            <div className={`shrink-0 ${isTablet ? 'w-48' : 'w-56'}`}>
+            <div className={`shrink-0 ${isTablet ? 'w-[min(12rem,34vw)]' : 'w-56'}`}>
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
@@ -203,7 +203,7 @@ export default function MapToolbar({
             }`}
           >
             <Undo2 size={iconSize} strokeWidth={2} />
-            {!activeMode && <Tip label="Undo" shortcut={`${MOD}Z`} />}
+            <Tip label="Undo" shortcut={`${MOD}Z`} />
           </button>
           <button
             onClick={() => {
@@ -219,7 +219,7 @@ export default function MapToolbar({
             }`}
           >
             <Redo2 size={iconSize} strokeWidth={2} />
-            {!activeMode && <Tip label="Redo" shortcut={`${MOD}⇧Z`} />}
+            <Tip label="Redo" shortcut={`${MOD}⇧Z`} />
           </button>
         </div>
 
@@ -246,7 +246,7 @@ export default function MapToolbar({
                 </span>
               )}
             </span>
-            {!activeMode && <Tip label="Finish" shortcut="Enter" />}
+            <Tip label="Finish" shortcut="Enter" />
           </button>
         )}
         {isPlacing && (
@@ -259,7 +259,7 @@ export default function MapToolbar({
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
-            {!activeMode && <Tip label="Exit mode" shortcut="Esc" />}
+            <Tip label="Exit mode" shortcut="Esc" />
           </button>
         )}
 
@@ -288,7 +288,7 @@ export default function MapToolbar({
                 }`}
               >
                 <Icon size={iconSize} strokeWidth={isActive ? 2.2 : 2} />
-                {!activeMode && <Tip label={label} desc={desc} shortcut={shortcut} />}
+                {!isActive && <Tip label={label} desc={desc} shortcut={shortcut} />}
               </button>
             )
           })}
@@ -302,7 +302,7 @@ export default function MapToolbar({
             className={`${btnBase} shrink-0 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 ${btnFocusRing} ${btnSize}`}
           >
             <Trash2 size={iconSize} strokeWidth={2} />
-            {!activeMode && <Tip label="Clear" shortcut="Del" align="end" />}
+            <Tip label="Clear" shortcut="Del" align="end" />
           </button>
         )}
       </div>
@@ -318,7 +318,7 @@ export default function MapToolbar({
     {hintMessage && activeTool && (
       <div className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
         <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
-          isTablet ? 'w-72' : 'w-64'
+          isTablet ? 'w-[min(18rem,calc(100vw-1.5rem))]' : 'w-64'
         }`}>
           {/* Header row: icon + title + actions */}
           <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">

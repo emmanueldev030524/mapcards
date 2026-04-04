@@ -122,6 +122,9 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         type="text"
         value={query}
         onChange={(e) => handleInput(e.target.value)}
+        onFocus={() => {
+          if (results.length > 0) setOpen(true)
+        }}
         onKeyDown={(e) => {
           // Prevent Escape from clearing draw mode while typing
           if (e.key === 'Escape') {
@@ -133,7 +136,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         placeholder={compact ? 'Search location...' : 'Search...'}
         className={
           compact
-            ? 'h-9 w-full rounded-full border border-slate-200/80 bg-slate-100/60 pl-8 pr-7 text-[12px] text-heading placeholder-body/60 outline-none transition-all duration-150 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.2)]'
+            ? 'h-9 w-full rounded-full border border-slate-200/80 bg-slate-100/60 pl-8 pr-7 text-[12px] text-heading placeholder-body/60 outline-none transition-all duration-150 hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.2)]'
             : 'w-full rounded-lg border-0 bg-input-bg py-2 pl-9 pr-8 text-[13px] text-heading placeholder-body outline-none transition-shadow duration-150 focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
         }
       />
@@ -152,7 +155,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
       )}
       {open && results.length > 0 && (
         <ul className={`absolute z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-divider/50 bg-white/98 py-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.14),0_4px_10px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
-          compact ? 'left-0 w-80' : 'w-full'
+          compact ? 'left-0 w-[min(20rem,calc(100vw-1.5rem))]' : 'w-full'
         }`}>
           {results.map((r, i) => (
             <li key={r.place_id}>

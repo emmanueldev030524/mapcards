@@ -25,10 +25,10 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
   }, [])
 
   return (
-    <div>
+    <div className="rounded-2xl border border-divider/60 bg-white/80 px-3 py-2 shadow-[0_4px_16px_rgba(15,23,42,0.04)] backdrop-blur-sm">
       <button
         onClick={() => setOpen(!open)}
-        className="group flex w-full items-center justify-between rounded-md px-1 py-2 transition-colors duration-150 hover:bg-brand-hover"
+        className="group flex min-h-[40px] w-full items-center justify-between rounded-xl px-2 py-2 transition-colors duration-150 hover:bg-brand-hover"
       >
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
           {title}
@@ -46,7 +46,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         }}
         className="overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
       >
-        <div ref={contentRef} className="pt-1.5 pb-1">
+        <div ref={contentRef} className="px-1 pb-1 pt-1.5">
           {children}
         </div>
       </div>

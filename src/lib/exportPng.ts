@@ -2,6 +2,7 @@ import type maplibregl from 'maplibre-gl'
 import { bbox as turfBbox } from '@turf/bbox'
 import type { Feature, Polygon } from 'geojson'
 import type { LegendEntry } from './mapPins'
+import { useStore } from '../store'
 
 export interface ExportOptions {
   map: maplibregl.Map
@@ -13,6 +14,33 @@ export interface ExportOptions {
 }
 
 const DPI = 300
+const HOUSE_LAYER = 'house-icons'
+const BADGE_LAYER = 'house-badge-icons'
+const BOUNDARY_FILL = 'territory-boundary-fill'
+const MASK_LAYER = 'territory-mask-fill'
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+function syncCurrentVisualState(map: maplibregl.Map) {
+  const { houseIconSize, badgeIconSize, boundaryOpacity, maskOpacity } = useStore.getState()
+
+  try {
+    map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
+      'interpolate', ['linear'], ['zoom'],
+      13, 0.35 * houseIconSize,
+      16, 0.55 * houseIconSize,
+      19, 0.7 * houseIconSize,
+    ])
+  } catch {}
+
+  try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch {}
+  try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch {}
+  try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch {}
+
+  map.triggerRepaint()
+}
 
 function waitForIdle(map: maplibregl.Map, timeout: number): Promise<void> {
   return new Promise((resolve) => {
@@ -206,10 +234,18 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   // All map mutations are wrapped in try/finally so the working canvas
   // is always restored — even if an await or canvas step throws.
   try {
+    // Export can start immediately after a slider change, before MapLibre has
+    // fully painted the latest layout mutation. Force the current visual state
+    // onto the map and wait a frame so capture matches the on-screen preview.
+    syncCurrentVisualState(map)
+    await nextFrame()
+    await waitForIdle(map, 500)
+
     // Resize map container to card pixel dimensions
     container.style.width = `${totalWidth}px`
     container.style.height = `${totalHeight}px`
     map.resize()
+    syncCurrentVisualState(map)
     await waitForIdle(map, 2000)
 
     // Measure legend bar height dynamically (may wrap to 2+ rows)
@@ -226,6 +262,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       bearing: exportBearing,
       animate: false,
     })
+    syncCurrentVisualState(map)
     await waitForIdle(map, 2000)
 
     // Refine: project boundary to screen space and zoom to fill precisely
@@ -255,6 +292,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
         bearing: exportBearing,
         animate: false,
       } as maplibregl.JumpToOptions)
+      syncCurrentVisualState(map)
 
       // After zoom change, the boundary may have shifted — re-center in the map area above legend
       await waitForIdle(map, 2000)
@@ -271,6 +309,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
         // Shift map so boundary center lands at desired position
         const corrected = map.unproject([totalWidth / 2 + dx, totalHeight / 2 + dy])
         map.jumpTo({ center: corrected, animate: false } as maplibregl.JumpToOptions)
+        syncCurrentVisualState(map)
       }
     }
 
@@ -369,5 +408,6 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       animate: false,
     } as maplibregl.JumpToOptions)
     map.resize()
+    syncCurrentVisualState(map)
   }
 }

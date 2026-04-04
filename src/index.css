@@ -94,8 +94,15 @@
 
   /* Smooth focus transition for inputs */
   input:not([type="range"]):not([type="checkbox"]),
-  select {
+  select,
+  textarea,
+  button {
     transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  /* Stable default focus treatment across custom controls */
+  :focus-visible {
+    outline: none;
   }
 
   /* Hide scrollbar but keep scrolling (toolbar swipe on touch) */
@@ -345,6 +352,9 @@
 
   /* ── Reduced motion — respect vestibular disorders ── */
   @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after,
     .btn-press,
     .btn-press:active,
     .hover-lift,
@@ -385,4 +395,3 @@
     }
   }
 }
-

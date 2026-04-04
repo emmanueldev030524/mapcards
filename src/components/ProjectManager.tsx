@@ -80,10 +80,14 @@ export default function ProjectManager() {
 
   return (
     <div className="space-y-3">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="rounded-xl border border-divider/60 bg-white/75 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+        <p className="mb-2 text-[11px] font-medium text-body/70">
+          Save your territory file, load a previous one, or start fresh.
+        </p>
+        <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={handleExportJSON}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.97]"
+          className="flex min-h-[40px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-2.5 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
         >
           <Save size={13} strokeWidth={2} className="shrink-0" />
           Save Project
@@ -91,7 +95,9 @@ export default function ProjectManager() {
         <div className="group relative">
           <button
             onClick={handleImportJSON}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95]"
+            aria-label="Load project"
+            title="Load project"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
           >
             <Upload size={15} strokeWidth={2} />
           </button>
@@ -102,7 +108,9 @@ export default function ProjectManager() {
         <div className="group relative">
           <button
             onClick={handleNew}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95]"
+            aria-label="New project"
+            title="New project"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
           >
             <Plus size={15} strokeWidth={2} />
           </button>
@@ -110,6 +118,7 @@ export default function ProjectManager() {
             New project
           </span>
         </div>
+      </div>
       </div>
       <input
         ref={fileInputRef}

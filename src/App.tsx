@@ -197,7 +197,7 @@ export default function App() {
       {/* Sidebar */}
       <aside
         className={[
-          'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg',
+          'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg/96 backdrop-blur-sm',
           isTablet
             ? `fixed inset-y-0 left-0 z-40 w-[280px] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -216,37 +216,51 @@ export default function App() {
         }}
       >
         {/* Header */}
-        <div className="bg-linear-to-b from-brand to-brand-dark px-5 pb-5 pt-5">
-          <h1 className="text-[16px] font-bold tracking-tight text-white">MapCards</h1>
-          <p className="mt-0.5 text-[11px] font-medium text-white/50">Territory Card Maker</p>
+        <div className="bg-linear-to-b from-brand to-brand-dark px-5 pb-5 pt-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-[16px] font-bold tracking-tight text-white">MapCards</h1>
+              <p className="mt-0.5 text-[11px] font-medium text-white/55">Territory Card Maker</p>
+            </div>
+            <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white/80 backdrop-blur-sm">
+              STUDIO
+            </span>
+          </div>
         </div>
 
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {/* Project */}
-          <div className="px-5 pt-5 pb-3">
+          <div className="px-4 pt-4 pb-3">
             <ProjectManager />
           </div>
 
-          <div className="mx-5 border-t border-divider/50" />
+          <div className="mx-4 border-t border-divider/50" />
 
           {/* Card Settings */}
-          <div className="px-5 py-2.5">
+          <div className="px-4 py-2.5">
             <SidebarSection title="Card Settings">
               <CardSettings />
             </SidebarSection>
           </div>
 
-          <div className="mx-5 border-t border-divider/50" />
+          <div className="mx-4 border-t border-divider/50" />
 
           {/* Export */}
-          <div className="px-5 py-2.5">
+          <div className="px-4 py-2.5">
             <SidebarSection title="Export">
               <ExportPanel onExport={() => setExportOpen(true)} />
             </SidebarSection>
           </div>
 
           {/* Workflow progress dots */}
-          <div className="flex items-center justify-center gap-2 px-5 pt-3">
+          <div className="mx-4 mt-2 rounded-2xl border border-divider/60 bg-white/80 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/75">Progress</p>
+              <p className="text-[11px] font-medium text-body/55">
+                {[boundary !== null, customRoads.length > 0, housePoints.length > 0].filter(Boolean).length}/3 complete
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2">
             {[
               { label: 'Boundary', done: boundary !== null },
               { label: 'Roads', done: customRoads.length > 0 },
@@ -265,11 +279,12 @@ export default function App() {
                 {i < 3 && <div className={`mb-3 h-px w-4 ${step.done ? 'bg-brand/30' : 'bg-slate-200'}`} />}
               </div>
             ))}
+            </div>
           </div>
 
           {/* Contextual guidance */}
           {!boundary && (
-            <div className="mx-5 mt-3 rounded-xl bg-brand/5 px-4 py-4 text-center">
+            <div className="mx-4 mt-3 rounded-2xl border border-brand/10 bg-brand/5 px-4 py-4 text-center shadow-[0_4px_14px_rgba(75,108,167,0.06)]">
               <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
                 <BoundaryPolygonIcon size={16} strokeWidth={2} className="text-brand" />
               </div>
@@ -280,14 +295,14 @@ export default function App() {
             </div>
           )}
           {boundary && customRoads.length === 0 && (
-            <div className="mx-5 mt-2 rounded-lg bg-slate-50 px-3 py-2.5 text-center">
+            <div className="mx-4 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
               <p className="text-[11px] text-body/60">
                 <span className="font-medium text-body/80">Next:</span> Add roads to help navigate
               </p>
             </div>
           )}
           {boundary && customRoads.length > 0 && housePoints.length === 0 && (
-            <div className="mx-5 mt-2 rounded-lg bg-slate-50 px-3 py-2.5 text-center">
+            <div className="mx-4 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
               <p className="text-[11px] text-body/60">
                 <span className="font-medium text-body/80">Next:</span> Place houses in your territory
               </p>
@@ -296,8 +311,8 @@ export default function App() {
 
           {/* Stats — compact inline */}
           {(boundary || customRoads.length > 0 || housePoints.length > 0) && (
-            <div className="px-5 pb-4 pt-2">
-              <div className="flex items-center gap-3 text-[13px]">
+            <div className="px-4 pb-4 pt-3">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider/60 bg-white/80 px-3.5 py-3 text-[13px] shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
                 <span className={`inline-flex items-center gap-1.5 font-medium ${boundary ? 'text-emerald-text' : 'text-body/40'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${boundary ? 'bg-emerald-500' : 'bg-body/20'}`} />
                   Boundary
@@ -314,8 +329,8 @@ export default function App() {
         </div>
 
         {/* Auto-save indicator */}
-        <div className="shrink-0 border-t border-divider/30 px-5 py-2">
-          <p className={`text-[10px] font-medium text-body/40 transition-opacity duration-150 ${showSaved ? 'save-indicator' : 'opacity-0'}`}>
+        <div className="shrink-0 border-t border-divider/30 bg-white/55 px-4 py-2.5 backdrop-blur-sm">
+          <p className={`flex items-center text-[10px] font-medium text-body/45 transition-opacity duration-150 ${showSaved ? 'save-indicator' : 'opacity-0'}`}>
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5 align-middle" />
             Saved
           </p>
@@ -336,8 +351,8 @@ export default function App() {
           aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
           className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
             isTablet
-              ? 'left-0 h-10 w-5 rounded-r-lg border-y border-r border-white/30 bg-white/80 text-slate-500 shadow-[2px_0_6px_rgba(0,0,0,0.1)] backdrop-blur-md hover:bg-white hover:text-slate-700'
-              : 'left-0 h-12 w-5 rounded-r-lg border-y border-r border-divider/50 bg-sidebar-bg text-slate-400 shadow-[2px_0_6px_rgba(0,0,0,0.06)] hover:text-slate-600'
+              ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/30 bg-white/85 text-slate-500 shadow-[2px_0_10px_rgba(0,0,0,0.12)] backdrop-blur-md hover:bg-white hover:text-slate-700'
+              : 'left-0 h-14 w-6 rounded-r-xl border-y border-r border-divider/60 bg-sidebar-bg/96 text-slate-400 shadow-[2px_0_10px_rgba(0,0,0,0.08)] hover:text-slate-600'
           }`}
           title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
