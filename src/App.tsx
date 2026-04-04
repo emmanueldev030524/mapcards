@@ -21,6 +21,9 @@ import SidebarSection from './components/SidebarSection'
 import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
 import Toast from './components/Toast'
 import AriaLiveRegion from './components/AriaLiveRegion'
+import SaveStatus from './components/SaveStatus'
+import ReviewModeToggle from './components/ReviewModeToggle'
+import ReviewOverlay from './components/ReviewOverlay'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
 import { useAutoSave, useLoadOnStart } from './hooks/useProject'
@@ -28,14 +31,8 @@ import { useAutoSave, useLoadOnStart } from './hooks/useProject'
 export default function App() {
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   const searchMarkerRef = useRef<maplibregl.Marker | null>(null)
-  const [showSaved, setShowSaved] = useState(false)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
-  useAutoSave(() => {
-    setShowSaved(true)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => setShowSaved(false), 2500)
-  })
+  const { saveState, lastSavedAt } = useAutoSave()
   useLoadOnStart()
 
   const activeDrawMode = useStore((s) => s.activeDrawMode)
@@ -47,6 +44,12 @@ export default function App() {
   const housePoints = useStore((s) => s.housePoints)
   const mapMode = useStore((s) => s.mapMode)
   const setMapMode = useStore((s) => s.setMapMode)
+  const reviewMode = useStore((s) => s.reviewMode)
+  const setReviewMode = useStore((s) => s.setReviewMode)
+  const territoryName = useStore((s) => s.territoryName)
+  const territoryNumber = useStore((s) => s.territoryNumber)
+  const cardWidthInches = useStore((s) => s.cardWidthInches)
+  const cardHeightInches = useStore((s) => s.cardHeightInches)
 
   const handleBoundaryComplete = useCallback(
     (feature: Feature<Polygon>) => {
@@ -120,6 +123,7 @@ export default function App() {
         setActiveDrawMode(null)
         setMode(null)
         setBulkFillOpen(false)
+        setReviewMode(false)
         useStore.getState().setSelectedHouseId(null)
         useStore.getState().setSelectedRoadId(null)
       }
@@ -145,7 +149,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setActiveDrawMode, setMode, undo, redo])
+  }, [setActiveDrawMode, setMode, setReviewMode, undo, redo])
 
   const handleLocationSelect = useCallback(
     (selection: LocationSelection) => {
@@ -183,10 +187,23 @@ export default function App() {
     [mapInstance],
   )
 
+  const handleReviewToggle = useCallback(() => {
+    const next = !reviewMode
+    if (next) {
+      setActiveDrawMode(null)
+      setMode(null)
+      setBulkFillOpen(false)
+      useStore.getState().setSelectedHouseId(null)
+      useStore.getState().setSelectedTreeId(null)
+      useStore.getState().setSelectedRoadId(null)
+    }
+    setReviewMode(next)
+  }, [reviewMode, setActiveDrawMode, setMode, setReviewMode])
+
   return (
     <div className="touch-lock flex h-dvh w-full">
       {/* Backdrop — tablet overlay only */}
-      {isTablet && sidebarOpen && (
+      {!reviewMode && isTablet && sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
@@ -195,11 +212,12 @@ export default function App() {
       )}
 
       {/* Sidebar */}
+      {!reviewMode && (
       <aside
         className={[
           'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg/96 backdrop-blur-sm',
           isTablet
-            ? `fixed inset-y-0 left-0 z-40 w-[280px] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            ? `fixed inset-y-0 left-0 z-40 w-[min(22rem,calc(100vw-1.5rem))] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
             : `transition-[width] duration-300 ease-out ${
@@ -216,11 +234,11 @@ export default function App() {
         }}
       >
         {/* Header */}
-        <div className="bg-linear-to-b from-brand to-brand-dark px-5 pb-5 pt-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">
+        <div className="bg-linear-to-b from-brand to-brand-dark px-4 pb-5 pt-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)] sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-[16px] font-bold tracking-tight text-white">MapCards</h1>
-              <p className="mt-0.5 text-[11px] font-medium text-white/55">Territory Card Maker</p>
+              <h1 className="text-[16px] font-bold tracking-tight text-white sm:text-[17px]">MapCards</h1>
+              <p className="mt-0.5 text-[11px] font-medium text-white/55 sm:text-[11.5px]">Territory Card Maker</p>
             </div>
             <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white/80 backdrop-blur-sm">
               STUDIO
@@ -231,7 +249,7 @@ export default function App() {
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {/* Project */}
           <div className="px-4 pt-4 pb-3">
-            <ProjectManager />
+            <ProjectManager refreshKey={lastSavedAt} />
           </div>
 
           <div className="mx-4 border-t border-divider/50" />
@@ -254,13 +272,13 @@ export default function App() {
 
           {/* Workflow progress dots */}
           <div className="mx-4 mt-2 rounded-2xl border border-divider/60 bg-white/80 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/75">Progress</p>
               <p className="text-[11px] font-medium text-body/55">
                 {[boundary !== null, customRoads.length > 0, housePoints.length > 0].filter(Boolean).length}/3 complete
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
             {[
               { label: 'Boundary', done: boundary !== null },
               { label: 'Roads', done: customRoads.length > 0 },
@@ -330,22 +348,22 @@ export default function App() {
 
         {/* Auto-save indicator */}
         <div className="shrink-0 border-t border-divider/30 bg-white/55 px-4 py-2.5 backdrop-blur-sm">
-          <p className={`flex items-center text-[10px] font-medium text-body/45 transition-opacity duration-150 ${showSaved ? 'save-indicator' : 'opacity-0'}`}>
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5 align-middle" />
-            Saved
-          </p>
+          <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
         </div>
       </aside>
+      )}
 
       {/* Map */}
-      <main className={`relative min-w-0 flex-1 ${
+      <main className={`review-shell relative min-w-0 flex-1 ${
+        reviewMode ? 'review-mode' : ''
+      } ${
         activeDrawMode === 'boundary' ? 'drawing-glow-boundary' :
         activeDrawMode === 'road' ? 'drawing-glow-road' : ''
       }`}>
         <MapView onMapReady={handleMapReady} />
 
         {/* Sidebar collapse/expand tab — Google Earth style edge handle */}
-        {!basemapPanelOpen && (
+        {!reviewMode && !basemapPanelOpen && (
         <button
           onClick={() => setSidebarOpen((v) => !v)}
           aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
@@ -365,8 +383,21 @@ export default function App() {
         </button>
         )}
 
-        <FloatingSettings map={mapInstance} />
+        <ReviewModeToggle active={reviewMode} onToggle={handleReviewToggle} />
 
+        {reviewMode && (
+          <ReviewOverlay
+            territoryName={territoryName}
+            territoryNumber={territoryNumber}
+            cardWidthInches={cardWidthInches}
+            cardHeightInches={cardHeightInches}
+            onExport={() => setExportOpen(true)}
+          />
+        )}
+
+        {!reviewMode && <FloatingSettings map={mapInstance} />}
+
+        {!reviewMode && (
         <MapToolbar
           activeMode={activeDrawMode}
           onModeChange={handleModeChange}
@@ -391,15 +422,16 @@ export default function App() {
           getVertexCount={getVertexCount}
           onLocationSelect={handleLocationSelect}
         />
-        <HouseEditPopup map={mapInstance} />
-        <TreeActionPopup />
-        <RoadDeleteButton />
-        <MapModeThumbnail
+        )}
+        {!reviewMode && <HouseEditPopup map={mapInstance} />}
+        {!reviewMode && <TreeActionPopup />}
+        {!reviewMode && <RoadDeleteButton />}
+        {!reviewMode && <MapModeThumbnail
           currentMode={mapMode === 'auto' ? (boundary === null ? 'satellite' : 'street') : mapMode}
           onModeChange={setMapMode}
           map={mapInstance}
           onPanelToggle={setBasemapPanelOpen}
-        />
+        />}
       </main>
 
       <BulkFillDialog

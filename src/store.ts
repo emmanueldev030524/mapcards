@@ -24,6 +24,7 @@ const MAX_UNDO = 50
 interface MapCardsStore {
   // Project data
   projectId: string
+  projectCreatedAt: string
   territoryName: string
   territoryNumber: string
   cardWidthInches: number
@@ -50,6 +51,7 @@ interface MapCardsStore {
   selectedTreeId: string | null
   selectedRoadId: string | null
   mapMode: 'satellite' | 'street' | 'clean' | 'auto' // auto = satellite before boundary, clean after
+  reviewMode: boolean
 
   // Undo/redo (internal stacks, not persisted)
   _undoStack: UndoSnapshot[]
@@ -99,6 +101,7 @@ interface MapCardsStore {
   setSnapToGrid: (snap: boolean) => void
   setGridSpacing: (meters: number) => void
   setMapMode: (mode: 'satellite' | 'street' | 'clean' | 'auto') => void
+  setReviewMode: (enabled: boolean) => void
   moveHousePoint: (id: string, lng: number, lat: number) => void
 
   // Actions — persistence
@@ -111,6 +114,15 @@ const DEFAULT_STATUSES: CustomStatus[] = [
   { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
   { id: 'bs', label: 'Bible Study', color: '#3498db' },
 ]
+
+const DEFAULT_VISIBLE_LAYERS = { buildings: true }
+const DEFAULT_BOUNDARY_OPACITY = 0
+const DEFAULT_MASK_OPACITY = 0.85
+const DEFAULT_HOUSE_ICON_SIZE = 0.8
+const DEFAULT_BADGE_ICON_SIZE = 0.7
+const DEFAULT_SNAP_TO_GRID = false
+const DEFAULT_GRID_SPACING_METERS = 20
+const DEFAULT_MAP_MODE: 'auto' = 'auto'
 
 /** Strip legacy/duplicate statuses and ensure current defaults exist */
 function migrateStatuses(statuses: CustomStatus[]): CustomStatus[] {
@@ -164,6 +176,7 @@ function setWithUndo(
 export const useStore = create<MapCardsStore>((set, get) => ({
   // Initial state
   projectId: uuid(),
+  projectCreatedAt: new Date().toISOString(),
   territoryName: DEFAULT_PROJECT.territoryName,
   territoryNumber: DEFAULT_PROJECT.territoryNumber,
   cardWidthInches: DEFAULT_PROJECT.cardWidthInches,
@@ -181,17 +194,18 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   ],
 
   activeDrawMode: null,
-  visibleLayers: { buildings: true },
-  boundaryOpacity: 0,
-  maskOpacity: 0.85,
-  houseIconSize: 0.8,
-  badgeIconSize: 0.7,
-  snapToGrid: false,
-  gridSpacingMeters: 20,
+  visibleLayers: DEFAULT_VISIBLE_LAYERS,
+  boundaryOpacity: DEFAULT_BOUNDARY_OPACITY,
+  maskOpacity: DEFAULT_MASK_OPACITY,
+  houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
+  badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+  snapToGrid: DEFAULT_SNAP_TO_GRID,
+  gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
   selectedHouseId: null,
   selectedTreeId: null,
   selectedRoadId: null,
-  mapMode: 'auto' as const,
+  mapMode: DEFAULT_MAP_MODE,
+  reviewMode: false,
 
   _undoStack: [],
   _redoStack: [],
@@ -382,6 +396,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setSnapToGrid: (snap) => set({ snapToGrid: snap }),
   setGridSpacing: (meters) => set({ gridSpacingMeters: meters }),
   setMapMode: (mode) => set({ mapMode: mode }),
+  setReviewMode: (enabled) => set({ reviewMode: enabled }),
   moveHousePoint: (id, lng, lat) => {
     // Only push undo on first move (avoid flooding stack during drag)
     const s = get()
@@ -432,6 +447,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   loadProject: (data) =>
     set({
       projectId: data.id,
+      projectCreatedAt: data.createdAt,
       territoryName: data.territoryName,
       territoryNumber: data.territoryNumber,
       cardWidthInches: data.cardWidthInches,
@@ -456,11 +472,24 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       canUndo: false,
       canRedo: false,
       activeDrawMode: null,
+      selectedHouseId: null,
+      selectedTreeId: null,
+      selectedRoadId: null,
+      visibleLayers: DEFAULT_VISIBLE_LAYERS,
+      boundaryOpacity: DEFAULT_BOUNDARY_OPACITY,
+      maskOpacity: DEFAULT_MASK_OPACITY,
+      houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
+      badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+      snapToGrid: DEFAULT_SNAP_TO_GRID,
+      gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
+      mapMode: DEFAULT_MAP_MODE,
+      reviewMode: false,
     }),
 
   clearProject: () =>
     set({
       projectId: uuid(),
+      projectCreatedAt: new Date().toISOString(),
       ...DEFAULT_PROJECT,
       treePoints: [],
       startMarker: null,
@@ -469,7 +498,18 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         { id: 'bs', label: 'Bible Study', color: '#3498db' },
       ],
       activeDrawMode: null,
-      visibleLayers: {},
+      selectedHouseId: null,
+      selectedTreeId: null,
+      selectedRoadId: null,
+      visibleLayers: DEFAULT_VISIBLE_LAYERS,
+      boundaryOpacity: DEFAULT_BOUNDARY_OPACITY,
+      maskOpacity: DEFAULT_MASK_OPACITY,
+      houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
+      badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+      snapToGrid: DEFAULT_SNAP_TO_GRID,
+      gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
+      mapMode: DEFAULT_MAP_MODE,
+      reviewMode: false,
       // Reset transient editing state so prior territory doesn't leak
       _undoStack: [],
       _redoStack: [],
@@ -483,7 +523,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     return {
       version: 1,
       id: s.projectId,
-      createdAt: new Date().toISOString(),
+      createdAt: s.projectCreatedAt,
       updatedAt: new Date().toISOString(),
       territoryName: s.territoryName,
       territoryNumber: s.territoryNumber,

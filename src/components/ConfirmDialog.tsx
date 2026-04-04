@@ -82,6 +82,8 @@ const ICONS: Record<DialogVariant, { icon: typeof AlertTriangle; bg: string; col
 export default function ConfirmDialog() {
   const { open, config, resolve } = useDialogStore()
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const titleId = useRef(`confirm-dialog-title-${Math.random().toString(36).slice(2, 8)}`)
+  const messageId = useRef(`confirm-dialog-message-${Math.random().toString(36).slice(2, 8)}`)
 
   // Focus confirm/OK button when dialog opens
   useEffect(() => {
@@ -126,6 +128,10 @@ export default function ConfirmDialog() {
       onClick={() => handleClose(false)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId.current}
+        aria-describedby={messageId.current}
         className="mx-4 w-full max-w-[22rem] animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.18),0_8px_16px_rgba(0,0,0,0.1)]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -135,10 +141,10 @@ export default function ConfirmDialog() {
         </div>
 
         {/* Title */}
-        <h3 className="text-center text-[15px] font-bold text-heading">{title}</h3>
+        <h3 id={titleId.current} className="text-center text-[15px] font-bold text-heading">{title}</h3>
 
         {/* Message */}
-        <p className="mt-1 text-center text-[12px] leading-relaxed text-body/80">{message}</p>
+        <p id={messageId.current} className="mt-1 text-center text-[12px] leading-relaxed text-body/80">{message}</p>
 
         {/* Buttons — pill style consistent with app */}
         <div className={`mt-6 flex gap-2.5 ${isAlert ? 'justify-center' : ''}`}>

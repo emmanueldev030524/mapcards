@@ -46,8 +46,8 @@ const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shor
 /* Tooltip with optional description and keyboard shortcut badge */
 function Tip({ label, desc, shortcut, align = 'center' }: { label: string; desc?: string; shortcut?: string; align?: 'center' | 'end' }) {
   return (
-    <span className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1 ${
-      desc ? '-bottom-14' : '-bottom-9'
+    <span className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 -translate-y-1 ${
+      desc ? '-top-14' : '-top-9'
     } ${align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
       <span className="flex items-center gap-1.5">
         {label}

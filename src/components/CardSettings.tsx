@@ -54,7 +54,7 @@ export default function CardSettings() {
       </div>
 
       {/* Dimensions — compact row */}
-      <div className="flex min-w-0 gap-2">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <input
             type="number"

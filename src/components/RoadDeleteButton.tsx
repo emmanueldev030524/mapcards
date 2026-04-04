@@ -1,25 +1,54 @@
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../store'
+import { showConfirm } from './ConfirmDialog'
 
 export default function RoadDeleteButton() {
   const selectedRoadId = useStore((s) => s.selectedRoadId)
+  const customRoads = useStore((s) => s.customRoads)
   const removeRoad = useStore((s) => s.removeCustomRoad)
   const setSelectedRoad = useStore((s) => s.setSelectedRoadId)
 
   if (!selectedRoadId) return null
 
+  const roadIndex = customRoads.findIndex((road) => road.id === selectedRoadId) + 1
+
   return (
     <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <button
-        onClick={() => {
-          removeRoad(selectedRoadId)
-          setSelectedRoad(null)
-        }}
-        className="flex items-center gap-2 rounded-xl border border-red-200 bg-white/95 px-4 py-2.5 text-[13px] font-semibold text-red-600 shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-all hover:bg-red-50 active:scale-95"
-      >
-        <Trash2 size={15} strokeWidth={2} />
-        Delete Road
-      </button>
+      <div className="min-w-[18rem] rounded-2xl border border-divider/60 bg-white/96 px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[12px] font-semibold text-heading">Road #{roadIndex > 0 ? roadIndex : 'Selected'}</p>
+            <p className="text-[11px] text-body/65">Selected custom road</p>
+          </div>
+          <button
+            onClick={() => setSelectedRoad(null)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
+            aria-label="Close road actions"
+          >
+            <span className="text-base leading-none">×</span>
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="text-[11px] text-body/65">Delete this road if it should not appear in the final territory card.</p>
+          <button
+            onClick={async () => {
+              const ok = await showConfirm(
+                'Delete Road?',
+                `Remove ${roadIndex > 0 ? `Road #${roadIndex}` : 'this road'} from the map.`,
+                { variant: 'destructive', confirmLabel: 'Delete Road' },
+              )
+              if (!ok) return
+              removeRoad(selectedRoadId)
+              setSelectedRoad(null)
+            }}
+            className="flex shrink-0 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-600 shadow-[0_4px_12px_rgba(239,68,68,0.08)] transition-all hover:bg-red-100 active:scale-95"
+          >
+            <Trash2 size={14} strokeWidth={2} />
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -119,7 +119,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
       showAtTop ? 'top-4' : 'bottom-4'
     }`}>
       <div
-        className="hover-lift w-full rounded-xl border border-divider bg-white/95 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-sm sm:w-80"
+        className="hover-lift w-full rounded-2xl border border-divider/60 bg-white/96 shadow-[0_12px_30px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md sm:w-[22rem]"
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY
           setSwiping(true)
@@ -147,18 +147,21 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-divider px-3 py-2">
+        <div className="flex items-center justify-between border-b border-divider/60 px-3.5 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">
+            <span className="flex h-7 w-7 items-center justify-center rounded-2xl bg-brand text-[11px] font-bold text-white shadow-[0_4px_12px_rgba(75,108,167,0.22)]">
               {houseIndex}
             </span>
-            <span className="text-[12px] font-medium text-body">House #{houseIndex}</span>
+            <div>
+              <p className="text-[12px] font-semibold text-heading">House #{houseIndex}</p>
+              <p className="text-[11px] text-body/65">Selected map marker</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={handleDelete}
               aria-label="Delete house"
-              className="rounded-full px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
+              className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
             >
               Delete
             </button>
@@ -173,7 +176,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
         </div>
 
         {/* Body */}
-        <div className="space-y-3 px-3 py-2.5">
+        <div className="space-y-3.5 px-3.5 py-3">
           {/* Label */}
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
@@ -195,6 +198,9 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
             <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
               Status
             </label>
+            <p className="mb-2 text-[11px] leading-relaxed text-body/62">
+              Toggle house status chips. Right-click a custom status to remove it everywhere.
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {customStatuses.map((status) => {
                 const active = tags.includes(status.id)
@@ -204,6 +210,8 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                   <button
                     key={status.id}
                     onClick={() => toggleTag(house.id, status.id)}
+                    aria-pressed={active}
+                    aria-label={`${active ? 'Remove' : 'Apply'} status ${status.label}`}
                     onContextMenu={async (e) => {
                       e.preventDefault()
                       const ok = await showConfirm(
@@ -295,6 +303,9 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
             <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
               Place Type
             </label>
+            <p className="mb-2 text-[11px] leading-relaxed text-body/62">
+              Choose one or more place types to tint the house icon and improve legend output.
+            </p>
             <div className="grid grid-cols-5 gap-1.5">
               {placeCats.map((cat) => {
                 const active = tags.includes(cat.id)
@@ -302,6 +313,8 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                   <button
                     key={cat.id}
                     onClick={() => toggleTag(house.id, cat.id)}
+                    aria-pressed={active}
+                    aria-label={`${active ? 'Remove' : 'Apply'} place type ${cat.label}`}
                     title={cat.label}
                     className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center transition-all duration-150 ${
                       active

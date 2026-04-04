@@ -11,6 +11,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
   const [open, setOpen] = useState(defaultOpen)
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | undefined>(undefined)
+  const contentId = useRef(`sidebar-section-${title.toLowerCase().replace(/\s+/g, '-')}`)
 
   // Measure content height for smooth animation
   useEffect(() => {
@@ -28,6 +29,8 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
     <div className="rounded-2xl border border-divider/60 bg-white/80 px-3 py-2 shadow-[0_4px_16px_rgba(15,23,42,0.04)] backdrop-blur-sm">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={contentId.current}
         className="group flex min-h-[40px] w-full items-center justify-between rounded-xl px-2 py-2 transition-colors duration-150 hover:bg-brand-hover"
       >
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
@@ -40,6 +43,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         />
       </button>
       <div
+        id={contentId.current}
         style={{
           maxHeight: open ? (height ?? 1000) : 0,
           opacity: open ? 1 : 0,

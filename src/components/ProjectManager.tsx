@@ -2,10 +2,16 @@ import { useCallback, useRef } from 'react'
 import { saveAs } from 'file-saver'
 import { Plus, Save, Upload } from 'lucide-react'
 import { useStore } from '../store'
-import { deleteProject } from '../lib/db'
 import { showConfirm, showAlert } from './ConfirmDialog'
+import ProjectLibrary from './ProjectLibrary'
+import { useIsTablet } from '../hooks/useMediaQuery'
 
-export default function ProjectManager() {
+interface ProjectManagerProps {
+  refreshKey?: string | null
+}
+
+export default function ProjectManager({ refreshKey }: ProjectManagerProps) {
+  const isTablet = useIsTablet()
   const getProjectData = useStore((s) => s.getProjectData)
   const loadProjectToStore = useStore((s) => s.loadProject)
   const clearProject = useStore((s) => s.clearProject)
@@ -21,7 +27,6 @@ export default function ProjectManager() {
     )
     if (!ok) return
     clearProject()
-    deleteProject().catch(console.error)
   }, [clearProject])
 
   const handleExportJSON = useCallback(() => {
@@ -84,20 +89,20 @@ export default function ProjectManager() {
         <p className="mb-2 text-[11px] font-medium text-body/70">
           Save your territory file, load a previous one, or start fresh.
         </p>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className={`flex min-w-0 items-center gap-2 ${isTablet ? 'flex-wrap' : ''}`}>
         <button
           onClick={handleExportJSON}
-          className="flex min-h-[40px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-2.5 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+          className={`flex min-h-[40px] min-w-0 items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-2.5 text-[12px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none ${isTablet ? 'basis-full' : 'flex-1'}`}
         >
           <Save size={13} strokeWidth={2} className="shrink-0" />
           Save Project
         </button>
-        <div className="group relative">
+        <div className="group relative shrink-0">
           <button
             onClick={handleImportJSON}
             aria-label="Load project"
             title="Load project"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
           >
             <Upload size={15} strokeWidth={2} />
           </button>
@@ -105,7 +110,7 @@ export default function ProjectManager() {
             Load project
           </span>
         </div>
-        <div className="group relative">
+        <div className="group relative shrink-0">
           <button
             onClick={handleNew}
             aria-label="New project"
@@ -118,6 +123,11 @@ export default function ProjectManager() {
             New project
           </span>
         </div>
+        {isTablet && (
+          <p className="basis-full pt-1 text-[10px] leading-relaxed text-body/55">
+            Local projects autosave automatically. Use Save Project to export a portable backup file.
+          </p>
+        )}
       </div>
       </div>
       <input
@@ -127,6 +137,7 @@ export default function ProjectManager() {
         onChange={handleFileChange}
         className="hidden"
       />
+      <ProjectLibrary refreshKey={refreshKey} />
     </div>
   )
 }
