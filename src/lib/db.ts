@@ -8,6 +8,7 @@ const PROJECT_PREFIX = 'mapcards-project:'
 
 export interface ProjectListItem {
   id: string
+  projectName?: string
   territoryName: string
   territoryNumber: string
   createdAt: string
@@ -21,6 +22,7 @@ function projectKey(id: string) {
 function toListItem(data: ProjectData): ProjectListItem {
   return {
     id: data.id,
+    projectName: data.projectName || '',
     territoryName: data.territoryName,
     territoryNumber: data.territoryNumber,
     createdAt: data.createdAt,

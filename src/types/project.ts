@@ -18,6 +18,7 @@ export interface ProjectData {
   id: string
   createdAt: string
   updatedAt: string
+  projectName?: string
   territoryName: string
   territoryNumber: string
   cardWidthInches: number
@@ -34,6 +35,7 @@ export interface ProjectData {
 
 export const DEFAULT_PROJECT: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'> = {
   version: 1,
+  projectName: '',
   territoryName: '',
   territoryNumber: '',
   cardWidthInches: 5,

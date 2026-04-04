@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid'
 import type { Feature, Polygon, LineString, Point } from 'geojson'
 import type { DrawMode, FeatureWithMeta, ProjectData } from './types/project'
 import { DEFAULT_PROJECT } from './types/project'
+import { PIN_CATEGORIES } from './lib/mapPins'
 
 export interface CustomStatus {
   id: string
@@ -25,6 +26,7 @@ interface MapCardsStore {
   // Project data
   projectId: string
   projectCreatedAt: string
+  projectName: string
   territoryName: string
   territoryNumber: string
   cardWidthInches: number
@@ -63,6 +65,7 @@ interface MapCardsStore {
   redoAction: () => void
 
   // Actions — project
+  setProjectName: (name: string) => void
   setTerritoryName: (name: string) => void
   setTerritoryNumber: (num: string) => void
   setCardDimensions: (width: number, height: number) => void
@@ -123,6 +126,7 @@ const DEFAULT_BADGE_ICON_SIZE = 0.7
 const DEFAULT_SNAP_TO_GRID = false
 const DEFAULT_GRID_SPACING_METERS = 20
 const DEFAULT_MAP_MODE: 'auto' = 'auto'
+const STATUS_TAG_IDS = new Set(PIN_CATEGORIES.filter((cat) => cat.group === 'status').map((cat) => cat.id))
 
 /** Strip legacy/duplicate statuses and ensure current defaults exist */
 function migrateStatuses(statuses: CustomStatus[]): CustomStatus[] {
@@ -177,6 +181,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   // Initial state
   projectId: uuid(),
   projectCreatedAt: new Date().toISOString(),
+  projectName: DEFAULT_PROJECT.projectName || '',
   territoryName: DEFAULT_PROJECT.territoryName,
   territoryNumber: DEFAULT_PROJECT.territoryNumber,
   cardWidthInches: DEFAULT_PROJECT.cardWidthInches,
@@ -256,6 +261,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     }),
 
   // Project settings
+  setProjectName: (name) => set({ projectName: name }),
   setTerritoryName: (name) => set({ territoryName: name }),
   setTerritoryNumber: (num) => set({ territoryNumber: num }),
   setCardDimensions: (width, height) =>
@@ -318,11 +324,17 @@ export const useStore = create<MapCardsStore>((set, get) => ({
         if (p.id !== id) return p
         const tags = p.properties.tags || []
         const has = tags.includes(tag as never)
+        const isStatusTag = STATUS_TAG_IDS.has(tag) || s.customStatuses.some((status) => status.id === tag)
+        const nextTags = has
+          ? tags.filter((t) => t !== tag)
+          : isStatusTag
+            ? [...tags.filter((t) => !STATUS_TAG_IDS.has(t) && !s.customStatuses.some((status) => status.id === t)), tag]
+            : [...tags, tag]
         return {
           ...p,
           properties: {
             ...p.properties,
-            tags: has ? tags.filter((t) => t !== tag) : [...tags, tag],
+            tags: nextTags,
           },
         }
       }),
@@ -448,6 +460,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     set({
       projectId: data.id,
       projectCreatedAt: data.createdAt,
+      projectName: data.projectName || '',
       territoryName: data.territoryName,
       territoryNumber: data.territoryNumber,
       cardWidthInches: data.cardWidthInches,
@@ -491,6 +504,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       projectId: uuid(),
       projectCreatedAt: new Date().toISOString(),
       ...DEFAULT_PROJECT,
+      projectName: DEFAULT_PROJECT.projectName || '',
       treePoints: [],
       startMarker: null,
       customStatuses: [
@@ -525,6 +539,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       id: s.projectId,
       createdAt: s.projectCreatedAt,
       updatedAt: new Date().toISOString(),
+      projectName: s.projectName,
       territoryName: s.territoryName,
       territoryNumber: s.territoryNumber,
       cardWidthInches: s.cardWidthInches,

@@ -3,9 +3,9 @@ import type maplibregl from 'maplibre-gl'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Check, ChevronDown, Trash2 } from 'lucide-react'
 import { showConfirm } from './ConfirmDialog'
-import { useIsTablet } from '../hooks/useMediaQuery'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 /**
  * Renders the SVG icon from a PinCategory at the given size.
@@ -29,6 +29,17 @@ const PRESET_COLORS = [
   '#f39c12', '#e74c3c', '#e67e22', '#2ecc71', '#3498db',
   '#9b59b6', '#1abc9c', '#34495e', '#95a5a6', '#d35400',
 ]
+const DEFAULT_STATUS_IDS = new Set(['rv', 'bs'])
+
+function recolorCategoryIcon(cat: PinCategory, color: string): PinCategory {
+  return {
+    ...cat,
+    iconPaths: cat.iconPaths
+      .replace(/stroke="#fff"/g, `stroke="${color}"`)
+      .replace(/fill="#fff"/g, `fill="${color}"`)
+      .replace(/fill="rgba\(255,255,255,0\.9\)"/g, `fill="${color}"`),
+  }
+}
 
 interface HouseEditPopupProps {
   map: maplibregl.Map | null
@@ -46,13 +57,16 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const removeCustomStatus = useStore((s) => s.removeCustomStatus)
 
   const [adding, setAdding] = useState(false)
+  const [statusPickerOpen, setStatusPickerOpen] = useState(false)
   const [newLabel, setNewLabel] = useState('')
   const [newColor, setNewColor] = useState(PRESET_COLORS[0])
 
   const [swipeY, setSwipeY] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const touchStartY = useRef(0)
-  const isTablet = useIsTablet()
+  const popupRef = useRef<HTMLDivElement>(null)
+  const statusSectionRef = useRef<HTMLDivElement>(null)
+  const isPhone = useMediaQuery('(max-width: 767px)')
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window
 
   // Track keyboard visibility via visualViewport API (iOS Safari)
@@ -70,6 +84,28 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
 
   const house = selectedId ? housePoints.find((p) => p.id === selectedId) : null
   const houseIndex = house ? housePoints.indexOf(house) + 1 : 0
+
+  useEffect(() => {
+    setStatusPickerOpen(false)
+    setAdding(false)
+  }, [selectedId])
+
+  useEffect(() => {
+    if (!statusPickerOpen) return
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (statusSectionRef.current && !statusSectionRef.current.contains(target)) {
+        setStatusPickerOpen(false)
+        setAdding(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown, true)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown, true)
+    }
+  }, [statusPickerOpen])
 
   const handleDelete = useCallback(() => {
     if (selectedId) {
@@ -89,6 +125,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
 
   // Determine if popup should be top or bottom based on house screen position
   const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('bottom')
+  const [floatingLayout, setFloatingLayout] = useState<{ left: number; top: number }>({ left: 16, top: 88 })
   useEffect(() => {
     if (!house || !map) { setPopupPosition('bottom'); return }
 
@@ -107,19 +144,92 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     return () => { map.off('moveend', updatePosition) }
   }, [house, map])
 
+  const updateFloatingLayout = useCallback(() => {
+    if (isPhone || !house || !map || !popupRef.current) return
+
+    const mapContainer = map.getContainer()
+    const popupRect = popupRef.current.getBoundingClientRect()
+    const point = map.project(house.geometry.coordinates as [number, number])
+    const viewportWidth = mapContainer.clientWidth
+    const viewportHeight = mapContainer.clientHeight
+    const popupWidth = popupRect.width
+    const popupHeight = popupRect.height
+
+    const margin = 16
+    const topSafe = 88
+    const bottomSafe = 16
+    const leftCol = margin
+    const rightCol = Math.max(margin, viewportWidth - popupWidth - margin)
+    const bottomRow = Math.max(topSafe, viewportHeight - popupHeight - bottomSafe)
+
+    const candidates = [
+      { left: leftCol, top: topSafe },
+      { left: rightCol, top: topSafe },
+      { left: leftCol, top: bottomRow },
+      { left: rightCol, top: bottomRow },
+    ]
+
+    const best = candidates.reduce((bestCandidate, candidate) => {
+      const centerX = candidate.left + popupWidth / 2
+      const centerY = candidate.top + popupHeight / 2
+      let score = Math.hypot(centerX - point.x, centerY - point.y)
+
+      const overlapPadding = 28
+      const overlapsX = point.x >= candidate.left - overlapPadding && point.x <= candidate.left + popupWidth + overlapPadding
+      const overlapsY = point.y >= candidate.top - overlapPadding && point.y <= candidate.top + popupHeight + overlapPadding
+      if (overlapsX && overlapsY) score -= 10000
+
+      if (score > bestCandidate.score) {
+        return { score, candidate }
+      }
+      return bestCandidate
+    }, { score: Number.NEGATIVE_INFINITY, candidate: candidates[0] })
+
+    setFloatingLayout((current) => (
+      Math.abs(current.left - best.candidate.left) < 1 && Math.abs(current.top - best.candidate.top) < 1
+        ? current
+        : best.candidate
+    ))
+  }, [house, isPhone, map])
+
+  useEffect(() => {
+    if (isPhone || !house || !map || !popupRef.current) return
+
+    updateFloatingLayout()
+
+    const handleMove = () => updateFloatingLayout()
+    const resizeObserver = new ResizeObserver(() => updateFloatingLayout())
+    resizeObserver.observe(map.getContainer())
+    resizeObserver.observe(popupRef.current)
+    map.on('move', handleMove)
+
+    return () => {
+      resizeObserver.disconnect()
+      map.off('move', handleMove)
+    }
+  }, [house, isPhone, map, updateFloatingLayout])
+
   if (!house) return null
 
   const tags = house.properties.tags || []
   const placeCats = PIN_CATEGORIES.filter((c) => c.group === 'place')
+  const activeStatus = customStatuses.find((status) => tags.includes(status.id))
+  const activeStatusIcon = activeStatus ? PIN_CATEGORIES.find((c) => c.id === activeStatus.id) : null
 
-  const showAtTop = keyboardOpen && isTablet ? true : popupPosition === 'top'
+  const showAtTop = keyboardOpen ? true : isPhone ? popupPosition === 'top' : false
 
   return (
-    <div className={`absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200 ${
-      showAtTop ? 'top-4' : 'bottom-4'
-    }`}>
+    <div
+      className={isPhone
+        ? `absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200 ${
+            showAtTop ? 'top-4' : 'bottom-4'
+          }`
+        : 'absolute z-10 transition-[left,top] duration-200 ease-out'}
+      style={isPhone ? undefined : floatingLayout}
+    >
       <div
-        className="hover-lift w-full rounded-2xl border border-divider/60 bg-white/96 shadow-[0_12px_30px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md sm:w-[22rem]"
+        ref={popupRef}
+        className="hover-lift w-full rounded-2xl border border-slate-200/85 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md sm:w-[22rem]"
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY
           setSwiping(true)
@@ -143,18 +253,18 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
       >
         {/* Drag handle — swipe down to dismiss */}
         <div className="flex justify-center pt-2 pb-0.5">
-          <div className="h-1 w-8 rounded-full bg-slate-200" />
+          <div className="h-1 w-8 rounded-full bg-slate-300" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-divider/60 px-3.5 py-2.5">
+        <div className="flex items-center justify-between border-b border-slate-200/75 bg-slate-50/78 px-3.5 py-3">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-2xl bg-brand text-[11px] font-bold text-white shadow-[0_4px_12px_rgba(75,108,167,0.22)]">
               {houseIndex}
             </span>
             <div>
               <p className="text-[12px] font-semibold text-heading">House #{houseIndex}</p>
-              <p className="text-[11px] text-body/65">Selected map marker</p>
+              <p className="text-[11px] text-body/78">Selected map marker</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -178,8 +288,8 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
         {/* Body */}
         <div className="space-y-3.5 px-3.5 py-3">
           {/* Label */}
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
               Name
             </label>
             <input
@@ -189,124 +299,209 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
               placeholder="e.g. Garcia Family"
               autoFocus={!isTouch}
-              className="w-full rounded-lg border border-divider bg-surface px-2.5 py-1.5 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
             />
           </div>
 
           {/* Status — pill chips, user-manageable */}
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
+          <div ref={statusSectionRef} className="relative rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
               Status
             </label>
-            <p className="mb-2 text-[11px] leading-relaxed text-body/62">
-              Toggle house status chips. Right-click a custom status to remove it everywhere.
+            <p className="mb-2 text-[11px] leading-relaxed text-body/78">
+              One status per house.
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {customStatuses.map((status) => {
-                const active = tags.includes(status.id)
-                // Find matching pin category for icon (if exists)
-                const pinCat = PIN_CATEGORIES.find((c) => c.id === status.id)
-                return (
-                  <button
-                    key={status.id}
-                    onClick={() => toggleTag(house.id, status.id)}
-                    aria-pressed={active}
-                    aria-label={`${active ? 'Remove' : 'Apply'} status ${status.label}`}
-                    onContextMenu={async (e) => {
-                      e.preventDefault()
-                      const ok = await showConfirm(
-                        `Remove "${status.label}"?`,
-                        'This status will be removed from all houses that use it.',
-                        { variant: 'destructive', confirmLabel: 'Remove' },
-                      )
-                      if (ok) removeCustomStatus(status.id)
-                    }}
-                    title={`${status.label} (right-click to remove)`}
-                    className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 ${
-                      active
-                        ? 'text-white shadow-sm ring-1 ring-inset ring-white/20'
-                        : 'bg-input-bg text-body hover:bg-divider'
-                    }`}
-                    style={active ? { backgroundColor: status.color } : undefined}
-                  >
-                    {pinCat ? (
-                      <CategoryIcon cat={pinCat} size={12} className={active ? 'opacity-90' : 'opacity-60'} />
-                    ) : (
+            <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/70">Current Status</p>
+                  <div className="mt-1">
+                    {activeStatus ? (
                       <span
-                        className="block h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{
-                          backgroundColor: active ? 'rgba(255,255,255,0.35)' : status.color,
-                          boxShadow: active ? 'none' : `0 0 0 1px ${status.color}30 inset`,
-                        }}
-                      />
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.1)]"
+                        style={{ backgroundColor: activeStatus.color }}
+                      >
+                        {activeStatusIcon ? (
+                          <CategoryIcon cat={activeStatusIcon} size={12} className="opacity-90" />
+                        ) : (
+                          <span className="h-2.5 w-2.5 rounded-full bg-white/35" />
+                        )}
+                        <span className="truncate">{activeStatus.label}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-body/70">
+                        No status
+                      </span>
                     )}
-                    {status.label}
-                  </button>
-                )
-              })}
-
-              {/* Add status button */}
-              {!adding && (
+                  </div>
+                </div>
                 <button
-                  onClick={() => setAdding(true)}
-                  className="flex items-center gap-1 rounded-full bg-input-bg px-2.5 py-1.5 text-[11px] font-medium text-body transition-colors hover:bg-divider"
+                  onClick={() => setStatusPickerOpen((open) => !open)}
+                  className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                  aria-expanded={statusPickerOpen}
+                  aria-label={statusPickerOpen ? 'Hide status picker' : 'Show status picker'}
                 >
-                  <Plus size={12} strokeWidth={2.5} />
-                  Add
+                  {activeStatus ? 'Change' : 'Select'}
+                  <ChevronDown
+                    size={12}
+                    strokeWidth={2.4}
+                    className={`transition-transform duration-150 ${statusPickerOpen ? 'rotate-180' : ''}`}
+                  />
                 </button>
-              )}
+              </div>
             </div>
 
-            {/* Inline add form */}
-            {adding && (
-              <div className="mt-2 space-y-2 rounded-lg bg-input-bg p-2.5">
-                <input
-                  type="text"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddStatus(); if (e.key === 'Escape') setAdding(false) }}
-                  placeholder="Status name..."
-                  autoFocus
-                  className="w-full rounded-md border border-divider bg-surface px-2 py-1 text-[12px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
-                />
-                <div className="flex items-center gap-1.5">
-                  {PRESET_COLORS.map((c) => (
+            {statusPickerOpen && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-4rem))] space-y-2 rounded-2xl border border-slate-200/90 bg-white/98 p-2.5 shadow-[0_22px_40px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md">
+                <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                  <button
+                    onClick={() => {
+                      toggleTag(house.id, activeStatus?.id || '')
+                      setStatusPickerOpen(false)
+                      setAdding(false)
+                    }}
+                    disabled={!activeStatus}
+                    className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
+                      activeStatus
+                        ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        : 'cursor-not-allowed border-slate-200/70 bg-slate-50/60 text-slate-400'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-[12px] font-semibold">No status</p>
+                      <p className="text-[10px] text-body/65">Clear current status.</p>
+                    </div>
+                    {!activeStatus && <Check size={14} strokeWidth={2.4} className="text-brand" />}
+                  </button>
+
+                  {customStatuses.map((status) => {
+                    const active = activeStatus?.id === status.id
+                    const pinCat = PIN_CATEGORIES.find((c) => c.id === status.id)
+                    const statusIconCat = pinCat ? recolorCategoryIcon(pinCat, active ? '#ffffff' : status.color) : null
+                    const isRemovable = !DEFAULT_STATUS_IDS.has(status.id)
+
+                    return (
+                      <div key={status.id} className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            toggleTag(house.id, status.id)
+                            setStatusPickerOpen(false)
+                            setAdding(false)
+                          }}
+                          aria-pressed={active}
+                          aria-label={`${active ? 'Remove' : 'Apply'} status ${status.label}`}
+                          className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border px-3 py-1.5 text-left transition-colors ${
+                            active
+                              ? 'border-transparent text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                          }`}
+                          style={active ? { backgroundColor: status.color } : undefined}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                              style={{
+                                backgroundColor: active ? 'rgba(255,255,255,0.2)' : `${status.color}15`,
+                              }}
+                            >
+                              {statusIconCat ? (
+                                <CategoryIcon cat={statusIconCat} size={12} className={active ? 'opacity-95' : 'opacity-85'} />
+                              ) : (
+                                <span
+                                  className="block h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: active ? 'rgba(255,255,255,0.45)' : status.color }}
+                                />
+                              )}
+                            </span>
+                            <span className={`truncate text-[11px] font-semibold ${active ? 'text-white' : 'text-slate-700'}`}>
+                              {status.label}
+                            </span>
+                          </div>
+                          {active && <Check size={14} strokeWidth={2.4} className="shrink-0 text-white" />}
+                        </button>
+
+                        {isRemovable && (
+                          <button
+                            onClick={async () => {
+                              const ok = await showConfirm(
+                                `Remove "${status.label}"?`,
+                                'This status will be removed from all houses that use it.',
+                                { variant: 'destructive', confirmLabel: 'Remove' },
+                              )
+                              if (ok) removeCustomStatus(status.id)
+                            }}
+                            aria-label={`Delete status ${status.label}`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                          >
+                            <Trash2 size={14} strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {!adding ? (
+                  <div className="border-t border-slate-200/80 pt-2">
                     <button
-                      key={c}
-                      onClick={() => setNewColor(c)}
-                      className={`h-5 w-5 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-brand ring-offset-1' : 'hover:scale-110'}`}
-                      style={{ backgroundColor: c }}
+                      onClick={() => setAdding(true)}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                    >
+                      <Plus size={13} strokeWidth={2.5} />
+                      Add custom status
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/75 p-2.5">
+                    <input
+                      type="text"
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddStatus(); if (e.key === 'Escape') setAdding(false) }}
+                      placeholder="Status name..."
+                      autoFocus
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
                     />
-                  ))}
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={handleAddStatus}
-                    disabled={!newLabel.trim()}
-                    className="flex-1 rounded-md bg-brand px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-40"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => setAdding(false)}
-                    className="rounded-md px-2 py-1 text-[11px] font-medium text-body transition-colors hover:bg-divider"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                    <div className="flex items-center gap-1.5">
+                      {PRESET_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setNewColor(c)}
+                          className={`h-5 w-5 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-brand ring-offset-1' : 'hover:scale-110'}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={handleAddStatus}
+                        disabled={!newLabel.trim()}
+                        className="flex-1 rounded-full bg-brand px-2 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-40"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => setAdding(false)}
+                        className="rounded-full px-2 py-1.5 text-[11px] font-medium text-body transition-colors hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Place type — icon tiles */}
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body">
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
               Place Type
             </label>
-            <p className="mb-2 text-[11px] leading-relaxed text-body/62">
+            <p className="mb-2 text-[11px] leading-relaxed text-body/78">
               Choose one or more place types to tint the house icon and improve legend output.
             </p>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(3.9rem,1fr))] gap-1.5">
               {placeCats.map((cat) => {
                 const active = tags.includes(cat.id)
                 return (
@@ -316,15 +511,15 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     aria-pressed={active}
                     aria-label={`${active ? 'Remove' : 'Apply'} place type ${cat.label}`}
                     title={cat.label}
-                    className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center transition-all duration-150 ${
+                    className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-all duration-150 ${
                       active
-                        ? 'shadow-sm ring-1 ring-inset ring-white/20'
-                        : 'bg-input-bg hover:bg-divider'
+                        ? 'shadow-[0_8px_18px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-white/18'
+                        : 'border border-slate-200/80 bg-white/96 hover:border-slate-300 hover:bg-white'
                     }`}
                     style={active ? { backgroundColor: cat.color } : undefined}
                   >
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg"
                       style={{
                         backgroundColor: active ? 'rgba(255,255,255,0.2)' : cat.color + '15',
                       }}
@@ -340,11 +535,11 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                                 .replace(/fill="#fff"/g, `fill="${cat.color}"`)
                                 .replace(/fill="rgba\(255,255,255,0\.9\)"/g, `fill="${cat.color}"`)
                         }}
-                        size={16}
+                        size={14}
                       />
                     </span>
-                    <span className={`text-[9px] font-medium leading-tight ${
-                      active ? 'text-white' : 'text-body/70'
+                    <span className={`flex min-h-[1.7rem] break-words items-center justify-center text-[8.5px] font-medium leading-[1.15] ${
+                      active ? 'text-white' : 'text-body/75'
                     }`}>
                       {cat.label}
                     </span>

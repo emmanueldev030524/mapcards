@@ -32,7 +32,7 @@ export default function App() {
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   const searchMarkerRef = useRef<maplibregl.Marker | null>(null)
 
-  const { saveState, lastSavedAt } = useAutoSave()
+  const { saveState, lastSavedAt, flushSave } = useAutoSave()
   useLoadOnStart()
 
   const activeDrawMode = useStore((s) => s.activeDrawMode)
@@ -201,7 +201,7 @@ export default function App() {
   }, [reviewMode, setActiveDrawMode, setMode, setReviewMode])
 
   return (
-    <div className="touch-lock flex h-dvh w-full">
+    <div className="touch-lock relative flex h-dvh w-full overflow-hidden">
       {/* Backdrop — tablet overlay only */}
       {!reviewMode && isTablet && sidebarOpen && (
         <div
@@ -213,15 +213,15 @@ export default function App() {
 
       {/* Sidebar */}
       {!reviewMode && (
-      <aside
+        <aside
         className={[
           'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg/96 backdrop-blur-sm',
           isTablet
             ? `fixed inset-y-0 left-0 z-40 w-[min(22rem,calc(100vw-1.5rem))] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
-            : `transition-[width] duration-300 ease-out ${
-                sidebarOpen ? 'w-68' : 'w-0 overflow-hidden border-r-0'
+            : `absolute inset-y-0 left-0 z-20 w-68 shadow-[4px_0_24px_rgba(15,23,42,0.08)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
               }`,
           !isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road') ? 'sidebar-drawing' : '',
         ].filter(Boolean).join(' ')}
@@ -249,7 +249,12 @@ export default function App() {
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {/* Project */}
           <div className="px-4 pt-4 pb-3">
-            <ProjectManager refreshKey={lastSavedAt} />
+            <ProjectManager
+              refreshKey={lastSavedAt}
+              flushPendingSave={flushSave}
+              saveState={saveState}
+              lastSavedAt={lastSavedAt}
+            />
           </div>
 
           <div className="mx-4 border-t border-divider/50" />
@@ -370,10 +375,16 @@ export default function App() {
           className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
             isTablet
               ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/30 bg-white/85 text-slate-500 shadow-[2px_0_10px_rgba(0,0,0,0.12)] backdrop-blur-md hover:bg-white hover:text-slate-700'
-              : 'left-0 h-14 w-6 rounded-r-xl border-y border-r border-divider/60 bg-sidebar-bg/96 text-slate-400 shadow-[2px_0_10px_rgba(0,0,0,0.08)] hover:text-slate-600'
+              : `${sidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-slate-300/90 bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08)] backdrop-blur-md hover:bg-white hover:text-slate-800`
           }`}
           title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
+          {!isTablet && (
+            <span
+              aria-hidden="true"
+              className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-brand/70 shadow-[0_0_10px_rgba(75,108,167,0.35)]"
+            />
+          )}
           <svg width={isTablet ? 8 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
             {sidebarOpen
               ? <path d="M6 0L0 6l6 6V0z" />
@@ -431,6 +442,7 @@ export default function App() {
           onModeChange={setMapMode}
           map={mapInstance}
           onPanelToggle={setBasemapPanelOpen}
+          sidebarOpen={sidebarOpen}
         />}
       </main>
 

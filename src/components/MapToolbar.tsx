@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
 import { useIsTablet } from '../hooks/useMediaQuery'
@@ -43,12 +44,18 @@ const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shor
   { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
 
+interface HoverTipState {
+  label: string
+  desc?: string
+  shortcut?: string
+  left: number
+  top: number
+}
+
 /* Tooltip with optional description and keyboard shortcut badge */
-function Tip({ label, desc, shortcut, align = 'center' }: { label: string; desc?: string; shortcut?: string; align?: 'center' | 'end' }) {
+function Tip({ label, desc, shortcut }: { label: string; desc?: string; shortcut?: string }) {
   return (
-    <span className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.25)] backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 -translate-y-1 ${
-      desc ? '-top-14' : '-top-9'
-    } ${align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+    <div className="max-w-56 rounded-xl border border-slate-800/90 bg-slate-950/96 px-3 py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(15,23,42,0.35)] backdrop-blur-sm">
       <span className="flex items-center gap-1.5">
         {label}
         {shortcut && (
@@ -58,9 +65,11 @@ function Tip({ label, desc, shortcut, align = 'center' }: { label: string; desc?
         )}
       </span>
       {desc && (
-        <span className="mt-0.5 block text-[10px] font-normal text-white/55">{desc}</span>
+        <span className="mt-0.5 block whitespace-normal text-[10px] font-normal leading-relaxed text-white/72">
+          {desc}
+        </span>
       )}
-    </span>
+    </div>
   )
 }
 
@@ -93,7 +102,7 @@ function getActiveTool(mode: DrawMode) {
 
 /* Shared button base — animation handled by .btn-press in CSS */
 const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
-const btnInteractive = 'hover:bg-black/6'
+const btnInteractive = 'hover:bg-slate-100/88'
 const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1'
 
 export default function MapToolbar({
@@ -134,6 +143,7 @@ export default function MapToolbar({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
+  const [tooltip, setTooltip] = useState<HoverTipState | null>(null)
 
   const checkScroll = useCallback(() => {
     const el = scrollRef.current
@@ -155,26 +165,53 @@ export default function MapToolbar({
     }
   }, [checkScroll])
 
+  const showTooltip = useCallback((event: React.SyntheticEvent<HTMLElement>, next: Omit<HoverTipState, 'left' | 'top'>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const center = rect.left + rect.width / 2
+    const viewportPadding = 16
+    const left = Math.min(window.innerWidth - viewportPadding, Math.max(viewportPadding, center))
+    const top = rect.bottom + 10
+    setTooltip({ ...next, left, top })
+  }, [])
+
+  const hideTooltip = useCallback(() => {
+    setTooltip((current) => (current ? null : current))
+  }, [])
+
+  const getTooltipProps = useCallback(
+    (next: Omit<HoverTipState, 'left' | 'top'>) => ({
+      onMouseEnter: (event: React.MouseEvent<HTMLElement>) => showTooltip(event, next),
+      onMouseLeave: hideTooltip,
+      onFocus: (event: React.FocusEvent<HTMLElement>) => showTooltip(event, next),
+      onBlur: hideTooltip,
+    }),
+    [hideTooltip, showTooltip],
+  )
+
   const hintMessage = getHintMessage(activeMode, vertexCount)
   const activeTool = getActiveTool(activeMode)
 
   return (
     <>
     <div className="absolute left-1/2 top-3 z-10 w-[calc(100%-1rem)] max-w-max -translate-x-1/2">
+    <div className="pointer-events-none absolute inset-x-10 -inset-y-1 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.72),transparent_68%)] blur-xl" />
+    <div className="pointer-events-none absolute inset-x-14 top-0 h-5 rounded-full bg-white/52 blur-md" />
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="relative flex w-full max-w-[calc(100vw-1rem)] items-center rounded-full border border-white/60 bg-white/92 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-xl will-change-transform"
+      className="relative flex w-full max-w-[calc(100vw-1rem)] items-center overflow-hidden rounded-full border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(247,249,252,0.94))] shadow-[0_18px_40px_rgba(15,23,42,0.2),0_6px_16px_rgba(15,23,42,0.1),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-[22px] will-change-transform"
     >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.46),transparent_36%,rgba(255,255,255,0.24)_68%,transparent)]" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/90" />
       {/* Left fade edge */}
       {canScrollLeft && (
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 rounded-l-full bg-linear-to-r from-white/90 to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-7 rounded-l-full bg-linear-to-r from-white via-white/70 to-transparent" />
       )}
 
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="scrollbar-hide flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-visible py-1.5 pl-2.5 pr-2"
+        className="scrollbar-hide relative flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-visible py-1.5 pl-2.5 pr-2"
       >
         {/* ── Search ── */}
         {onLocationSelect && (
@@ -183,12 +220,12 @@ export default function MapToolbar({
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
-            <div className="mx-0.5 h-5 w-px shrink-0 bg-slate-200" />
+            <div className="mx-0.5 h-5 w-px shrink-0 bg-slate-300/85" />
           </>
         )}
 
         {/* ── History group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/4 px-1 py-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-white/84 px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.78)]">
           <button
             onClick={() => {
               if (isDrawing && onDrawUndo) onDrawUndo()
@@ -196,14 +233,15 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canUndo}
             aria-label="Undo"
+            title="Undo"
+            {...getTooltipProps({ label: 'Undo', shortcut: `${MOD}Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canUndo
                 ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-400'
+                : 'cursor-not-allowed text-slate-300'
             }`}
           >
             <Undo2 size={iconSize} strokeWidth={2} />
-            <Tip label="Undo" shortcut={`${MOD}Z`} />
           </button>
           <button
             onClick={() => {
@@ -212,14 +250,15 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canRedo}
             aria-label="Redo"
+            title="Redo"
+            {...getTooltipProps({ label: 'Redo', shortcut: `${MOD}⇧Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canRedo
                 ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-400'
+                : 'cursor-not-allowed text-slate-300'
             }`}
           >
             <Redo2 size={iconSize} strokeWidth={2} />
-            <Tip label="Redo" shortcut={`${MOD}⇧Z`} />
           </button>
         </div>
 
@@ -229,10 +268,12 @@ export default function MapToolbar({
             onClick={onDrawFinish}
             disabled={!canFinish}
             aria-label={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
+            title={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
+            {...getTooltipProps({ label: 'Finish', shortcut: 'Enter' })}
             className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold ${
               canFinish
-                ? 'bg-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600'
-                : 'cursor-not-allowed bg-black/4 text-slate-400'
+                ? 'bg-emerald-500 text-white shadow-[0_6px_14px_rgba(16,185,129,0.24)] hover:bg-emerald-600'
+                : 'cursor-not-allowed bg-slate-100 text-slate-400'
             }`}
           >
             <span className="flex items-center gap-1">
@@ -246,31 +287,32 @@ export default function MapToolbar({
                 </span>
               )}
             </span>
-            <Tip label="Finish" shortcut="Enter" />
           </button>
         )}
         {isPlacing && (
           <button
             onClick={() => onModeChange(null)}
             aria-label="Done placing"
-            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:bg-emerald-600`}
+            title="Done placing"
+            {...getTooltipProps({ label: 'Exit mode', shortcut: 'Esc' })}
+            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[0_6px_14px_rgba(16,185,129,0.24)] hover:bg-emerald-600`}
           >
             <span className="flex items-center gap-1">
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
             </span>
-            <Tip label="Exit mode" shortcut="Esc" />
           </button>
         )}
 
         {/* ── Divider dot ── */}
-        <div className="mx-0.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+        <div className="mx-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400/85 shadow-[0_0_0_3px_rgba(255,255,255,0.55)]" />
 
         {/* ── Drawing tools group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/4 px-1 py-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(242,246,251,0.76))] px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.84)]">
           {TOOLS.map(({ mode, label, Icon, desc, shortcut }) => {
             const isActive = activeMode === mode
             const isDisabledTool = mode === 'boundary' && hasBoundary
+            const toolClass = isTablet ? 'h-11 w-11' : 'h-9 w-9'
 
             return (
               <button
@@ -279,16 +321,17 @@ export default function MapToolbar({
                 disabled={isDisabledTool}
                 aria-label={label}
                 aria-pressed={isActive}
-                className={`${btnBase} ${btnSize} ${btnFocusRing} ${
+                title={isDisabledTool ? 'Boundary already exists' : desc}
+                {...getTooltipProps({ label, desc, shortcut })}
+                className={`${btnBase} ${toolClass} ${btnFocusRing} gap-2 ${
                   isActive
                     ? 'bg-brand text-white shadow-[0_2px_10px_rgba(75,108,167,0.35)]'
                     : isDisabledTool
-                      ? 'cursor-not-allowed text-slate-400'
+                      ? 'cursor-not-allowed text-slate-300'
                       : `text-slate-700 ${btnInteractive}`
                 }`}
               >
                 <Icon size={iconSize} strokeWidth={isActive ? 2.2 : 2} />
-                {!isActive && <Tip label={label} desc={desc} shortcut={shortcut} />}
               </button>
             )
           })}
@@ -299,17 +342,18 @@ export default function MapToolbar({
           <button
             onClick={onClearBoundary}
             aria-label="Clear boundary"
-            className={`${btnBase} shrink-0 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 ${btnFocusRing} ${btnSize}`}
+            title="Clear boundary"
+            {...getTooltipProps({ label: 'Clear boundary', shortcut: 'Del' })}
+            className={`${btnBase} shrink-0 rounded-full border border-red-100 bg-red-50 text-red-500 shadow-[0_4px_10px_rgba(239,68,68,0.08)] hover:bg-red-100 hover:text-red-600 ${btnFocusRing} ${btnSize}`}
           >
             <Trash2 size={iconSize} strokeWidth={2} />
-            <Tip label="Clear" shortcut="Del" align="end" />
           </button>
         )}
       </div>
 
       {/* Right fade edge */}
       {canScrollRight && (
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 rounded-r-full bg-linear-to-l from-white/90 to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-7 rounded-r-full bg-linear-to-l from-white via-white/70 to-transparent" />
       )}
     </div>
     </div>
@@ -317,12 +361,12 @@ export default function MapToolbar({
     {/* Contextual helper card — top-right, replaces FloatingSettings during active mode */}
     {hintMessage && activeTool && (
       <div className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
-        <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-divider/40 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
+        <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
           isTablet ? 'w-[min(18rem,calc(100vw-1.5rem))]' : 'w-64'
         }`}>
           {/* Header row: icon + title + actions */}
-          <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">
-            <div className={`flex shrink-0 items-center justify-center rounded-xl bg-brand text-white ${
+          <div className="flex items-center gap-3 border-b border-slate-200/75 bg-slate-50/75 px-4 pt-3.5 pb-3">
+            <div className={`flex shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-[0_8px_18px_rgba(75,108,167,0.24)] ${
               isTablet ? 'h-10 w-10' : 'h-9 w-9'
             }`}>
               <activeTool.Icon size={isTablet ? 20 : 18} strokeWidth={2} className="text-white" />
@@ -333,7 +377,7 @@ export default function MapToolbar({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
                 aria-label="Undo last point"
-                className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+                className={`flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90 ${
                   isTablet ? 'h-9 w-9' : 'h-8 w-8'
                 }`}
               >
@@ -345,7 +389,7 @@ export default function MapToolbar({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); undoAction() }}
                 aria-label="Undo last placement"
-                className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+                className={`flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90 ${
                   isTablet ? 'h-9 w-9' : 'h-8 w-8'
                 }`}
               >
@@ -356,7 +400,7 @@ export default function MapToolbar({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onModeChange(null) }}
               aria-label="Exit tool"
-              className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 active:scale-90 ${
+              className={`flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90 ${
                 isTablet ? 'h-9 w-9' : 'h-8 w-8'
               }`}
             >
@@ -364,8 +408,10 @@ export default function MapToolbar({
             </button>
           </div>
           {/* Description */}
-          <div className="px-4 pb-3.5">
-            <p className="text-[13px] leading-relaxed text-heading/80">{hintMessage}</p>
+          <div className="px-4 py-3.5">
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/78 px-3 py-2.5">
+              <p className="text-[13px] leading-relaxed text-slate-700">{hintMessage}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -377,12 +423,22 @@ export default function MapToolbar({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
-          className="flex items-center gap-1.5 rounded-full border border-divider/40 bg-white/95 px-3.5 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-xl transition-all duration-150 active:scale-90 active:bg-slate-50"
+          className="flex items-center gap-1.5 rounded-full border border-slate-200/85 bg-white/97 px-3.5 py-2 text-[12px] font-semibold text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-all duration-150 active:scale-90 active:bg-slate-50"
         >
           <Undo2 size={15} strokeWidth={2} />
           Undo point
         </button>
       </div>
+    )}
+
+    {tooltip && createPortal(
+      <div
+        className="pointer-events-none fixed z-[90] -translate-x-1/2"
+        style={{ left: tooltip.left, top: tooltip.top }}
+      >
+        <Tip label={tooltip.label} desc={tooltip.desc} shortcut={tooltip.shortcut} />
+      </div>,
+      document.body,
     )}
     </>
   )

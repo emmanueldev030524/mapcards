@@ -48,6 +48,7 @@ const WORLD_RING: [number, number][] = [
 export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapReady }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const resizeFrameRef = useRef<number | null>(null)
   const justDraggedRef = useRef(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -481,6 +482,41 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       }
     }
   }, [])
+
+  // Keep MapLibre in sync with layout changes such as the desktop sidebar
+  // collapsing, otherwise the canvas gets visually stretched mid-transition.
+  useEffect(() => {
+    const container = containerRef.current
+    const map = mapRef.current
+    if (!container || !mapReady || !map) return
+
+    const queueResize = () => {
+      if (resizeFrameRef.current !== null) cancelAnimationFrame(resizeFrameRef.current)
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        resizeFrameRef.current = null
+        mapRef.current?.resize()
+      })
+    }
+
+    queueResize()
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      if (entry.contentRect.width === 0 || entry.contentRect.height === 0) return
+      queueResize()
+    })
+
+    observer.observe(container)
+
+    return () => {
+      observer.disconnect()
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current)
+        resizeFrameRef.current = null
+      }
+    }
+  }, [mapReady])
 
   // Sync boundary polygon + mask to map
   useEffect(() => {

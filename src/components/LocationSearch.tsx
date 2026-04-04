@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, X } from 'lucide-react'
 import type { GeoJSON } from 'geojson'
 
 interface SearchResult {
-  place_id: number
+  place_id: number | string
   display_name: string
   lat: string
   lon: string
@@ -27,12 +28,71 @@ interface LocationSearchProps {
   compact?: boolean
 }
 
+interface PhotonFeature {
+  geometry?: {
+    coordinates?: [number, number]
+  }
+  bbox?: [number, number, number, number]
+  properties?: {
+    name?: string
+    city?: string
+    county?: string
+    state?: string
+    country?: string
+  }
+}
+
+interface DropdownPosition {
+  left: number
+  top: number
+  width: number
+}
+
+function buildPhotonLabel(feature: PhotonFeature) {
+  const parts = [
+    feature.properties?.name,
+    feature.properties?.city,
+    feature.properties?.county,
+    feature.properties?.state,
+    feature.properties?.country,
+  ].filter(Boolean)
+
+  return parts.join(', ')
+}
+
+function mapPhotonResults(features: PhotonFeature[]): SearchResult[] {
+  return features
+    .filter((feature) => Array.isArray(feature.geometry?.coordinates))
+    .slice(0, 5)
+    .map((feature, index) => {
+      const [lon, lat] = feature.geometry!.coordinates!
+      const bbox = feature.bbox
+        ? [String(feature.bbox[1]), String(feature.bbox[3]), String(feature.bbox[0]), String(feature.bbox[2])]
+        : [String(lat), String(lat), String(lon), String(lon)]
+
+      return {
+        place_id: `photon-${index}-${lon}-${lat}`,
+        display_name: buildPhotonLabel(feature),
+        lat: String(lat),
+        lon: String(lon),
+        boundingbox: bbox as [string, string, string, string],
+        type: 'place',
+        class: 'location',
+      }
+    })
+}
+
 export default function LocationSearch({ onLocationSelect, compact }: LocationSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLUListElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -44,11 +104,29 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
     }
   }, [])
 
+  const updateDropdownPosition = useCallback(() => {
+    const input = inputRef.current
+    if (!input) return
+
+    const rect = input.getBoundingClientRect()
+    const maxWidth = Math.min(320, window.innerWidth - 24)
+    setDropdownPosition({
+      left: Math.max(12, Math.min(rect.left, window.innerWidth - maxWidth - 12)),
+      top: rect.bottom + 8,
+      width: compact ? Math.min(maxWidth, Math.max(rect.width, 240)) : rect.width,
+    })
+  }, [compact])
+
   // Click-outside dismissal
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (
+        rootRef.current &&
+        !rootRef.current.contains(target) &&
+        !dropdownRef.current?.contains(target)
+      ) {
         setOpen(false)
       }
     }
@@ -56,10 +134,27 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+
+    updateDropdownPosition()
+    const handler = () => updateDropdownPosition()
+
+    window.addEventListener('resize', handler)
+    window.addEventListener('scroll', handler, true)
+    return () => {
+      window.removeEventListener('resize', handler)
+      window.removeEventListener('scroll', handler, true)
+    }
+  }, [open, updateDropdownPosition])
+
   const search = useCallback(async (q: string) => {
-    if (q.length < 3) {
+    const trimmed = q.trim()
+    if (trimmed.length < 3) {
       setResults([])
       setOpen(false)
+      setError(null)
+      setHasSearched(false)
       return
     }
 
@@ -69,29 +164,44 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
     abortRef.current = controller
 
     setLoading(true)
+    setError(null)
+    setHasSearched(true)
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&polygon_geojson=1&polygon_threshold=0.0005`,
-        {
-          headers: { 'Accept-Language': 'en', 'User-Agent': 'MapCards/1.0' },
-          signal: controller.signal,
-        },
-      )
-      if (!res.ok) throw new Error('Search failed')
-      const data: SearchResult[] = await res.json()
+      const nominatimUrl =
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(trimmed)}&limit=5&polygon_geojson=1&polygon_threshold=0.0005`
+      const res = await fetch(nominatimUrl, {
+        headers: { 'Accept-Language': 'en' },
+        signal: controller.signal,
+      })
+      if (!res.ok) throw new Error('Primary search failed')
+      let data: SearchResult[] = await res.json()
+
+      if (data.length === 0) {
+        const photonRes = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=5`,
+          { signal: controller.signal },
+        )
+        if (!photonRes.ok) throw new Error('Fallback search failed')
+        const photonData = await photonRes.json() as { features?: PhotonFeature[] }
+        data = mapPhotonResults(photonData.features || [])
+      }
+
       setResults(data)
-      setOpen(data.length > 0)
+      setOpen(true)
+      updateDropdownPosition()
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       setResults([])
-      setOpen(false)
+      setError('Location search is unavailable right now.')
+      setOpen(true)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [updateDropdownPosition])
 
   const handleInput = (value: string) => {
     setQuery(value)
+    setError(null)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => search(value), 400)
   }
@@ -111,7 +221,44 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
     setQuery(result.display_name.split(',')[0])
     setOpen(false)
     setResults([])
+    setError(null)
   }
+
+  const dropdown = open && dropdownPosition && (
+    <ul
+      ref={dropdownRef}
+      className="fixed z-[80] max-h-64 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/98 py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+      style={{
+        left: dropdownPosition.left,
+        top: dropdownPosition.top,
+        width: dropdownPosition.width,
+      }}
+    >
+      {results.map((r, i) => (
+        <li key={r.place_id}>
+          {i > 0 && <div className="mx-3 border-t border-divider/30" />}
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => handleSelect(r)}
+            className="w-full px-4 py-3 text-left transition-colors duration-100 hover:bg-slate-50 active:bg-slate-100"
+          >
+            <span className="block text-[13px] font-semibold text-heading">{r.display_name.split(',')[0]}</span>
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-body/78">
+              {r.display_name.split(',').slice(1, 4).join(',').trim()}
+            </span>
+          </button>
+        </li>
+      ))}
+
+      {!loading && results.length === 0 && error && (
+        <li className="px-4 py-3 text-[12px] text-body/70">{error}</li>
+      )}
+
+      {!loading && results.length === 0 && !error && hasSearched && (
+        <li className="px-4 py-3 text-[12px] text-body/70">No matching locations found.</li>
+      )}
+    </ul>
+  )
 
   return (
     <div ref={rootRef} className="relative">
@@ -119,11 +266,15 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         <Search size={compact ? 13 : 14} strokeWidth={2} />
       </div>
       <input
+        ref={inputRef}
         type="text"
         value={query}
         onChange={(e) => handleInput(e.target.value)}
         onFocus={() => {
-          if (results.length > 0) setOpen(true)
+          if (results.length > 0 || error || (hasSearched && query.trim().length >= 3)) {
+            setOpen(true)
+            updateDropdownPosition()
+          }
         }}
         onKeyDown={(e) => {
           // Prevent Escape from clearing draw mode while typing
@@ -132,11 +283,18 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
             setOpen(false)
             e.currentTarget.blur()
           }
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+            search(query).catch(() => {
+              // Search state is handled in search().
+            })
+          }
         }}
         placeholder={compact ? 'Search location...' : 'Search...'}
         className={
           compact
-            ? 'h-9 w-full rounded-full border border-slate-200/80 bg-slate-100/60 pl-8 pr-7 text-[12px] text-heading placeholder-body/60 outline-none transition-all duration-150 hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.2)]'
+            ? 'h-9 w-full rounded-full border border-slate-300/80 bg-white/88 pl-8 pr-7 text-[12px] text-heading placeholder:text-slate-400 outline-none transition-all duration-150 hover:border-brand/25 hover:bg-white focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.18)]'
             : 'w-full rounded-lg border-0 bg-input-bg py-2 pl-9 pr-8 text-[13px] text-heading placeholder-body outline-none transition-shadow duration-150 focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
         }
       />
@@ -146,33 +304,22 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         </div>
       ) : query.length > 0 && (
         <button
-          onClick={() => { setQuery(''); setResults([]); setOpen(false) }}
+          onClick={() => {
+            abortRef.current?.abort()
+            setQuery('')
+            setResults([])
+            setOpen(false)
+            setError(null)
+            setHasSearched(false)
+            setLoading(false)
+          }}
           aria-label="Clear search"
           className={`absolute top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/60 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? 'right-1' : 'right-2'}`}
         >
           <X size={13} strokeWidth={2.5} />
         </button>
       )}
-      {open && results.length > 0 && (
-        <ul className={`absolute z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-divider/50 bg-white/98 py-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.14),0_4px_10px_rgba(0,0,0,0.06)] backdrop-blur-xl ${
-          compact ? 'left-0 w-[min(20rem,calc(100vw-1.5rem))]' : 'w-full'
-        }`}>
-          {results.map((r, i) => (
-            <li key={r.place_id}>
-              {i > 0 && <div className="mx-3 border-t border-divider/30" />}
-              <button
-                onClick={() => handleSelect(r)}
-                className="w-full px-4 py-3 text-left transition-colors duration-100 hover:bg-brand-hover active:bg-brand-hover"
-              >
-                <span className="block text-[13px] font-semibold text-heading">{r.display_name.split(',')[0]}</span>
-                <span className="mt-0.5 block text-[11px] leading-relaxed text-body/60">
-                  {r.display_name.split(',').slice(1, 4).join(',').trim()}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {dropdown && createPortal(dropdown, document.body)}
     </div>
   )
 }

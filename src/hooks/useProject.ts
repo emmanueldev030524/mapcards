@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { saveProject, loadProject } from '../lib/db'
 import type { ProjectData } from '../types/project'
@@ -16,37 +16,80 @@ export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 export function useAutoSave() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const saveStateRef = useRef<SaveState>('idle')
+
+  const updateSaveState = useCallback((next: SaveState) => {
+    saveStateRef.current = next
+    setSaveState(next)
+  }, [])
+
+  const persistCurrentProject = useCallback(async () => {
+    const data = useStore.getState().getProjectData()
+    const comparable = toComparableSnapshot(data)
+
+    if (comparable === lastPersistedProjectSnapshot) {
+      updateSaveState('saved')
+      return
+    }
+
+    updateSaveState('saving')
+    const savePromise = saveProject(data)
+      .then(() => {
+        lastPersistedProjectSnapshot = comparable
+        setLastSavedAt(data.updatedAt)
+        if (toComparableSnapshot(useStore.getState().getProjectData()) === comparable) {
+          updateSaveState('saved')
+        } else {
+          updateSaveState('dirty')
+        }
+      })
+      .catch((err) => {
+        console.error(err)
+        updateSaveState('error')
+        throw err
+      })
+      .finally(() => {
+        savePromiseRef.current = null
+      })
+
+    savePromiseRef.current = savePromise
+    await savePromise
+  }, [updateSaveState])
+
+  const flushSave = useCallback(async () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+
+    if (savePromiseRef.current) await savePromiseRef.current
+
+    if (saveStateRef.current === 'dirty' || saveStateRef.current === 'error') {
+      await persistCurrentProject()
+    }
+  }, [persistCurrentProject])
+
+  const hasUnsavedChanges =
+    saveState === 'dirty' || saveState === 'saving' || saveState === 'error'
 
   useEffect(() => {
     const unsub = useStore.subscribe(() => {
       const snapshot = toComparableSnapshot(useStore.getState().getProjectData())
       if (snapshot === lastPersistedProjectSnapshot) {
-        setSaveState((prev) => prev === 'dirty' ? 'saved' : prev)
+        updateSaveState(saveStateRef.current === 'dirty' ? 'saved' : saveStateRef.current)
         return
       }
 
-      setSaveState('dirty')
+      updateSaveState('dirty')
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
-        const data = useStore.getState().getProjectData()
-        const comparable = toComparableSnapshot(data)
-        setSaveState('saving')
-        saveProject(data)
-          .then(() => {
-            lastPersistedProjectSnapshot = comparable
-            setLastSavedAt(data.updatedAt)
-            if (toComparableSnapshot(useStore.getState().getProjectData()) === comparable) {
-              setSaveState('saved')
-            } else {
-              setSaveState('dirty')
-            }
-          })
-          .catch((err) => {
-            console.error(err)
-            setSaveState('error')
-          })
+        debounceRef.current = null
+        persistCurrentProject().catch(() => {
+          // Error state is already handled in persistCurrentProject.
+        })
       }, 500)
     })
 
@@ -54,9 +97,9 @@ export function useAutoSave() {
       unsub()
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [])
+  }, [persistCurrentProject, updateSaveState])
 
-  return { saveState, lastSavedAt }
+  return { saveState, lastSavedAt, flushSave, hasUnsavedChanges }
 }
 
 export function useLoadOnStart() {

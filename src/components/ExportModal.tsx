@@ -198,51 +198,51 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   ) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 backdrop-blur-[6px]">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId.current}
         aria-describedby={descriptionId.current}
-        className="relative mx-4 flex max-h-[90vh] w-full max-w-150 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_48px_rgba(0,0,0,0.16),0_8px_16px_rgba(0,0,0,0.08)]"
+        className="relative mx-4 flex max-h-[90vh] w-full max-w-150 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white/98 shadow-[0_30px_60px_rgba(15,23,42,0.24),0_12px_24px_rgba(15,23,42,0.12)]"
       >
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-divider px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-slate-200/75 bg-slate-50/75 px-5 py-3.5">
           <div>
-            <h2 id={titleId.current} className="text-[15px] font-semibold text-heading">Export Territory Card</h2>
-            <p id={descriptionId.current} className="mt-0.5 text-[12px] text-body">
+            <h2 id={titleId.current} className="text-[16px] font-semibold text-heading">Export Territory Card</h2>
+            <p id={descriptionId.current} className="mt-0.5 text-[12px] text-body/82">
               {exportTitle}
             </p>
           </div>
           <button
             onClick={handleClose}
             aria-label="Close"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
           >
             <X size={18} strokeWidth={2} />
           </button>
         </div>
 
         {/* Preview area */}
-        <div className="flex-1 overflow-y-auto bg-input-bg p-5">
+        <div className="flex-1 overflow-y-auto bg-slate-100/80 p-5">
           <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_20rem]">
-            <div className="rounded-2xl border border-divider/60 bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+            <div className="rounded-2xl border border-slate-200/85 bg-white px-4 py-3 shadow-[0_10px_26px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Export Summary</p>
                   <h3 className="mt-1 text-[14px] font-semibold text-heading">{exportTitle}</h3>
-                  <p className="mt-1 text-[12px] text-body/70">
+                  <p className="mt-1 text-[12px] text-body/82">
                     What you see in the preview is what will export in PNG and PDF.
                   </p>
                 </div>
-                <div className="rounded-2xl bg-brand/7 p-2 text-brand">
+                <div className="rounded-2xl border border-brand/10 bg-brand/8 p-2 text-brand">
                   <FileCheck2 size={18} strokeWidth={2} />
                 </div>
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
                   <div className="flex items-center gap-2 text-body/60">
                     <MapPinned size={14} strokeWidth={2} />
                     <span className="text-[11px] font-medium">Size</span>
@@ -251,14 +251,14 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
                     {cardWidthInches} x {cardHeightInches} in
                   </p>
                 </div>
-                <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
                   <div className="flex items-center gap-2 text-body/60">
                     <Home size={14} strokeWidth={2} />
                     <span className="text-[11px] font-medium">Houses</span>
                   </div>
                   <p className="mt-1 text-[13px] font-semibold text-heading">{housePoints.length}</p>
                 </div>
-                <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
                   <div className="flex items-center gap-2 text-body/60">
                     <Route size={14} strokeWidth={2} />
                     <span className="text-[11px] font-medium">Roads</span>
@@ -268,21 +268,21 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/70">
+                <span className="rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/78">
                   Trees: {treePoints.length}
                 </span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/70">
+                <span className="rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/78">
                   Legend items: {legendEntries.length}
                 </span>
                 {dpiBadge}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-divider/60 bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+            <div className="rounded-2xl border border-slate-200/85 bg-white px-4 py-3 shadow-[0_10px_26px_rgba(15,23,42,0.08)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Checklist</p>
               <div className="mt-2 space-y-2.5">
                 {checklist.map((item) => (
-                  <div key={item.label} className="rounded-xl bg-slate-50 px-3 py-2.5">
+                  <div key={item.label} className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
                     <div className="flex items-start gap-2">
                       {item.ok ? (
                         <CheckCircle2 size={16} strokeWidth={2.2} className="mt-0.5 shrink-0 text-emerald-600" />
@@ -291,7 +291,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
                       )}
                       <div className="min-w-0">
                         <p className="text-[12px] font-semibold text-heading">{item.label}</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-body/68">{item.detail}</p>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-body/78">{item.detail}</p>
                       </div>
                     </div>
                   </div>
@@ -325,7 +325,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
           )}
 
           {state === 'ready' && previewUrl && (
-            <div className="overflow-hidden rounded-xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.1)]">
               <img
                 src={previewUrl}
                 alt="Territory card preview"
@@ -343,7 +343,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
                     {legendEntries.map((entry) => (
                       <span
                         key={`${entry.type}-${entry.label}`}
-                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/80"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/82"
                       >
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
                         {entry.label}
@@ -358,17 +358,17 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
 
         {/* Footer — download buttons */}
         {state === 'ready' && (
-          <div className="flex items-center gap-3 border-t border-divider px-5 py-3.5">
+          <div className="flex items-center gap-3 border-t border-slate-200/75 bg-white px-5 py-3.5">
             <button
               onClick={handleDownloadPng}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(75,108,167,0.3)] transition-colors hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(75,108,167,0.24)] transition-colors hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <Download size={15} strokeWidth={2} />
               Download PNG
             </button>
             <button
               onClick={handleDownloadPdf}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand/60 bg-white px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <FileText size={15} strokeWidth={2} />
               Download PDF

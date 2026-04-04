@@ -29,16 +29,16 @@ export default function TreeActionPopup() {
 
   return (
     <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <div className="min-w-[18rem] rounded-2xl border border-divider/60 bg-white/96 px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md">
+      <div className="min-w-[18rem] rounded-2xl border border-slate-200/85 bg-white/97 px-3 py-3 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <span className="flex h-8 w-8 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-600">
                 <TreePine size={15} strokeWidth={2.2} />
               </span>
               <div>
                 <p className="text-[12px] font-semibold text-heading">Tree #{treeIndex}</p>
-                <p className="text-[11px] text-body/65">Selected landmark marker</p>
+                <p className="text-[11px] text-body/78">Selected landmark marker</p>
               </div>
             </div>
           </div>
@@ -51,11 +51,11 @@ export default function TreeActionPopup() {
           </button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <p className="text-[11px] text-body/65">Delete this marker if it no longer belongs on the card.</p>
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/72 px-3 py-2.5">
+          <p className="text-[11px] text-body/82">Delete this marker if it no longer belongs on the card.</p>
           <button
             onClick={handleDelete}
-            className="btn-press flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
+            className="btn-press flex shrink-0 items-center gap-1 rounded-full border border-red-100 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
           >
             <Trash2 size={13} strokeWidth={2.2} />
             Delete
