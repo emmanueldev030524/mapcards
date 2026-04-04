@@ -208,6 +208,16 @@
     outline: none;
   }
 
+  :root {
+    --map-control-size: 36px;
+    --map-control-gap: 3px;
+    --map-control-edge-offset-x: 4px;
+    --map-control-edge-offset-y: 8px;
+    --map-control-zoom-pill-padding-x: 2px;
+    --map-control-zoom-pill-width: calc((var(--map-control-size) * 2) + (var(--map-control-zoom-pill-padding-x) * 2));
+    --map-control-stack-width: calc(var(--map-control-size) + var(--map-control-gap) + var(--map-control-zoom-pill-width));
+  }
+
   /* ── MapLibre controls — horizontal pill, light frosted glass ── */
   .maplibregl-ctrl-group {
     display: flex !important;
@@ -225,11 +235,11 @@
   }
   /* Extra padding only on the zoom pill, not compass */
   .maplibregl-ctrl-group:not(:has(.maplibregl-ctrl-compass)) {
-    padding: 0 2px !important;
+    padding: 0 var(--map-control-zoom-pill-padding-x) !important;
   }
   .maplibregl-ctrl-group button {
-    width: 36px !important;
-    height: 36px !important;
+    width: var(--map-control-size) !important;
+    height: var(--map-control-size) !important;
     border: none !important;
     background: transparent !important;
     cursor: pointer;
@@ -262,8 +272,8 @@
     padding: 0 !important;
   }
   .maplibregl-ctrl-compass {
-    width: 36px !important;
-    height: 36px !important;
+    width: var(--map-control-size) !important;
+    height: var(--map-control-size) !important;
     border-radius: 50% !important;
   }
   /* Attribution control — subtle */
@@ -277,16 +287,16 @@
 
   /* Bottom-right controls: horizontal flow (zoom pill + compass side by side) */
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
-    float: right;
-    margin-right: 0;
+    float: none !important;
+    margin: 0 !important;
   }
   .maplibregl-ctrl-bottom-right {
     display: flex;
     flex-direction: row-reverse;
     align-items: flex-end;
-    gap: 3px;
-    margin-bottom: 8px !important;
-    margin-right: 4px !important;
+    gap: var(--map-control-gap);
+    margin-bottom: var(--map-control-edge-offset-y) !important;
+    margin-right: var(--map-control-edge-offset-x) !important;
   }
 
   /* ── Touch zoom lock ── */
@@ -357,13 +367,16 @@
 
   /* Tablet: larger map controls for touch */
   @media (max-width: 1279px) {
+    :root {
+      --map-control-size: 44px;
+    }
     .maplibregl-ctrl-group button {
-      width: 44px !important;
-      height: 44px !important;
+      width: var(--map-control-size) !important;
+      height: var(--map-control-size) !important;
     }
     .maplibregl-ctrl-compass {
-      width: 44px !important;
-      height: 44px !important;
+      width: var(--map-control-size) !important;
+      height: var(--map-control-size) !important;
     }
     /* Larger range slider thumbs for touch */
     input[type="range"]::-webkit-slider-thumb {

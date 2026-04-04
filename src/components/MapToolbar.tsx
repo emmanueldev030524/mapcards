@@ -16,6 +16,7 @@ import {
   Trash2,
   Check,
   X,
+  Eye,
 } from 'lucide-react'
 import BoundaryPolygonIcon from './icons/BoundaryPolygonIcon'
 
@@ -23,6 +24,8 @@ interface MapToolbarProps {
   activeMode: DrawMode
   onModeChange: (mode: DrawMode) => void
   hasBoundary: boolean
+  canReview?: boolean
+  onReviewToggle?: () => void
   onClearBoundary?: () => void
   onDrawUndo?: () => void
   onDrawRedo?: () => void
@@ -109,6 +112,8 @@ export default function MapToolbar({
   activeMode,
   onModeChange,
   hasBoundary,
+  canReview = false,
+  onReviewToggle,
   onClearBoundary,
   onDrawUndo,
   onDrawRedo,
@@ -337,17 +342,32 @@ export default function MapToolbar({
           })}
         </div>
 
-        {/* ── Clear boundary ── */}
-        {hasBoundary && onClearBoundary && (
-          <button
-            onClick={onClearBoundary}
-            aria-label="Clear boundary"
-            title="Clear boundary"
-            {...getTooltipProps({ label: 'Clear boundary', shortcut: 'Del' })}
-            className={`${btnBase} shrink-0 rounded-full border border-red-100 bg-red-50 text-red-500 shadow-[0_4px_10px_rgba(239,68,68,0.08)] hover:bg-red-100 hover:text-red-600 ${btnFocusRing} ${btnSize}`}
-          >
-            <Trash2 size={iconSize} strokeWidth={2} />
-          </button>
+        {(canReview || (hasBoundary && onClearBoundary)) && (
+          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-white/84 px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.78)]">
+            {canReview && onReviewToggle && (
+              <button
+                onClick={onReviewToggle}
+                aria-label="Review map"
+                title="Review map"
+                {...getTooltipProps({ label: 'Review', desc: 'Preview the territory without editing chrome.' })}
+                className={`${btnBase} ${btnSize} ${btnFocusRing} text-slate-700 ${btnInteractive}`}
+              >
+                <Eye size={iconSize} strokeWidth={2} />
+              </button>
+            )}
+
+            {hasBoundary && onClearBoundary && (
+              <button
+                onClick={onClearBoundary}
+                aria-label="Clear boundary"
+                title="Clear boundary"
+                {...getTooltipProps({ label: 'Clear boundary', shortcut: 'Del' })}
+                className={`${btnBase} ${btnSize} ${btnFocusRing} text-red-500 hover:bg-red-50 hover:text-red-600`}
+              >
+                <Trash2 size={iconSize} strokeWidth={2} />
+              </button>
+            )}
+          </div>
         )}
       </div>
 

@@ -167,74 +167,98 @@ export default function ProjectManager({
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-divider/60 bg-white/75 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-        <div className="rounded-xl border border-divider/50 bg-white px-3 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
+        <div className="rounded-2xl border border-divider/50 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/70">Current Project</p>
-              {!renaming ? (
-                <>
-                  <h3 className="mt-1 break-words text-[15px] font-semibold tracking-tight text-heading">
-                    {getProjectDisplayName(projectName, territoryNumber, territoryName)}
-                  </h3>
-                  <p className="mt-1 break-words text-[11px] leading-relaxed text-body/60">
-                    {getProjectSubtitle(territoryNumber, territoryName)}
-                  </p>
-                </>
-              ) : (
-                <div className="mt-1.5">
-                  <input
-                    id="project-name"
-                    type="text"
-                    value={draftName}
-                    autoFocus
-                    onChange={(e) => setDraftName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitRename()
-                      if (e.key === 'Escape') cancelRename()
-                    }}
-                    placeholder="Untitled Project"
-                    className="w-full rounded-xl border border-divider bg-surface px-3 py-2.5 text-[13px] text-heading outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-body/35 hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
-                  />
-                </div>
-              )}
+              <p className="mt-1 text-[11px] leading-relaxed text-body/58">
+                {renaming ? 'Choose a short local name that is easy to spot in your library.' : 'Local working file for this territory.'}
+              </p>
             </div>
-
             {!renaming ? (
               <button
                 onClick={() => setRenaming(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-divider bg-slate-50 text-body transition-colors hover:border-brand/30 hover:text-brand"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-divider bg-slate-50 px-3 text-[12px] font-semibold text-body transition-colors hover:border-brand/30 hover:text-brand"
                 aria-label="Rename project"
                 title="Rename project"
               >
-                <PencilLine size={15} strokeWidth={2} />
+                <PencilLine size={14} strokeWidth={2} />
+                Rename
               </button>
             ) : (
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={commitRename}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-dark"
-                  aria-label="Save project name"
-                  title="Save name"
-                >
-                  <Check size={15} strokeWidth={2.2} />
-                </button>
-                <button
-                  onClick={cancelRename}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-divider bg-white text-body transition-colors hover:border-brand/30 hover:text-brand"
-                  aria-label="Cancel rename"
-                  title="Cancel"
-                >
-                  <X size={15} strokeWidth={2.2} />
-                </button>
-              </div>
+              <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-brand/15 bg-brand/6 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-brand">
+                Editing
+              </span>
             )}
           </div>
 
-          <div className="mt-3 flex flex-col gap-2 border-t border-divider/40 pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-[18rem] text-[10px] leading-relaxed text-body/58">
+          {!renaming ? (
+            <div className="mt-3 rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.9),rgba(255,255,255,0.96))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
+              <h3 className="break-words text-[15px] font-semibold tracking-tight text-heading">
+                {getProjectDisplayName(projectName, territoryNumber, territoryName)}
+              </h3>
+              <p className="mt-1 break-words text-[11px] leading-relaxed text-body/60">
+                {getProjectSubtitle(territoryNumber, territoryName)}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-2xl border border-slate-200/85 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.98))] p-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+              <label htmlFor="project-name" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/75">
+                Project Name
+              </label>
+              <input
+                id="project-name"
+                type="text"
+                value={draftName}
+                autoFocus
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename()
+                  if (e.key === 'Escape') cancelRename()
+                }}
+                placeholder="Untitled Project"
+                className="w-full rounded-2xl border border-divider bg-white px-3.5 py-3 text-[14px] font-medium text-heading outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-body/35 hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_3px_rgba(75,108,167,0.18)]"
+              />
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] leading-relaxed text-body/60">
+                  Press Enter to save or Escape to cancel.
+                </p>
+                <div className="flex gap-2 sm:justify-end">
+                  <button
+                    onClick={cancelRename}
+                    className="flex-1 rounded-full border border-divider bg-white px-4 py-2.5 text-[12px] font-semibold text-body transition-colors hover:border-brand/30 hover:text-brand sm:flex-none"
+                    aria-label="Cancel rename"
+                    title="Cancel"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <X size={14} strokeWidth={2.2} />
+                      Cancel
+                    </span>
+                  </button>
+                  <button
+                    onClick={commitRename}
+                    className="flex-1 rounded-full bg-brand px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_8px_18px_rgba(75,108,167,0.24)] transition-colors hover:bg-brand-dark sm:flex-none"
+                    aria-label="Save project name"
+                    title="Save name"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Check size={14} strokeWidth={2.2} />
+                      Save Name
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-col gap-2 border-t border-divider/40 pt-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="max-w-[22rem] text-[10px] leading-relaxed text-body/58">
               Rename this local project here. Export creates a portable backup file.
             </p>
-            <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
+            <div className="self-start lg:self-auto">
+              <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
+            </div>
           </div>
         </div>
 

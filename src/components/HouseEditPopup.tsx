@@ -157,7 +157,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
 
     const margin = 16
     const topSafe = 88
-    const bottomSafe = 16
+    const bottomSafe = 112
     const leftCol = margin
     const rightCol = Math.max(margin, viewportWidth - popupWidth - margin)
     const bottomRow = Math.max(topSafe, viewportHeight - popupHeight - bottomSafe)
@@ -169,15 +169,44 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
       { left: rightCol, top: bottomRow },
     ]
 
+    const reservedZones = [
+      {
+        left: Math.max(0, viewportWidth - 184),
+        top: Math.max(0, viewportHeight - 116),
+        right: viewportWidth,
+        bottom: viewportHeight,
+      },
+      {
+        left: 0,
+        top: Math.max(0, viewportHeight - 124),
+        right: 124,
+        bottom: viewportHeight,
+      },
+    ]
+
     const best = candidates.reduce((bestCandidate, candidate) => {
       const centerX = candidate.left + popupWidth / 2
       const centerY = candidate.top + popupHeight / 2
       let score = Math.hypot(centerX - point.x, centerY - point.y)
+      const candidateRect = {
+        left: candidate.left,
+        top: candidate.top,
+        right: candidate.left + popupWidth,
+        bottom: candidate.top + popupHeight,
+      }
 
       const overlapPadding = 28
       const overlapsX = point.x >= candidate.left - overlapPadding && point.x <= candidate.left + popupWidth + overlapPadding
       const overlapsY = point.y >= candidate.top - overlapPadding && point.y <= candidate.top + popupHeight + overlapPadding
       if (overlapsX && overlapsY) score -= 10000
+
+      const overlapsReservedZone = reservedZones.some((zone) => (
+        candidateRect.left < zone.right &&
+        candidateRect.right > zone.left &&
+        candidateRect.top < zone.bottom &&
+        candidateRect.bottom > zone.top
+      ))
+      if (overlapsReservedZone) score -= 20000
 
       if (score > bestCandidate.score) {
         return { score, candidate }
@@ -217,15 +246,21 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const activeStatusIcon = activeStatus ? PIN_CATEGORIES.find((c) => c.id === activeStatus.id) : null
 
   const showAtTop = keyboardOpen ? true : isPhone ? popupPosition === 'top' : false
+  const mobileTopInset = 'max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))'
+  const mobileControlClearance = 'calc(var(--map-control-size) + var(--map-control-edge-offset-y) + env(safe-area-inset-bottom, 0px) + 3rem)'
+  const mobileMaxHeight = `calc(100dvh - ${mobileTopInset} - ${mobileControlClearance})`
 
   return (
     <div
       className={isPhone
-        ? `absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200 ${
-            showAtTop ? 'top-4' : 'bottom-4'
-          }`
+        ? 'absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200'
         : 'absolute z-10 transition-[left,top] duration-200 ease-out'}
-      style={isPhone ? undefined : floatingLayout}
+      style={isPhone
+        ? {
+            top: showAtTop ? mobileTopInset : 'auto',
+            bottom: showAtTop ? 'auto' : mobileControlClearance,
+          }
+        : floatingLayout}
     >
       <div
         ref={popupRef}
@@ -246,6 +281,9 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
           setSwiping(false)
         }}
         style={{
+          maxHeight: isPhone ? mobileMaxHeight : undefined,
+          overflowY: isPhone ? 'auto' : undefined,
+          overscrollBehavior: isPhone ? 'contain' : undefined,
           transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
           opacity: swipeY > 0 ? Math.max(0.3, 1 - swipeY / 150) : undefined,
           transition: swiping ? 'none' : 'transform 250ms ease, opacity 250ms ease',

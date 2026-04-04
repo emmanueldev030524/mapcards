@@ -22,7 +22,6 @@ import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
 import Toast from './components/Toast'
 import AriaLiveRegion from './components/AriaLiveRegion'
 import SaveStatus from './components/SaveStatus'
-import ReviewModeToggle from './components/ReviewModeToggle'
 import ReviewOverlay from './components/ReviewOverlay'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
@@ -42,6 +41,8 @@ export default function App() {
   const addCustomRoad = useStore((s) => s.addCustomRoad)
   const customRoads = useStore((s) => s.customRoads)
   const housePoints = useStore((s) => s.housePoints)
+  const treePoints = useStore((s) => s.treePoints)
+  const startMarker = useStore((s) => s.startMarker)
   const mapMode = useStore((s) => s.mapMode)
   const setMapMode = useStore((s) => s.setMapMode)
   const reviewMode = useStore((s) => s.reviewMode)
@@ -50,6 +51,12 @@ export default function App() {
   const territoryNumber = useStore((s) => s.territoryNumber)
   const cardWidthInches = useStore((s) => s.cardWidthInches)
   const cardHeightInches = useStore((s) => s.cardHeightInches)
+  const hasReviewContent =
+    boundary !== null ||
+    customRoads.length > 0 ||
+    housePoints.length > 0 ||
+    treePoints.length > 0 ||
+    startMarker !== null
 
   const handleBoundaryComplete = useCallback(
     (feature: Feature<Polygon>) => {
@@ -394,8 +401,6 @@ export default function App() {
         </button>
         )}
 
-        <ReviewModeToggle active={reviewMode} onToggle={handleReviewToggle} />
-
         {reviewMode && (
           <ReviewOverlay
             territoryName={territoryName}
@@ -403,6 +408,7 @@ export default function App() {
             cardWidthInches={cardWidthInches}
             cardHeightInches={cardHeightInches}
             onExport={() => setExportOpen(true)}
+            onExitReview={handleReviewToggle}
           />
         )}
 
@@ -413,6 +419,8 @@ export default function App() {
           activeMode={activeDrawMode}
           onModeChange={handleModeChange}
           hasBoundary={boundary !== null}
+          canReview={hasReviewContent}
+          onReviewToggle={handleReviewToggle}
           onClearBoundary={async () => {
             const ok = await showConfirm(
               'Clear Everything?',

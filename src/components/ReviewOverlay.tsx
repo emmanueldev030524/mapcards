@@ -1,4 +1,4 @@
-import { Download, FileCheck2, MapPinned } from 'lucide-react'
+import { Download, FileCheck2, MapPinned, PencilLine } from 'lucide-react'
 
 interface ReviewOverlayProps {
   territoryName: string
@@ -6,6 +6,7 @@ interface ReviewOverlayProps {
   cardWidthInches: number
   cardHeightInches: number
   onExport: () => void
+  onExitReview: () => void
 }
 
 export default function ReviewOverlay({
@@ -14,6 +15,7 @@ export default function ReviewOverlay({
   cardWidthInches,
   cardHeightInches,
   onExport,
+  onExitReview,
 }: ReviewOverlayProps) {
   const heading = territoryNumber
     ? `Territory ${territoryNumber}`
@@ -32,8 +34,17 @@ export default function ReviewOverlay({
               {territoryName && territoryNumber ? territoryName : territoryName || 'Inspect your card without editing chrome.'}
             </p>
           </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10">
-            <MapPinned size={18} strokeWidth={2} className="text-white/90" />
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={onExitReview}
+              className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-white/16"
+            >
+              <PencilLine size={14} strokeWidth={2.2} />
+              Back to Edit
+            </button>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
+              <MapPinned size={18} strokeWidth={2} className="text-white/90" />
+            </div>
           </div>
         </div>
 
