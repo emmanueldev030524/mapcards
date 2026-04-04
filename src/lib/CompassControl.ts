@@ -13,27 +13,27 @@ function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
   return el
 }
 
-/** Modern compass SVG — thin outer ring, tapered diamond needle, pivot dot */
+/** Google Earth–style compass — bold ring, wide needle, strong N/S contrast */
 function createCompassSvg(size = 28): SVGSVGElement {
   const svg = svgEl('svg', { width: String(size), height: String(size), viewBox: '0 0 28 28', fill: 'none' })
 
-  // Outer ring
-  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '12.5', stroke: '#d1d5db', 'stroke-width': '0.75', fill: 'none' }))
+  // Outer ring — bold, visible
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '12', stroke: '#94a3b8', 'stroke-width': '1.5', fill: 'none' }))
 
-  // Cardinal ticks (N thicker)
-  svg.appendChild(svgEl('line', { x1: '14', y1: '2.5', x2: '14', y2: '4.5', stroke: '#9ca3af', 'stroke-width': '1', 'stroke-linecap': 'round' }))
-  svg.appendChild(svgEl('line', { x1: '14', y1: '23.5', x2: '14', y2: '25.5', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
-  svg.appendChild(svgEl('line', { x1: '2.5', y1: '14', x2: '4.5', y2: '14', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
-  svg.appendChild(svgEl('line', { x1: '23.5', y1: '14', x2: '25.5', y2: '14', stroke: '#d1d5db', 'stroke-width': '0.75', 'stroke-linecap': 'round' }))
+  // Cardinal ticks — N is red and prominent
+  svg.appendChild(svgEl('line', { x1: '14', y1: '2.5', x2: '14', y2: '5', stroke: '#dc2626', 'stroke-width': '1.8', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '14', y1: '23', x2: '14', y2: '25.5', stroke: '#94a3b8', 'stroke-width': '1.2', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '2.5', y1: '14', x2: '5', y2: '14', stroke: '#94a3b8', 'stroke-width': '1.2', 'stroke-linecap': 'round' }))
+  svg.appendChild(svgEl('line', { x1: '23', y1: '14', x2: '25.5', y2: '14', stroke: '#94a3b8', 'stroke-width': '1.2', 'stroke-linecap': 'round' }))
 
-  // North needle (red, tapered diamond)
-  svg.appendChild(svgEl('path', { d: 'M14 3.5 L15.6 13 L14 12 L12.4 13 Z', fill: '#dc2626' }))
-  // South needle (soft gray)
-  svg.appendChild(svgEl('path', { d: 'M14 24.5 L15.6 15 L14 16 L12.4 15 Z', fill: '#cbd5e1' }))
+  // North needle — bold red, wider diamond
+  svg.appendChild(svgEl('path', { d: 'M14 4 L16.2 13 L14 11.5 L11.8 13 Z', fill: '#dc2626' }))
+  // South needle — visible slate
+  svg.appendChild(svgEl('path', { d: 'M14 24 L16.2 15 L14 16.5 L11.8 15 Z', fill: '#94a3b8' }))
 
-  // Center pivot
-  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '1.8', fill: 'white', stroke: '#d1d5db', 'stroke-width': '0.75' }))
-  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '0.8', fill: '#9ca3af' }))
+  // Center pivot — solid dot
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '2.2', fill: 'white', stroke: '#64748b', 'stroke-width': '1' }))
+  svg.appendChild(svgEl('circle', { cx: '14', cy: '14', r: '1', fill: '#475569' }))
 
   return svg
 }
@@ -78,7 +78,7 @@ export class CompassControl implements maplibregl.IControl {
     // --- Compass button ---
     this.compassBtn = document.createElement('button')
     this.compassBtn.className = 'maplibregl-ctrl-compass'
-    this.compassBtn.title = 'Orientation'
+    this.compassBtn.setAttribute('aria-label', 'Compass')
     const btnSize = isTablet ? '44px' : '36px'
     Object.assign(this.compassBtn.style, {
       display: 'flex',

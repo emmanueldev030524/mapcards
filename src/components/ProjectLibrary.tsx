@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FolderOpen, Trash2, Clock3, ChevronDown, Library } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { RiFolderOpenFill, RiDeleteBin5Fill, RiTimeFill } from 'react-icons/ri'
 import { listProjects, loadProjectById, loadProject, deleteProject, type ProjectListItem } from '../lib/db'
 import { useStore } from '../store'
 import { showAlert, showConfirm } from './ConfirmDialog'
@@ -40,7 +41,6 @@ function formatRelative(value: string) {
 
 interface ProjectCardProps {
   project: ProjectListItem
-  compact?: boolean
   isTablet: boolean
   onOpen: (id: string) => void
   onDelete: (project: ProjectListItem) => void
@@ -48,7 +48,6 @@ interface ProjectCardProps {
 
 function ProjectCard({
   project,
-  compact = false,
   isTablet,
   onOpen,
   onDelete,
@@ -57,19 +56,17 @@ function ProjectCard({
   const meta = getProjectMeta(project)
 
   return (
-    <div
-      className={`rounded-xl border border-divider/60 bg-white transition-colors ${compact ? 'px-3 py-2' : 'px-3 py-2.5'}`}
-    >
+    <div className="rounded-lg border border-divider/50 bg-white px-2.5 py-2 transition-colors">
       <div className={`flex gap-2 ${isTablet ? 'flex-col' : 'items-start justify-between'}`}>
         <div className="min-w-0 flex-1">
-          <p className={`break-words font-semibold leading-snug text-heading ${compact ? 'text-[11.5px]' : 'text-[12px]'}`}>
+          <p className="break-words text-[11.5px] font-semibold leading-snug text-heading">
             {title}
           </p>
-          <p className={`mt-0.5 break-words leading-relaxed text-body/60 ${compact ? 'text-[10.5px]' : 'text-[11px]'}`}>
+          <p className="mt-0.5 break-words text-[10px] leading-relaxed text-body/60">
             {meta}
           </p>
-          <p className="mt-1 flex items-center gap-1 text-[10px] text-body/50">
-            <Clock3 size={11} strokeWidth={2} />
+          <p className="mt-0.5 flex items-center gap-1 text-[9.5px] text-body/50">
+            <RiTimeFill size={10} />
             {formatRelative(project.updatedAt)}
           </p>
         </div>
@@ -77,19 +74,19 @@ function ProjectCard({
         <div className={`flex shrink-0 items-center gap-1 ${isTablet ? 'justify-end' : ''}`}>
           <button
             onClick={() => onOpen(project.id)}
-            className={`flex items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 ${compact ? 'h-8 w-8' : 'h-9 w-9'}`}
+            className="group/tip relative flex h-7 w-7 items-center justify-center rounded-md border border-brand/20 bg-brand/5 text-brand/60 transition-colors hover:bg-brand/12 hover:text-brand"
             aria-label={`Open ${title}`}
-            title="Open project"
           >
-            <FolderOpen size={compact ? 13 : 14} strokeWidth={2} />
+            <RiFolderOpenFill size={13} />
+            <span className="pointer-events-none absolute -bottom-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Open project</span>
           </button>
           <button
             onClick={() => onDelete(project)}
-            className={`flex items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 ${compact ? 'h-8 w-8' : 'h-9 w-9'}`}
+            className="group/tip relative flex h-7 w-7 items-center justify-center rounded-md border border-red-200/50 bg-red-50 text-red-400 transition-colors hover:bg-red-100 hover:text-red-500"
             aria-label={`Delete ${title}`}
-            title="Delete project"
           >
-            <Trash2 size={compact ? 13 : 14} strokeWidth={2} />
+            <RiDeleteBin5Fill size={13} />
+            <span className="pointer-events-none absolute -bottom-8 right-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Delete project</span>
           </button>
         </div>
       </div>
@@ -159,51 +156,40 @@ export default function ProjectLibrary({ refreshKey, flushPendingSave }: Project
   }, [clearProject, loadProjectToStore, projectId, refreshProjects])
 
   return (
-    <div className="rounded-xl border border-divider/60 bg-white/75 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Project Library</p>
-        <span className="text-[10px] font-medium text-body/55">{savedProjects.length} saved</span>
+    <div className="rounded-xl border border-divider/50 bg-white/75 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+      <div className="flex items-center justify-between gap-1.5 px-1.5 pb-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/60">Project Library</p>
+        <span className="text-[9.5px] font-medium text-body/45">{savedProjects.length} saved</span>
       </div>
 
       {loading ? (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-body/60">Loading projects...</p>
+        <p className="px-1.5 py-1 text-[10.5px] text-body/50">Loading...</p>
       ) : savedProjects.length === 0 ? (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-body/60">No other saved projects yet.</p>
+        <p className="px-1.5 py-0.5 text-[10.5px] text-body/45">No other saved projects.</p>
       ) : (
-        <div className="rounded-xl border border-divider/50 bg-slate-50/70">
+        <div className="rounded-lg border border-divider/40 bg-slate-50/60">
           <button
             onClick={() => setSavedOpen((open) => !open)}
             aria-expanded={savedOpen}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-100/80"
+            className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left transition-colors hover:bg-slate-100/70"
           >
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-body/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-                <Library size={13} strokeWidth={2} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/75">
-                  Saved Projects
-                </p>
-                <p className="text-[10px] text-body/55">
-                  {savedProjects.length} available to reopen
-                </p>
-              </div>
-            </div>
+            <p className="text-[10.5px] font-semibold text-slate-600">
+              Saved Projects ({savedProjects.length})
+            </p>
             <ChevronDown
-              size={15}
-              strokeWidth={2}
-              className={`shrink-0 text-body/60 transition-transform duration-200 ${savedOpen ? 'rotate-180' : ''}`}
+              size={13}
+              strokeWidth={2.2}
+              className={`shrink-0 text-slate-400 transition-transform duration-200 ${savedOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
           {savedOpen && (
-            <div className="border-t border-divider/40 px-2 py-2">
-              <div className="project-library-scroll max-h-58 space-y-2 overflow-y-auto pr-1">
+            <div className="border-t border-divider/35 px-1.5 py-1.5">
+              <div className="project-library-scroll max-h-58 space-y-1.5 overflow-y-auto pr-0.5">
                 {savedProjects.map((project) => (
                   <ProjectCard
                     key={project.id}
                     project={project}
-                    compact
                     isTablet={isTablet}
                     onOpen={handleOpen}
                     onDelete={handleDelete}

@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { saveAs } from 'file-saver'
-import { Check, PencilLine, Plus, Save, Trash2, Upload, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { RiSave3Fill, RiUploadCloud2Fill, RiDeleteBin5Fill, RiPencilFill } from 'react-icons/ri'
 import { useStore } from '../store'
 import { showConfirm, showAlert } from './ConfirmDialog'
 import ProjectLibrary from './ProjectLibrary'
 import type { ProjectData } from '../types/project'
 import { deleteProject, loadProject } from '../lib/db'
-import SaveStatus from './SaveStatus'
-import type { SaveState } from '../hooks/useProject'
 
 interface ProjectManagerProps {
   refreshKey?: string | null
   flushPendingSave: () => Promise<void>
-  saveState: SaveState
-  lastSavedAt: string | null
 }
 
 function getProjectExportName(projectName: string, territoryNumber: string, territoryName: string) {
@@ -40,11 +37,12 @@ function getProjectSubtitle(territoryNumber: string, territoryName: string) {
   return 'Local project'
 }
 
+const actionBtn = 'group/tip relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-150 active:scale-[0.93] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none'
+const tipClass = 'pointer-events-none absolute -bottom-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100'
+
 export default function ProjectManager({
   refreshKey,
   flushPendingSave,
-  saveState,
-  lastSavedAt,
 }: ProjectManagerProps) {
   const getProjectData = useStore((s) => s.getProjectData)
   const loadProjectToStore = useStore((s) => s.loadProject)
@@ -70,6 +68,11 @@ export default function ProjectManager({
   const cancelRename = useCallback(() => {
     setDraftName(projectName)
     setRenaming(false)
+  }, [projectName])
+
+  const startRename = useCallback(() => {
+    setDraftName(projectName)
+    setRenaming(true)
   }, [projectName])
 
   const handleNew = useCallback(async () => {
@@ -164,160 +167,88 @@ export default function ProjectManager({
     [flushPendingSave, loadProjectToStore],
   )
 
+  const displayName = getProjectDisplayName(projectName, territoryNumber, territoryName)
+  const subtitle = getProjectSubtitle(territoryNumber, territoryName)
+
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-divider/60 bg-white/75 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-        <div className="rounded-2xl border border-divider/50 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/70">Current Project</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-body/58">
-                {renaming ? 'Choose a short local name that is easy to spot in your library.' : 'Local working file for this territory.'}
-              </p>
-            </div>
-            {!renaming ? (
-              <button
-                onClick={() => setRenaming(true)}
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-divider bg-slate-50 px-3 text-[12px] font-semibold text-body transition-colors hover:border-brand/30 hover:text-brand"
-                aria-label="Rename project"
-                title="Rename project"
-              >
-                <PencilLine size={14} strokeWidth={2} />
-                Rename
-              </button>
-            ) : (
-              <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-brand/15 bg-brand/6 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-brand">
-                Editing
-              </span>
-            )}
-          </div>
-
-          {!renaming ? (
-            <div className="mt-3 rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.9),rgba(255,255,255,0.96))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-              <h3 className="break-words text-[15px] font-semibold tracking-tight text-heading">
-                {getProjectDisplayName(projectName, territoryNumber, territoryName)}
-              </h3>
-              <p className="mt-1 break-words text-[11px] leading-relaxed text-body/60">
-                {getProjectSubtitle(territoryNumber, territoryName)}
-              </p>
-            </div>
-          ) : (
-            <div className="mt-3 rounded-2xl border border-slate-200/85 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.98))] p-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-              <label htmlFor="project-name" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/75">
-                Project Name
-              </label>
-              <input
-                id="project-name"
-                type="text"
-                value={draftName}
-                autoFocus
-                onChange={(e) => setDraftName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename()
-                  if (e.key === 'Escape') cancelRename()
-                }}
-                placeholder="Untitled Project"
-                className="w-full rounded-2xl border border-divider bg-white px-3.5 py-3 text-[14px] font-medium text-heading outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-body/35 hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_3px_rgba(75,108,167,0.18)]"
-              />
-
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[11px] leading-relaxed text-body/60">
-                  Press Enter to save or Escape to cancel.
-                </p>
-                <div className="flex gap-2 sm:justify-end">
-                  <button
-                    onClick={cancelRename}
-                    className="flex-1 rounded-full border border-divider bg-white px-4 py-2.5 text-[12px] font-semibold text-body transition-colors hover:border-brand/30 hover:text-brand sm:flex-none"
-                    aria-label="Cancel rename"
-                    title="Cancel"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <X size={14} strokeWidth={2.2} />
-                      Cancel
-                    </span>
-                  </button>
-                  <button
-                    onClick={commitRename}
-                    className="flex-1 rounded-full bg-brand px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_8px_18px_rgba(75,108,167,0.24)] transition-colors hover:bg-brand-dark sm:flex-none"
-                    aria-label="Save project name"
-                    title="Save name"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <Check size={14} strokeWidth={2.2} />
-                      Save Name
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
+    <div className="space-y-2.5">
+      <div className="overflow-visible rounded-xl border border-divider/50 bg-white px-3 py-2.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/60">Current Project</p>
+          {!renaming && (
+            <button
+              onClick={startRename}
+              className="group/tip relative flex h-7 w-7 items-center justify-center rounded-lg border border-brand/25 bg-brand/8 text-brand transition-colors hover:bg-brand/15 hover:text-brand-dark"
+              aria-label="Rename project"
+            >
+              <RiPencilFill size={12} />
+              <span className="pointer-events-none absolute -bottom-8 right-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Rename project</span>
+            </button>
           )}
-
-          <div className="mt-3 flex flex-col gap-2 border-t border-divider/40 pt-3 lg:flex-row lg:items-center lg:justify-between">
-            <p className="max-w-[22rem] text-[10px] leading-relaxed text-body/58">
-              Rename this local project here. Export creates a portable backup file.
-            </p>
-            <div className="self-start lg:self-auto">
-              <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
-            </div>
-          </div>
         </div>
 
-        <div className="mt-3 space-y-2.5">
+        {/* Project name — inline editable */}
+        <div className="mt-1">
+          {renaming ? (
+            <input
+              type="text"
+              value={draftName}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename()
+                if (e.key === 'Escape') cancelRename()
+              }}
+              onBlur={commitRename}
+              placeholder="Untitled Project"
+              className="w-full bg-transparent text-[14px] font-semibold text-heading outline-none border-b border-brand/40 pb-0.5 placeholder:text-body/30 focus:border-brand/60 transition-colors duration-150"
+            />
+          ) : (
+            <h3
+              className="cursor-text break-words text-[14px] font-semibold leading-snug text-heading"
+              onClick={startRename}
+              title="Click to rename"
+            >
+              {displayName}
+            </h3>
+          )}
+          <p className="mt-0.5 break-words text-[10.5px] leading-relaxed text-body/58">
+            {subtitle}
+          </p>
+        </div>
+
+        {/* Action row */}
+        <div className="mt-2 flex items-center gap-1 border-t border-divider/40 pt-2 pb-1">
           <button
             onClick={handleExportJSON}
-            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-brand px-4 py-3 text-[12px] font-semibold text-white shadow-[0_4px_14px_rgba(75,108,167,0.28)] transition-all duration-150 hover:bg-brand-dark active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+            className={`${actionBtn} border-brand/20 bg-brand/6 text-brand/70 hover:bg-brand/12 hover:text-brand`}
           >
-            <Save size={14} strokeWidth={2} className="shrink-0" />
-            Export Backup
+            <RiSave3Fill size={15} />
+            <span className="pointer-events-none absolute -bottom-8 left-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Save backup file</span>
           </button>
-
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-divider/50 bg-slate-50/80 px-2.5 py-2">
-            <div className="group relative">
-              <button
-                onClick={handleImportJSON}
-                aria-label="Load project"
-                title="Load project"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
-              >
-                <Upload size={15} strokeWidth={2} />
-              </button>
-              <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-150 group-hover:opacity-100">
-                Load project
-              </span>
-            </div>
-
-            <div className="group relative">
-              <button
-                onClick={handleNew}
-                aria-label="New project"
-                title="New project"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-divider bg-white text-body transition-all duration-150 hover:border-brand/30 hover:text-brand active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:outline-none"
-              >
-                <Plus size={15} strokeWidth={2} />
-              </button>
-              <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-150 group-hover:opacity-100">
-                New project
-              </span>
-            </div>
-
-            <div className="group relative">
-              <button
-                onClick={handleDeleteCurrent}
-                aria-label="Delete current project"
-                title="Delete current project"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-500 transition-all duration-150 hover:bg-red-100 hover:text-red-600 active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-red-200 focus-visible:outline-none"
-              >
-                <Trash2 size={15} strokeWidth={2} />
-              </button>
-              <span className="pointer-events-none absolute -bottom-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-150 group-hover:opacity-100">
-                Delete project
-              </span>
-            </div>
-          </div>
-
-          <p className="px-1 text-[10px] leading-relaxed text-body/55">
-            Local projects autosave automatically. Import, delete, or start a fresh project from here.
-          </p>
+          <button
+            onClick={handleImportJSON}
+            className={`${actionBtn} border-brand/15 bg-brand/5 text-brand/60 hover:bg-brand/10 hover:text-brand`}
+          >
+            <RiUploadCloud2Fill size={15} />
+            <span className={tipClass}>Load from file</span>
+          </button>
+          <button
+            onClick={handleNew}
+            className={`${actionBtn} border-brand/15 bg-brand/5 text-brand/60 hover:bg-brand/10 hover:text-brand`}
+          >
+            <Plus size={14} strokeWidth={2.5} />
+            <span className={tipClass}>New project</span>
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={handleDeleteCurrent}
+            className={`${actionBtn} border-red-200/60 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500`}
+          >
+            <RiDeleteBin5Fill size={15} />
+            <span className="pointer-events-none absolute -bottom-8 right-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Delete project</span>
+          </button>
         </div>
       </div>
       <input

@@ -335,7 +335,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
               value={house.properties.label || ''}
               onChange={(e) => updateLabel(house.id, e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
-              placeholder="e.g. Garcia Family"
+              placeholder="e.g. Gallardo Family"
               autoFocus={!isTouch}
               className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
             />

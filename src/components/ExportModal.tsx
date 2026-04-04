@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { saveAs } from 'file-saver'
-import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle, FileCheck2, MapPinned, Home, Route } from 'lucide-react'
+import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
 import { exportToPng } from '../lib/exportPng'
 import { exportToPdf } from '../lib/exportPdf'
@@ -50,12 +50,10 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     }
   }, [map, boundary, cardWidthInches, cardHeightInches, territoryNumber, legendEntries])
 
-  // Stable ref to latest export options — reused by async preview generation
   const exportOptionsRef = useRef(getExportOptions)
   const previewUrlRef = useRef<string | null>(null)
   exportOptionsRef.current = getExportOptions
 
-  // Regenerate the preview whenever export-relevant inputs change while the modal is open.
   useEffect(() => {
     if (!open || !boundary || !map) return
 
@@ -86,49 +84,28 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       })
 
     return () => { cancelled = true }
-  }, [
-    open,
-    map,
-    boundary,
-    territoryNumber,
-    cardWidthInches,
-    cardHeightInches,
-    housePoints,
-    treePoints,
-    customRoads,
-    customStatuses,
-  ])
+  }, [open, map, boundary, territoryNumber, cardWidthInches, cardHeightInches, housePoints, treePoints, customRoads, customStatuses])
 
-  // Reset progressStage when modal opens fresh
   useEffect(() => {
-    if (open) {
-      setProgressStage('')
-      setPreviewNaturalWidth(null)
-    }
+    if (open) { setProgressStage(''); setPreviewNaturalWidth(null) }
   }, [open])
 
-  // Reset image dimensions when preview URL changes
   useEffect(() => {
     previewUrlRef.current = previewUrl
     setPreviewNaturalWidth(null)
   }, [previewUrl])
 
-  // Cleanup preview URL on unmount
   useEffect(() => {
-    return () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-    }
+    return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current) }
   }, [])
 
   const handlePreviewLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget
-    setPreviewNaturalWidth(img.naturalWidth)
+    setPreviewNaturalWidth(e.currentTarget.naturalWidth)
   }, [])
 
   const handleDownloadPng = useCallback(() => {
     if (!pngBlob) return
-    const filename = `territory-${territoryNumber || territoryName || 'map'}.png`
-    saveAs(pngBlob, filename)
+    saveAs(pngBlob, `territory-${territoryNumber || territoryName || 'map'}.png`)
   }, [pngBlob, territoryName, territoryNumber])
 
   const handleDownloadPdf = useCallback(async () => {
@@ -139,8 +116,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       setProgressStage('Building legend...')
       const blob = await exportToPdf(getExportOptions())
       setProgressStage('Generating PDF...')
-      const filename = `territory-${territoryNumber || territoryName || 'map'}.pdf`
-      saveAs(blob, filename)
+      saveAs(blob, `territory-${territoryNumber || territoryName || 'map'}.pdf`)
       setState('ready')
     } catch (err) {
       console.error('PDF export failed:', err)
@@ -164,38 +140,10 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
 
   const dpi = previewNaturalWidth ? Math.round(previewNaturalWidth / cardWidthInches) : null
   const exportTitle = territoryNumber ? `Territory ${territoryNumber}` : territoryName || 'Territory Map'
-  const checklist = [
-    {
-      label: 'Boundary is ready',
-      detail: boundary ? 'Territory outline will frame the export.' : 'Draw a boundary before exporting.',
-      ok: boundary !== null,
-    },
-    {
-      label: 'Card identity is set',
-      detail: territoryNumber || territoryName ? exportTitle : 'Add a territory name or number for a clearer export.',
-      ok: Boolean(territoryNumber || territoryName),
-    },
-    {
-      label: 'Preview is export-quality',
-      detail: dpi === null ? 'Preparing preview resolution...' : dpi >= 250 ? `${dpi} DPI preview is print ready.` : `${dpi} DPI preview may print softer than expected.`,
-      ok: dpi === null ? true : dpi >= 250,
-    },
-    {
-      label: 'Legend matches used tags',
-      detail: legendEntries.length > 0 ? `${legendEntries.length} legend item${legendEntries.length === 1 ? '' : 's'} will be included.` : 'No legend items detected from current house tags.',
-      ok: true,
-    },
-  ]
-
-  const dpiBadge = dpi !== null ? (
-    dpi >= 250 ? (
-      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Print Ready</span>
-    ) : dpi >= 150 ? (
-      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{dpi} DPI</span>
-    ) : (
-      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">Low Resolution</span>
-    )
-  ) : null
+  const hasIdentity = Boolean(territoryNumber || territoryName)
+  const hasBoundary = boundary !== null
+  const isPrintReady = dpi === null || dpi >= 250
+  const warningCount = [hasBoundary, hasIdentity, isPrintReady].filter((v) => !v).length
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 backdrop-blur-[6px]">
@@ -204,171 +152,138 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
         aria-modal="true"
         aria-labelledby={titleId.current}
         aria-describedby={descriptionId.current}
-        className="relative mx-4 flex max-h-[90vh] w-full max-w-150 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white/98 shadow-[0_30px_60px_rgba(15,23,42,0.24),0_12px_24px_rgba(15,23,42,0.12)]"
+        className="relative mx-3 flex max-h-[92vh] w-full max-w-[36rem] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_30px_60px_rgba(15,23,42,0.22),0_12px_24px_rgba(15,23,42,0.1)]"
       >
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200/75 bg-slate-50/75 px-5 py-3.5">
-          <div>
-            <h2 id={titleId.current} className="text-[16px] font-semibold text-heading">Export Territory Card</h2>
-            <p id={descriptionId.current} className="mt-0.5 text-[12px] text-body/82">
-              {exportTitle}
-            </p>
+        <div className="flex shrink-0 items-center justify-between px-5 py-3">
+          <div className="min-w-0">
+            <h2 id={titleId.current} className="text-[15px] font-bold text-heading">{exportTitle}</h2>
+            <div id={descriptionId.current} className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-body/55">
+              <span>{cardWidthInches}&times;{cardHeightInches} in</span>
+              <span className="text-body/25">&bull;</span>
+              <span>{housePoints.length} houses</span>
+              <span className="text-body/25">&bull;</span>
+              <span>{customRoads.length} roads</span>
+              {treePoints.length > 0 && (
+                <>
+                  <span className="text-body/25">&bull;</span>
+                  <span>{treePoints.length} trees</span>
+                </>
+              )}
+              {legendEntries.length > 0 && (
+                <>
+                  <span className="text-body/25">&bull;</span>
+                  <span>{legendEntries.length} legend</span>
+                </>
+              )}
+            </div>
           </div>
-          <button
-            onClick={handleClose}
-            aria-label="Close"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Status badge */}
+            {state === 'ready' && (
+              warningCount === 0 ? (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                  <CheckCircle2 size={12} strokeWidth={2.2} />
+                  Ready
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                  <AlertCircle size={12} strokeWidth={2.2} />
+                  {warningCount} warning{warningCount > 1 ? 's' : ''}
+                </span>
+              )
+            )}
+            <button
+              onClick={handleClose}
+              aria-label="Close"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 active:scale-90"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
-        {/* Preview area */}
-        <div className="flex-1 overflow-y-auto bg-slate-100/80 p-5">
-          <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_20rem]">
-            <div className="rounded-2xl border border-slate-200/85 bg-white px-4 py-3 shadow-[0_10px_26px_rgba(15,23,42,0.08)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Export Summary</p>
-                  <h3 className="mt-1 text-[14px] font-semibold text-heading">{exportTitle}</h3>
-                  <p className="mt-1 text-[12px] text-body/82">
-                    What you see in the preview is what will export in PNG and PDF.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-brand/10 bg-brand/8 p-2 text-brand">
-                  <FileCheck2 size={18} strokeWidth={2} />
-                </div>
+        {/* Body — preview is the hero */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="bg-[linear-gradient(180deg,#f1f5f9,#e8ecf1)] px-5 py-4">
+            {state === 'generating' && (
+              <div className="flex flex-col items-center justify-center rounded-xl bg-white/80 py-20 shadow-[0_1px_3px_rgba(15,23,42,0.06)]" role="status" aria-live="polite">
+                <Loader2 size={28} strokeWidth={2} className="animate-spin text-brand" />
+                <p className="mt-3 text-[13px] font-medium text-heading">{progressStage || 'Generating preview...'}</p>
+                <p className="mt-0.5 text-[11px] text-body/50">This may take a few seconds</p>
               </div>
+            )}
 
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-body/60">
-                    <MapPinned size={14} strokeWidth={2} />
-                    <span className="text-[11px] font-medium">Size</span>
-                  </div>
-                  <p className="mt-1 text-[13px] font-semibold text-heading">
-                    {cardWidthInches} x {cardHeightInches} in
-                  </p>
+            {state === 'error' && (
+              <div className="flex flex-col items-center justify-center rounded-xl bg-white/80 py-20 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50">
+                  <X size={22} strokeWidth={2} className="text-red-500" />
                 </div>
-                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-body/60">
-                    <Home size={14} strokeWidth={2} />
-                    <span className="text-[11px] font-medium">Houses</span>
-                  </div>
-                  <p className="mt-1 text-[13px] font-semibold text-heading">{housePoints.length}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-body/60">
-                    <Route size={14} strokeWidth={2} />
-                    <span className="text-[11px] font-medium">Roads</span>
-                  </div>
-                  <p className="mt-1 text-[13px] font-semibold text-heading">{customRoads.length}</p>
-                </div>
+                <p className="mt-3 text-[13px] font-medium text-heading">Export failed</p>
+                <p className="mt-0.5 text-[11px] text-body/50">{errorMsg}</p>
+                <button
+                  onClick={handleClose}
+                  className="mt-4 rounded-full bg-brand px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-brand-dark"
+                >
+                  Close
+                </button>
               </div>
+            )}
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/78">
-                  Trees: {treePoints.length}
-                </span>
-                <span className="rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/78">
-                  Legend items: {legendEntries.length}
-                </span>
-                {dpiBadge}
+            {state === 'ready' && previewUrl && (
+              <div className="overflow-hidden rounded-xl bg-white shadow-[0_4px_20px_rgba(15,23,42,0.1),0_1px_3px_rgba(15,23,42,0.06)]">
+                <img
+                  src={previewUrl}
+                  alt="Territory card preview"
+                  className="w-full"
+                  style={{ aspectRatio: `${cardWidthInches} / ${cardHeightInches}` }}
+                  onLoad={handlePreviewLoad}
+                />
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/85 bg-white px-4 py-3 shadow-[0_10px_26px_rgba(15,23,42,0.08)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Checklist</p>
-              <div className="mt-2 space-y-2.5">
-                {checklist.map((item) => (
-                  <div key={item.label} className="rounded-xl border border-slate-200/75 bg-slate-50/85 px-3 py-2.5">
-                    <div className="flex items-start gap-2">
-                      {item.ok ? (
-                        <CheckCircle2 size={16} strokeWidth={2.2} className="mt-0.5 shrink-0 text-emerald-600" />
-                      ) : (
-                        <AlertCircle size={16} strokeWidth={2.2} className="mt-0.5 shrink-0 text-amber-600" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-heading">{item.label}</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-body/78">{item.detail}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
 
-          {state === 'generating' && (
-            <div className="flex flex-col items-center justify-center py-16" role="status" aria-live="polite">
-              <Loader2 size={32} strokeWidth={2} className="animate-spin text-brand" />
-              <p className="mt-4 text-[14px] font-medium text-heading">{progressStage || 'Generating your printable file...'}</p>
-              <p className="mt-1 text-[12px] text-body">This may take a few seconds</p>
-            </div>
-          )}
-
-          {state === 'error' && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <X size={24} strokeWidth={2} className="text-red-500" />
+          {/* Warnings — only show if there are issues */}
+          {state === 'ready' && warningCount > 0 && (
+            <div className="px-5 py-2.5">
+              <div className="space-y-1.5">
+                {!hasBoundary && (
+                  <p className="flex items-center gap-2 text-[11px] text-amber-700">
+                    <AlertCircle size={13} strokeWidth={2.2} className="shrink-0" />
+                    Draw a boundary before exporting.
+                  </p>
+                )}
+                {!hasIdentity && (
+                  <p className="flex items-center gap-2 text-[11px] text-amber-700">
+                    <AlertCircle size={13} strokeWidth={2.2} className="shrink-0" />
+                    Add a territory name or number for a clearer export.
+                  </p>
+                )}
+                {!isPrintReady && (
+                  <p className="flex items-center gap-2 text-[11px] text-amber-700">
+                    <AlertCircle size={13} strokeWidth={2.2} className="shrink-0" />
+                    {dpi} DPI — may print softer than expected.
+                  </p>
+                )}
               </div>
-              <p className="mt-4 text-[14px] font-medium text-heading">Export failed</p>
-              <p className="mt-1 text-[12px] text-body">{errorMsg}</p>
-              <button
-                onClick={handleClose}
-                className="mt-4 rounded-full bg-brand px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-brand-dark"
-              >
-                Close
-              </button>
-            </div>
-          )}
-
-          {state === 'ready' && previewUrl && (
-            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.1)]">
-              <img
-                src={previewUrl}
-                alt="Territory card preview"
-                className="w-full"
-                style={{ aspectRatio: `${cardWidthInches} / ${cardHeightInches}` }}
-                onLoad={handlePreviewLoad}
-              />
-              <div className="flex items-center justify-center gap-2 pb-1 pt-2">
-                <span className="text-[11px] text-body/60">{cardWidthInches} &times; {cardHeightInches} in</span>
-              </div>
-              {legendEntries.length > 0 && (
-                <div className="border-t border-divider/50 px-4 py-3">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-body/70">Legend Preview</p>
-                  <div className="flex flex-wrap gap-2">
-                    {legendEntries.map((entry) => (
-                      <span
-                        key={`${entry.type}-${entry.label}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200/75 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-body/82"
-                      >
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                        {entry.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
 
         {/* Footer — download buttons */}
         {state === 'ready' && (
-          <div className="flex items-center gap-3 border-t border-slate-200/75 bg-white px-5 py-3.5">
+          <div className="flex shrink-0 items-center gap-2.5 border-t border-slate-100 px-5 py-3">
             <button
               onClick={handleDownloadPng}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(75,108,167,0.24)] transition-colors hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-2.5 text-[13px] font-semibold text-white shadow-[0_6px_16px_rgba(75,108,167,0.22)] transition-all hover:bg-brand-dark active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <Download size={15} strokeWidth={2} />
               Download PNG
             </button>
             <button
               onClick={handleDownloadPdf}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand/60 bg-white px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-hover active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white py-2.5 text-[13px] font-semibold text-slate-700 transition-all hover:bg-slate-50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:outline-none"
             >
               <FileText size={15} strokeWidth={2} />
               Download PDF

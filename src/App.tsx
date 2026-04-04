@@ -255,35 +255,33 @@ export default function App() {
 
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {/* Project */}
-          <div className="px-4 pt-4 pb-3">
+          <div className="px-3.5 pt-3 pb-2.5">
             <ProjectManager
               refreshKey={lastSavedAt}
               flushPendingSave={flushSave}
-              saveState={saveState}
-              lastSavedAt={lastSavedAt}
             />
           </div>
 
-          <div className="mx-4 border-t border-divider/50" />
+          <div className="mx-3.5 border-t border-divider/50" />
 
           {/* Card Settings */}
-          <div className="px-4 py-2.5">
+          <div className="px-3.5 py-2">
             <SidebarSection title="Card Settings">
               <CardSettings />
             </SidebarSection>
           </div>
 
-          <div className="mx-4 border-t border-divider/50" />
+          <div className="mx-3.5 border-t border-divider/50" />
 
           {/* Export */}
-          <div className="px-4 py-2.5">
+          <div className="px-3.5 py-2">
             <SidebarSection title="Export">
               <ExportPanel onExport={() => setExportOpen(true)} />
             </SidebarSection>
           </div>
 
           {/* Workflow progress dots */}
-          <div className="mx-4 mt-2 rounded-2xl border border-divider/60 bg-white/80 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          <div className="mx-3.5 mt-2 rounded-2xl border border-divider/60 bg-white/80 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/75">Progress</p>
               <p className="text-[11px] font-medium text-body/55">
@@ -314,7 +312,7 @@ export default function App() {
 
           {/* Contextual guidance */}
           {!boundary && (
-            <div className="mx-4 mt-3 rounded-2xl border border-brand/10 bg-brand/5 px-4 py-4 text-center shadow-[0_4px_14px_rgba(75,108,167,0.06)]">
+            <div className="mx-3.5 mt-3 rounded-2xl border border-brand/10 bg-brand/5 px-4 py-4 text-center shadow-[0_4px_14px_rgba(75,108,167,0.06)]">
               <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
                 <BoundaryPolygonIcon size={16} strokeWidth={2} className="text-brand" />
               </div>
@@ -325,14 +323,14 @@ export default function App() {
             </div>
           )}
           {boundary && customRoads.length === 0 && (
-            <div className="mx-4 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
+            <div className="mx-3.5 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
               <p className="text-[11px] text-body/60">
                 <span className="font-medium text-body/80">Next:</span> Add roads to help navigate
               </p>
             </div>
           )}
           {boundary && customRoads.length > 0 && housePoints.length === 0 && (
-            <div className="mx-4 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
+            <div className="mx-3.5 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
               <p className="text-[11px] text-body/60">
                 <span className="font-medium text-body/80">Next:</span> Place houses in your territory
               </p>
@@ -341,7 +339,7 @@ export default function App() {
 
           {/* Stats — compact inline */}
           {(boundary || customRoads.length > 0 || housePoints.length > 0) && (
-            <div className="px-4 pb-4 pt-3">
+            <div className="px-3.5 pb-4 pt-3">
               <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider/60 bg-white/80 px-3.5 py-3 text-[13px] shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
                 <span className={`inline-flex items-center gap-1.5 font-medium ${boundary ? 'text-emerald-text' : 'text-body/40'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${boundary ? 'bg-emerald-500' : 'bg-body/20'}`} />

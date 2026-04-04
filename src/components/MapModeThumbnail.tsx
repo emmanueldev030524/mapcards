@@ -17,8 +17,8 @@ interface MapModeThumbnailProps {
 }
 
 const MAP_TYPES: { value: MapMode; label: string; Icon: typeof Satellite; gradient: string }[] = [
-  { value: 'satellite', label: 'Satellite', Icon: Satellite, gradient: 'from-emerald-800 to-emerald-900' },
-  { value: 'street', label: 'Street', Icon: Map, gradient: 'from-slate-100 to-slate-200' },
+  { value: 'satellite', label: 'Satellite', Icon: Satellite, gradient: 'from-emerald-800 to-emerald-950' },
+  { value: 'street', label: 'Street', Icon: Map, gradient: 'from-sky-100 via-blue-50 to-slate-100' },
 ]
 
 const DETAIL_ICONS: Record<string, LucideIcon> = {
@@ -36,13 +36,13 @@ function Toggle({ checked }: { checked: boolean }) {
     <span
       role="switch"
       aria-checked={checked}
-      className={`relative inline-flex h-[26px] w-[46px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
-        checked ? 'bg-brand' : 'bg-slate-300'
+      className={`relative inline-flex h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+        checked ? 'bg-brand' : 'bg-slate-200'
       }`}
     >
       <span
-        className={`absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_2px_6px_rgba(15,23,42,0.18)] transition-transform duration-200 ease-out ${
-          checked ? 'translate-x-5' : 'translate-x-0'
+        className={`absolute left-[2px] top-[2px] h-[16px] w-[16px] rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform duration-200 ease-out ${
+          checked ? 'translate-x-[16px]' : 'translate-x-0'
         }`}
       />
     </span>
@@ -136,8 +136,8 @@ export default function MapModeThumbnail({
   return (
     <div
       ref={panelRef}
-      className="absolute bottom-5 z-10 transition-[left] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
-      style={{ left: dockLeft }}
+      className="absolute z-10 transition-[left] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+      style={{ left: dockLeft, bottom: 'var(--map-control-edge-offset-y)' }}
     >
       {/* Thumbnail button */}
       <button
@@ -165,7 +165,7 @@ export default function MapModeThumbnail({
       {panelOpen && (
         <div
           className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.2),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
-            isTablet ? 'fixed bottom-28 w-72' : 'absolute left-0 bottom-20 w-64'
+            isTablet ? 'fixed bottom-28 w-80' : 'absolute left-0 bottom-20 w-72'
           } flex flex-col`}
           style={{
             left: isTablet ? dockLeft : undefined,
@@ -193,9 +193,9 @@ export default function MapModeThumbnail({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
           {/* ── Type section ── */}
-          <div className="px-5 pb-3 pt-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-body/80">Type</p>
-            <div className="flex gap-3">
+          <div className="px-4 pb-3 pt-3">
+            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-body/65">Type</p>
+            <div className="flex gap-2">
               {MAP_TYPES.map((mode) => {
                 const active = currentMode === mode.value
                 const light = mode.value !== 'satellite'
@@ -203,31 +203,33 @@ export default function MapModeThumbnail({
                   <button
                     key={mode.value}
                     onClick={() => onModeChange(mode.value)}
-                    className={`touch-active rounded-2xl border px-2.5 py-2.5 transition-all duration-150 ${
+                    className={`touch-active flex-1 overflow-hidden rounded-xl transition-all duration-150 ${
                       active
-                        ? 'border-brand/35 bg-brand/6 shadow-[0_8px_18px_rgba(75,108,167,0.08)]'
-                        : 'border-slate-200/80 bg-slate-50/65 hover:border-slate-300 hover:bg-white'
+                        ? 'ring-2 ring-brand ring-offset-2 shadow-[0_4px_14px_rgba(75,108,167,0.18)]'
+                        : 'ring-1 ring-slate-200/80 hover:ring-slate-300'
                     }`}
                   >
-                    <div className={`flex items-center justify-center overflow-hidden rounded-xl bg-linear-to-b shadow-sm ${mode.gradient} ${
-                      isTablet ? 'h-16 w-16' : 'h-14 w-14'
-                    } ${active ? 'ring-2 ring-brand ring-offset-2' : ''}`}>
-                      <mode.Icon size={isTablet ? 22 : 20} strokeWidth={1.5} className={light ? 'text-slate-700' : 'text-white/85'} />
+                    <div className={`flex items-center justify-center bg-linear-to-b ${mode.gradient} ${
+                      isTablet ? 'h-14' : 'h-12'
+                    }`}>
+                      <mode.Icon size={isTablet ? 22 : 20} strokeWidth={1.5} className={light ? 'text-slate-600' : 'text-white/90'} />
                     </div>
-                    <span className={`mt-1 block text-[11px] font-semibold ${active ? 'text-heading' : 'text-body/80'}`}>
+                    <div className={`px-2 py-1.5 text-center text-[11px] font-semibold ${
+                      active ? 'bg-brand/6 text-brand' : 'bg-white text-body/70'
+                    }`}>
                       {mode.label}
-                    </span>
+                    </div>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          <div className="mx-5 border-t border-divider/40" />
+          <div className="mx-4 border-t border-slate-100" />
 
           {/* ── Details section (layer toggles) ── */}
-          <div className="px-5 pt-3 pb-1">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-body/80">Details</p>
+          <div className="px-4 pt-3 pb-1">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-body/65">Details</p>
             {layers.map((layer, i) => {
               const LayerIcon = DETAIL_ICONS[layer.id]
               const isChecked = visibleLayers[layer.id] || false
@@ -258,35 +260,30 @@ export default function MapModeThumbnail({
                 </div>
               )
             })}
-          </div>
 
-          {/* Clean mode option */}
-          <div className="mx-5 border-t border-divider/40" />
-          <div className="px-5 pt-0.5 pb-3">
+            {/* Clean mode — toggle row */}
+            <div className="border-t border-divider/30" />
             <button
-              onClick={() => onModeChange('clean')}
-              className="touch-active flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-slate-50 active:bg-input-bg/50"
+              onClick={() => onModeChange(currentMode === 'clean' ? 'street' : 'clean')}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors ${
+                currentMode === 'clean' ? 'bg-brand/5' : 'hover:bg-slate-50'
+              } active:bg-input-bg/50`}
             >
               <FileText
                 size={isTablet ? 17 : 16}
                 strokeWidth={2}
-                className={`shrink-0 ${currentMode === 'clean' ? 'text-brand' : 'text-body/55'}`}
+                style={{ color: currentMode === 'clean' ? '#4B6CA7' : '#94a3b8' }}
+                className="shrink-0 transition-colors duration-200"
               />
               <div className="flex-1 text-left">
-                <span className={`block text-[12px] font-medium ${currentMode === 'clean' ? 'text-heading' : 'text-body/85'}`}>
+                <span className={`block text-[12px] font-medium transition-colors duration-200 ${
+                  currentMode === 'clean' ? 'text-heading' : 'text-body/85'
+                }`}>
                   Clean
                 </span>
-                <span className="block text-[10px] text-body/68">No labels, places, or roads</span>
+                <span className="block text-[10px] text-body/55">Hide all labels & roads</span>
               </div>
-              <div className={`h-5 w-5 rounded-full border-2 transition-colors ${
-                currentMode === 'clean' ? 'border-brand bg-brand' : 'border-slate-300'
-              }`}>
-                {currentMode === 'clean' && (
-                  <svg viewBox="0 0 12 12" className="h-full w-full text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="2.5 6 5 8.5 9.5 3.5" />
-                  </svg>
-                )}
-              </div>
+              <Toggle checked={currentMode === 'clean'} />
             </button>
           </div>
 

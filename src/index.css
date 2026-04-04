@@ -210,9 +210,9 @@
 
   :root {
     --map-control-size: 36px;
-    --map-control-gap: 3px;
+    --map-control-gap: 8px;
     --map-control-edge-offset-x: 4px;
-    --map-control-edge-offset-y: 8px;
+    --map-control-edge-offset-y: 16px;
     --map-control-zoom-pill-padding-x: 2px;
     --map-control-zoom-pill-width: calc((var(--map-control-size) * 2) + (var(--map-control-zoom-pill-padding-x) * 2));
     --map-control-stack-width: calc(var(--map-control-size) + var(--map-control-gap) + var(--map-control-zoom-pill-width));
@@ -225,12 +225,12 @@
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
     border-radius: 9999px !important;
     box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.08),
-      0 1px 3px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+      0 6px 20px rgba(15, 23, 42, 0.12),
+      0 2px 6px rgba(15, 23, 42, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
     overflow: hidden;
   }
   /* Extra padding only on the zoom pill, not compass */
@@ -257,10 +257,10 @@
     border-top: none !important;
     border-left: 1px solid rgba(0, 0, 0, 0.06) !important;
   }
-  /* Style the +/- icons */
+  /* Style the +/- icons — high contrast */
   .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
     filter: none;
-    opacity: 0.7;
+    opacity: 0.85;
     transition: opacity 0.15s ease;
   }
   .maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
