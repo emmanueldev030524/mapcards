@@ -203,167 +203,171 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   // Use the user's current bearing exactly
   const exportBearing = map.getBearing()
 
-  // Resize map container to card pixel dimensions
-  container.style.width = `${totalWidth}px`
-  container.style.height = `${totalHeight}px`
-  map.resize()
-  await waitForIdle(map, 2000)
+  // All map mutations are wrapped in try/finally so the working canvas
+  // is always restored — even if an await or canvas step throws.
+  try {
+    // Resize map container to card pixel dimensions
+    container.style.width = `${totalWidth}px`
+    container.style.height = `${totalHeight}px`
+    map.resize()
+    await waitForIdle(map, 2000)
 
-  // Measure legend bar height dynamically (may wrap to 2+ rows)
-  const bbox = turfBbox(boundary) as [number, number, number, number]
-  const measureCtx = document.createElement('canvas').getContext('2d')!
-  const legendHeight = measureLegendHeight(
-    measureCtx, totalWidth,
-    options.territoryNumber, options.legendEntries || [],
-  )
-  const pad = 40
+    // Measure legend bar height dynamically (may wrap to 2+ rows)
+    const bbox = turfBbox(boundary) as [number, number, number, number]
+    const measureCtx = document.createElement('canvas').getContext('2d')!
+    const legendHeight = measureLegendHeight(
+      measureCtx, totalWidth,
+      options.territoryNumber, options.legendEntries || [],
+    )
+    const pad = 40
 
-  map.fitBounds(bbox, {
-    padding: { top: pad, right: pad, bottom: pad + legendHeight, left: pad },
-    bearing: exportBearing,
-    animate: false,
-  })
-  await waitForIdle(map, 2000)
-
-  // Refine: project boundary to screen space and zoom to fill precisely
-  const coords = boundary.geometry.coordinates[0]
-  const projected = coords.map((c) => map.project(c as [number, number]))
-  const minX = Math.min(...projected.map((p) => p.x))
-  const maxX = Math.max(...projected.map((p) => p.x))
-  const minY = Math.min(...projected.map((p) => p.y))
-  const maxY = Math.max(...projected.map((p) => p.y))
-  const bw = maxX - minX
-  const bh = maxY - minY
-
-  if (bw > 0 && bh > 0) {
-    const scaleX = (totalWidth - pad * 2) / bw
-    const scaleY = (totalHeight - pad * 2 - legendHeight) / bh
-    const fillScale = Math.min(scaleX, scaleY)
-    const zoomAdjust = Math.log2(fillScale)
-
-    // Center on the screen-space midpoint of the boundary, not the geographic centroid
-    const screenCenterX = (minX + maxX) / 2
-    const screenCenterY = (minY + maxY) / 2
-    const geoCenter = map.unproject([screenCenterX, screenCenterY])
-
-    map.jumpTo({
-      center: geoCenter,
-      zoom: map.getZoom() + zoomAdjust,
+    map.fitBounds(bbox, {
+      padding: { top: pad, right: pad, bottom: pad + legendHeight, left: pad },
       bearing: exportBearing,
       animate: false,
-    } as maplibregl.JumpToOptions)
-
-    // After zoom change, the boundary may have shifted — re-center in the map area above legend
+    })
     await waitForIdle(map, 2000)
-    const reproject = coords.map((c) => map.project(c as [number, number]))
-    const boundaryCX = (Math.min(...reproject.map((p) => p.x)) + Math.max(...reproject.map((p) => p.x))) / 2
-    const boundaryCY = (Math.min(...reproject.map((p) => p.y)) + Math.max(...reproject.map((p) => p.y))) / 2
-    // Where we want the boundary center on screen (centered in area above legend)
-    const desiredX = totalWidth / 2
-    const desiredY = (totalHeight - legendHeight) / 2
-    const dx = boundaryCX - desiredX
-    const dy = boundaryCY - desiredY
 
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-      // Shift map so boundary center lands at desired position
-      const corrected = map.unproject([totalWidth / 2 + dx, totalHeight / 2 + dy])
-      map.jumpTo({ center: corrected, animate: false } as maplibregl.JumpToOptions)
+    // Refine: project boundary to screen space and zoom to fill precisely
+    const coords = boundary.geometry.coordinates[0]
+    const projected = coords.map((c) => map.project(c as [number, number]))
+    const minX = Math.min(...projected.map((p) => p.x))
+    const maxX = Math.max(...projected.map((p) => p.x))
+    const minY = Math.min(...projected.map((p) => p.y))
+    const maxY = Math.max(...projected.map((p) => p.y))
+    const bw = maxX - minX
+    const bh = maxY - minY
+
+    if (bw > 0 && bh > 0) {
+      const scaleX = (totalWidth - pad * 2) / bw
+      const scaleY = (totalHeight - pad * 2 - legendHeight) / bh
+      const fillScale = Math.min(scaleX, scaleY)
+      const zoomAdjust = Math.log2(fillScale)
+
+      // Center on the screen-space midpoint of the boundary, not the geographic centroid
+      const screenCenterX = (minX + maxX) / 2
+      const screenCenterY = (minY + maxY) / 2
+      const geoCenter = map.unproject([screenCenterX, screenCenterY])
+
+      map.jumpTo({
+        center: geoCenter,
+        zoom: map.getZoom() + zoomAdjust,
+        bearing: exportBearing,
+        animate: false,
+      } as maplibregl.JumpToOptions)
+
+      // After zoom change, the boundary may have shifted — re-center in the map area above legend
+      await waitForIdle(map, 2000)
+      const reproject = coords.map((c) => map.project(c as [number, number]))
+      const boundaryCX = (Math.min(...reproject.map((p) => p.x)) + Math.max(...reproject.map((p) => p.x))) / 2
+      const boundaryCY = (Math.min(...reproject.map((p) => p.y)) + Math.max(...reproject.map((p) => p.y))) / 2
+      // Where we want the boundary center on screen (centered in area above legend)
+      const desiredX = totalWidth / 2
+      const desiredY = (totalHeight - legendHeight) / 2
+      const dx = boundaryCX - desiredX
+      const dy = boundaryCY - desiredY
+
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        // Shift map so boundary center lands at desired position
+        const corrected = map.unproject([totalWidth / 2 + dx, totalHeight / 2 + dy])
+        map.jumpTo({ center: corrected, animate: false } as maplibregl.JumpToOptions)
+      }
     }
-  }
 
-  await waitForIdle(map, 4000)
+    await waitForIdle(map, 4000)
 
-  // --- Canvas capture with premium card rendering ---
-  // Note: The interactive map has preserveDrawingBuffer: true which is required
-  // for canvas capture. The performance cost is acceptable for a card-making tool.
-  const mapCanvas = map.getCanvas()
-  const output = document.createElement('canvas')
-  output.width = totalWidth
-  output.height = totalHeight
-  const ctx = output.getContext('2d')!
+    // --- Canvas capture with premium card rendering ---
+    // Note: The interactive map has preserveDrawingBuffer: true which is required
+    // for canvas capture. The performance cost is acceptable for a card-making tool.
+    const mapCanvas = map.getCanvas()
+    const output = document.createElement('canvas')
+    output.width = totalWidth
+    output.height = totalHeight
+    const ctx = output.getContext('2d')!
 
-  const cornerRadius = Math.round(24 * (DPI / 300)) // ~24px at 300 DPI
-  const borderInset = 3
+    const cornerRadius = Math.round(24 * (DPI / 300)) // ~24px at 300 DPI
+    const borderInset = 3
 
-  // --- 1. Cream background with rounded corners ---
-  ctx.save()
-  roundRect(ctx, 0, 0, totalWidth, totalHeight, cornerRadius)
-  ctx.clip()
-  ctx.fillStyle = '#FAF8F5'
-  ctx.fillRect(0, 0, totalWidth, totalHeight)
+    // --- 1. Cream background with rounded corners ---
+    ctx.save()
+    roundRect(ctx, 0, 0, totalWidth, totalHeight, cornerRadius)
+    ctx.clip()
+    ctx.fillStyle = '#FAF8F5'
+    ctx.fillRect(0, 0, totalWidth, totalHeight)
 
-  // Project boundary to final screen coordinates
-  const finalCoords = coords.map((c) => map.project(c as [number, number]))
+    // Project boundary to final screen coordinates
+    const finalCoords = coords.map((c) => map.project(c as [number, number]))
 
-  // --- 2. Clip map rendering to boundary shape ---
-  ctx.save()
-  ctx.beginPath()
-  finalCoords.forEach((p, i) => {
-    if (i === 0) ctx.moveTo(p.x, p.y)
-    else ctx.lineTo(p.x, p.y)
-  })
-  ctx.closePath()
-  ctx.clip()
-
-  // Draw map only inside boundary
-  ctx.drawImage(mapCanvas, 0, 0, totalWidth, totalHeight)
-  ctx.restore()
-
-  // --- 3. Floating drop shadow — map area feels lifted off the card ---
-  const shadowLayers = [
-    { offset: 8, width: 20, opacity: 0.03 },
-    { offset: 5, width: 14, opacity: 0.05 },
-    { offset: 3, width: 9, opacity: 0.07 },
-    { offset: 1.5, width: 5, opacity: 0.10 },
-    { offset: 0.5, width: 2, opacity: 0.14 },
-  ]
-  for (const sl of shadowLayers) {
+    // --- 2. Clip map rendering to boundary shape ---
     ctx.save()
     ctx.beginPath()
     finalCoords.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(p.x + sl.offset, p.y + sl.offset)
-      else ctx.lineTo(p.x + sl.offset, p.y + sl.offset)
+      if (i === 0) ctx.moveTo(p.x, p.y)
+      else ctx.lineTo(p.x, p.y)
     })
     ctx.closePath()
-    ctx.strokeStyle = `rgba(30, 40, 60, ${sl.opacity})`
-    ctx.lineWidth = sl.width
-    ctx.lineJoin = 'round'
-    ctx.stroke()
+    ctx.clip()
+
+    // Draw map only inside boundary
+    ctx.drawImage(mapCanvas, 0, 0, totalWidth, totalHeight)
     ctx.restore()
+
+    // --- 3. Floating drop shadow — map area feels lifted off the card ---
+    const shadowLayers = [
+      { offset: 8, width: 20, opacity: 0.03 },
+      { offset: 5, width: 14, opacity: 0.05 },
+      { offset: 3, width: 9, opacity: 0.07 },
+      { offset: 1.5, width: 5, opacity: 0.10 },
+      { offset: 0.5, width: 2, opacity: 0.14 },
+    ]
+    for (const sl of shadowLayers) {
+      ctx.save()
+      ctx.beginPath()
+      finalCoords.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x + sl.offset, p.y + sl.offset)
+        else ctx.lineTo(p.x + sl.offset, p.y + sl.offset)
+      })
+      ctx.closePath()
+      ctx.strokeStyle = `rgba(30, 40, 60, ${sl.opacity})`
+      ctx.lineWidth = sl.width
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // --- 5. Legend bar at bottom ---
+    const { territoryNumber, legendEntries } = options
+    if (legendHeight > 0) {
+      drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, cornerRadius, territoryNumber, legendEntries || [])
+    }
+
+    // --- 6. Thin hairline border around card ---
+    ctx.restore() // restore the rounded corner clip
+    roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
+    ctx.strokeStyle = '#D5D0C8'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    return new Promise<Blob>((resolve, reject) => {
+      output.toBlob(
+        (blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error('Failed to create PNG blob'))
+        },
+        'image/png',
+        1.0,
+      )
+    })
+  } finally {
+    // Always restore the working map, even if export fails
+    container.style.width = origWidth
+    container.style.height = origHeight
+    map.jumpTo({
+      center: origCenter,
+      zoom: origZoom,
+      bearing: origBearing,
+      animate: false,
+    } as maplibregl.JumpToOptions)
+    map.resize()
   }
-
-  // --- 5. Legend bar at bottom ---
-  const { territoryNumber, legendEntries } = options
-  if (legendHeight > 0) {
-    drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, cornerRadius, territoryNumber, legendEntries || [])
-  }
-
-  // --- 6. Thin hairline border around card ---
-  ctx.restore() // restore the rounded corner clip
-  roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
-  ctx.strokeStyle = '#D5D0C8'
-  ctx.lineWidth = 2
-  ctx.stroke()
-
-  // Restore original map state
-  container.style.width = origWidth
-  container.style.height = origHeight
-  map.jumpTo({
-    center: origCenter,
-    zoom: origZoom,
-    bearing: origBearing,
-    animate: false,
-  } as maplibregl.JumpToOptions)
-  map.resize()
-
-  return new Promise<Blob>((resolve, reject) => {
-    output.toBlob(
-      (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Failed to create PNG blob'))
-      },
-      'image/png',
-      1.0,
-    )
-  })
 }

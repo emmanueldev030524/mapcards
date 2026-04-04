@@ -337,7 +337,15 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     set((s) => ({ customStatuses: [...s.customStatuses, { id: `status-${uuid().slice(0, 8)}`, label, color }] })),
 
   removeCustomStatus: (id) =>
-    set((s) => ({ customStatuses: s.customStatuses.filter((st) => st.id !== id) })),
+    setWithUndo(get, set, (s) => ({
+      customStatuses: s.customStatuses.filter((st) => st.id !== id),
+      // Strip the deleted status from every house that references it
+      housePoints: s.housePoints.map((h) => {
+        const tags = h.properties.tags || []
+        if (!tags.includes(id)) return h
+        return { ...h, properties: { ...h.properties, tags: tags.filter((t: string) => t !== id) } }
+      }),
+    })),
 
   updateCustomStatus: (id, label, color) =>
     set((s) => ({ customStatuses: s.customStatuses.map((st) => st.id === id ? { ...st, label, color } : st) })),
@@ -441,6 +449,13 @@ export const useStore = create<MapCardsStore>((set, get) => ({
           { id: 'bs', label: 'Bible Study', color: '#3498db' },
         ],
       ),
+      // Reset transient editing state so prior territory doesn't leak
+      _undoStack: [],
+      _redoStack: [],
+      _lastMoveId: null,
+      canUndo: false,
+      canRedo: false,
+      activeDrawMode: null,
     }),
 
   clearProject: () =>
@@ -455,6 +470,12 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       ],
       activeDrawMode: null,
       visibleLayers: {},
+      // Reset transient editing state so prior territory doesn't leak
+      _undoStack: [],
+      _redoStack: [],
+      _lastMoveId: null,
+      canUndo: false,
+      canRedo: false,
     }),
 
   getProjectData: () => {
