@@ -89,7 +89,7 @@ export default function BulkFillDialog({ map, open, onClose }: BulkFillDialogPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-[6px]">
-      <div className="mx-4 w-full max-w-[21rem] rounded-2xl border border-slate-200/90 bg-white/98 p-5 shadow-[0_28px_56px_rgba(15,23,42,0.22),0_10px_24px_rgba(15,23,42,0.1)]">
+      <div className="mx-4 w-full max-w-84 rounded-2xl border border-slate-200/90 bg-white/98 p-5 shadow-[0_28px_56px_rgba(15,23,42,0.22),0_10px_24px_rgba(15,23,42,0.1)]">
         <h3 className="mb-4 flex items-center gap-3 text-sm font-semibold text-slate-800">
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-brand/10 bg-primary/10">
             <LayoutGrid size={14} strokeWidth={2} className="text-primary" />

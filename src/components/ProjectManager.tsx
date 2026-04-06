@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { saveAs } from 'file-saver'
 import { Plus } from 'lucide-react'
 import { RiSave3Fill, RiUploadCloud2Fill, RiDeleteBin5Fill, RiPencilFill } from 'react-icons/ri'
@@ -56,10 +56,6 @@ export default function ProjectManager({
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(projectName)
 
-  useEffect(() => {
-    if (!renaming) setDraftName(projectName)
-  }, [projectName, renaming])
-
   const commitRename = useCallback(() => {
     setProjectName(draftName.trim())
     setRenaming(false)
@@ -104,7 +100,7 @@ export default function ProjectManager({
     const nextProject = await loadProject()
     if (nextProject) loadProjectToStore(nextProject)
     else clearProject()
-  }, [clearProject, loadProjectToStore, projectId, projectName, territoryName, territoryNumber])
+  }, [clearProject, flushPendingSave, loadProjectToStore, projectId, projectName, territoryName, territoryNumber])
 
   const handleExportJSON = useCallback(() => {
     const data = getProjectData()
@@ -208,14 +204,14 @@ export default function ProjectManager({
             />
           ) : (
             <h3
-              className="cursor-text break-words text-[14px] font-semibold leading-snug text-heading"
+              className="cursor-text wrap-break-word text-[14px] font-semibold leading-snug text-heading"
               onClick={startRename}
               title="Click to rename"
             >
               {displayName}
             </h3>
           )}
-          <p className="mt-0.5 break-words text-[10.5px] leading-relaxed text-body/58">
+          <p className="mt-0.5 wrap-break-word text-[10.5px] leading-relaxed text-body/58">
             {subtitle}
           </p>
         </div>

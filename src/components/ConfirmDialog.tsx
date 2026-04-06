@@ -1,5 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { create } from 'zustand'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useId, useRef } from 'react'
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react'
 
 /* ── Dialog store (Promise-based) ── */
@@ -82,8 +83,16 @@ const ICONS: Record<DialogVariant, { icon: typeof AlertTriangle; bg: string; col
 export default function ConfirmDialog() {
   const { open, config, resolve } = useDialogStore()
   const confirmRef = useRef<HTMLButtonElement>(null)
-  const titleId = useRef(`confirm-dialog-title-${Math.random().toString(36).slice(2, 8)}`)
-  const messageId = useRef(`confirm-dialog-message-${Math.random().toString(36).slice(2, 8)}`)
+  const titleId = useId()
+  const messageId = useId()
+
+  const handleClose = useCallback((result: boolean) => {
+    useDialogStore.setState({ open: false })
+    setTimeout(() => {
+      resolve?.(result)
+      useDialogStore.setState({ config: null, resolve: null })
+    }, 150)
+  }, [resolve])
 
   // Focus confirm/OK button when dialog opens
   useEffect(() => {
@@ -103,36 +112,26 @@ export default function ConfirmDialog() {
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [open])
+  }, [handleClose, open])
 
   if (!open || !config) return null
 
   const { title, message, variant, confirmLabel, cancelLabel, alert: isAlert } = config
   const { icon: Icon, bg, color } = ICONS[variant]
 
-  function handleClose(result: boolean) {
-    // Animate out
-    useDialogStore.setState({ open: false })
-    // Resolve after transition
-    setTimeout(() => {
-      resolve?.(result)
-      useDialogStore.setState({ config: null, resolve: null })
-    }, 150)
-  }
-
   const isDestructive = variant === 'destructive'
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 backdrop-blur-[6px] transition-opacity duration-150"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/40 backdrop-blur-[6px] transition-opacity duration-150"
       onClick={() => handleClose(false)}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId.current}
-        aria-describedby={messageId.current}
-        className="mx-4 w-full max-w-[23rem] animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-slate-200/90 bg-white/98 p-6 shadow-[0_28px_56px_rgba(15,23,42,0.24),0_10px_24px_rgba(15,23,42,0.12)]"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        className="mx-4 w-full max-w-92 animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-slate-200/90 bg-white/98 p-6 shadow-[0_28px_56px_rgba(15,23,42,0.24),0_10px_24px_rgba(15,23,42,0.12)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Icon */}
@@ -141,10 +140,10 @@ export default function ConfirmDialog() {
         </div>
 
         {/* Title */}
-        <h3 id={titleId.current} className="text-center text-[16px] font-bold text-heading">{title}</h3>
+        <h3 id={titleId} className="text-center text-base font-bold text-heading">{title}</h3>
 
         {/* Message */}
-        <p id={messageId.current} className="mt-1.5 text-center text-[12px] leading-relaxed text-body/85">{message}</p>
+        <p id={messageId} className="mt-1.5 text-center text-[12px] leading-relaxed text-body/85">{message}</p>
 
         {/* Buttons — pill style consistent with app */}
         <div className={`mt-6 flex gap-2.5 border-t border-slate-200/75 pt-4 ${isAlert ? 'justify-center' : ''}`}>
@@ -163,7 +162,7 @@ export default function ConfirmDialog() {
               isDestructive || variant === 'error'
                 ? 'bg-red-500 shadow-[0_8px_18px_rgba(239,68,68,0.24)] hover:bg-red-600'
                 : 'bg-brand shadow-[0_8px_18px_rgba(75,108,167,0.24)] hover:bg-brand-dark'
-            } ${isAlert ? 'max-w-[10rem]' : ''}`}
+            } ${isAlert ? 'max-w-40' : ''}`}
           >
             {confirmLabel || (isAlert ? 'OK' : isDestructive ? 'Delete' : 'Confirm')}
           </button>

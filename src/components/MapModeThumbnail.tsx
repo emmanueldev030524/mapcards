@@ -37,13 +37,13 @@ function Toggle({ checked }: { checked: boolean }) {
     <span
       role="switch"
       aria-checked={checked}
-      className={`relative inline-flex h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-out ${
         checked ? 'bg-brand' : 'bg-slate-200'
       }`}
     >
       <span
-        className={`absolute left-[2px] top-[2px] h-[16px] w-[16px] rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform duration-200 ease-out ${
-          checked ? 'translate-x-[16px]' : 'translate-x-0'
+        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform duration-200 ease-out ${
+          checked ? 'translate-x-4' : 'translate-x-0'
         }`}
       />
     </span>
@@ -85,7 +85,7 @@ export default function MapModeThumbnail({
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [panelOpen])
+  }, [panelOpen, setPanelOpen])
 
   const handleLayerToggle = useCallback(
     (layerId: string, mapLayerIds: string[]) => {

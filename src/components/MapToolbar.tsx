@@ -138,14 +138,15 @@ export default function MapToolbar({
   // Poll vertex count while drawing so the Done button enables/disables reactively
   const [vertexCount, setVertexCount] = useState(0)
   useEffect(() => {
-    if (!isDrawing || !getVertexCount) { setVertexCount(0); return }
+    if (!isDrawing || !getVertexCount) return
     const id = setInterval(() => setVertexCount(getVertexCount()), 200)
     return () => clearInterval(id)
   }, [isDrawing, getVertexCount])
+  const displayedVertexCount = isDrawing ? vertexCount : 0
 
   const canFinish = isDrawing && (
-    (activeMode === 'boundary' && vertexCount >= 3) ||
-    (activeMode === 'road' && vertexCount >= 2)
+    (activeMode === 'boundary' && displayedVertexCount >= 3) ||
+    (activeMode === 'road' && displayedVertexCount >= 2)
   )
 
   // Track scroll position for fade-edge indicators
@@ -197,7 +198,7 @@ export default function MapToolbar({
     [hideTooltip, showTooltip],
   )
 
-  const hintMessage = getHintMessage(activeMode, vertexCount)
+  const hintMessage = getHintMessage(activeMode, displayedVertexCount)
   const activeTool = getActiveTool(activeMode)
 
   return (
@@ -288,11 +289,11 @@ export default function MapToolbar({
             <span className="flex items-center gap-1">
               <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
               Done
-              {vertexCount > 0 && (
+              {displayedVertexCount > 0 && (
                 <span className={`ml-0.5 rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
                   canFinish ? 'bg-white/25' : 'bg-black/8'
                 }`}>
-                  {vertexCount}
+                  {displayedVertexCount}
                 </span>
               )}
             </span>
@@ -448,7 +449,7 @@ export default function MapToolbar({
     )}
 
     {/* Floating undo pill — tablet only, during drawing */}
-    {isTablet && isDrawing && vertexCount > 0 && (
+    {isTablet && isDrawing && displayedVertexCount > 0 && (
       <div className="absolute right-3 z-10" style={{ top: isTablet ? 'calc(5.5rem + 8.5rem)' : 'calc(3.5rem + 7rem)' }}>
         <button
           onPointerDown={(e) => e.stopPropagation()}
@@ -463,7 +464,7 @@ export default function MapToolbar({
 
     {tooltip && createPortal(
       <div
-        className="pointer-events-none fixed z-[90] -translate-x-1/2"
+        className="pointer-events-none fixed z-90 -translate-x-1/2"
         style={{ left: tooltip.left, top: tooltip.top }}
       >
         <Tip label={tooltip.label} desc={tooltip.desc} shortcut={tooltip.shortcut} />

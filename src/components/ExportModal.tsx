@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useRef } from 'react'
 import { saveAs } from 'file-saver'
 import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
@@ -22,8 +22,8 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const [errorMsg, setErrorMsg] = useState('')
   const [progressStage, setProgressStage] = useState('')
   const [previewNaturalWidth, setPreviewNaturalWidth] = useState<number | null>(null)
-  const titleId = useRef(`export-modal-title-${Math.random().toString(36).slice(2, 8)}`)
-  const descriptionId = useRef(`export-modal-description-${Math.random().toString(36).slice(2, 8)}`)
+  const titleId = useId()
+  const descriptionId = useId()
 
   const boundary = useStore((s) => s.boundary)
   const territoryName = useStore((s) => s.territoryName)
@@ -50,49 +50,59 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     }
   }, [map, boundary, cardWidthInches, cardHeightInches, territoryNumber, legendEntries])
 
-  const exportOptionsRef = useRef(getExportOptions)
   const previewUrlRef = useRef<string | null>(null)
-  exportOptionsRef.current = getExportOptions
 
   useEffect(() => {
     if (!open || !boundary || !map) return
 
     let cancelled = false
-    setState('generating')
-    setProgressStage('Capturing map...')
-    setPreviewUrl(null)
-    setPngBlob(null)
-    setErrorMsg('')
-    setPreviewNaturalWidth(null)
+    const frameId = requestAnimationFrame(() => {
+      if (cancelled) return
+      setState('generating')
+      setProgressStage('Capturing map...')
+      setPreviewUrl(null)
+      setPngBlob(null)
+      setErrorMsg('')
+      setPreviewNaturalWidth(null)
 
-    exportToPng(exportOptionsRef.current())
-      .then((blob) => {
-        if (cancelled) return
-        setPngBlob(blob)
-        setProgressStage('Building preview...')
-        const url = URL.createObjectURL(blob)
-        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-        previewUrlRef.current = url
-        setPreviewUrl(url)
-        setState('ready')
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (import.meta.env.DEV) console.error('Export failed:', err)
-        setErrorMsg(err instanceof Error ? err.message : 'Export failed')
-        setState('error')
-      })
+      exportToPng(getExportOptions())
+        .then((blob) => {
+          if (cancelled) return
+          setPngBlob(blob)
+          setProgressStage('Building preview...')
+          const url = URL.createObjectURL(blob)
+          if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+          previewUrlRef.current = url
+          setPreviewUrl(url)
+          setState('ready')
+        })
+        .catch((err) => {
+          if (cancelled) return
+          if (import.meta.env.DEV) console.error('Export failed:', err)
+          setErrorMsg(err instanceof Error ? err.message : 'Export failed')
+          setState('error')
+        })
+    })
 
-    return () => { cancelled = true }
-  }, [open, map, boundary, territoryNumber, cardWidthInches, cardHeightInches, housePoints, treePoints, customRoads, customStatuses])
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frameId)
+    }
+  }, [open, map, boundary, territoryNumber, cardWidthInches, cardHeightInches, housePoints, treePoints, customRoads, customStatuses, getExportOptions])
 
   useEffect(() => {
-    if (open) { setProgressStage(''); setPreviewNaturalWidth(null) }
+    if (!open) return
+    const frameId = requestAnimationFrame(() => {
+      setProgressStage('')
+      setPreviewNaturalWidth(null)
+    })
+    return () => cancelAnimationFrame(frameId)
   }, [open])
 
   useEffect(() => {
     previewUrlRef.current = previewUrl
-    setPreviewNaturalWidth(null)
+    const frameId = requestAnimationFrame(() => setPreviewNaturalWidth(null))
+    return () => cancelAnimationFrame(frameId)
   }, [previewUrl])
 
   useEffect(() => {
@@ -150,16 +160,16 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId.current}
-        aria-describedby={descriptionId.current}
-        className="relative mx-3 flex max-h-[92vh] w-full max-w-[36rem] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_30px_60px_rgba(15,23,42,0.22),0_12px_24px_rgba(15,23,42,0.1)]"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="relative mx-3 flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_30px_60px_rgba(15,23,42,0.22),0_12px_24px_rgba(15,23,42,0.1)]"
       >
 
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between px-5 py-3">
           <div className="min-w-0">
-            <h2 id={titleId.current} className="text-[15px] font-bold text-heading">{exportTitle}</h2>
-            <div id={descriptionId.current} className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-body/55">
+            <h2 id={titleId} className="text-[15px] font-bold text-heading">{exportTitle}</h2>
+            <div id={descriptionId} className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-body/55">
               <span>{cardWidthInches}&times;{cardHeightInches} in</span>
               <span className="text-body/25">&bull;</span>
               <span>{housePoints.length} houses</span>

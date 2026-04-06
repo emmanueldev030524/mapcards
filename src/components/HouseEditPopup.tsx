@@ -12,7 +12,6 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
  * Safe: iconPaths are hardcoded string literals from mapPins.ts, not user input.
  */
 function CategoryIcon({ cat, size = 16, className }: { cat: PinCategory; size?: number; className?: string }) {
-  // eslint-disable-next-line react/no-danger -- iconPaths are static SVG fragments from our own codebase
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -86,8 +85,11 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const houseIndex = house ? housePoints.indexOf(house) + 1 : 0
 
   useEffect(() => {
-    setStatusPickerOpen(false)
-    setAdding(false)
+    const id = requestAnimationFrame(() => {
+      setStatusPickerOpen(false)
+      setAdding(false)
+    })
+    return () => cancelAnimationFrame(id)
   }, [selectedId])
 
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('bottom')
   const [floatingLayout, setFloatingLayout] = useState<{ left: number; top: number }>({ left: 16, top: 88 })
   useEffect(() => {
-    if (!house || !map) { setPopupPosition('bottom'); return }
+    if (!house || !map) return
 
     const updatePosition = () => {
       const coords = house.geometry.coordinates as [number, number]
@@ -264,7 +266,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     >
       <div
         ref={popupRef}
-        className="hover-lift w-full rounded-2xl border border-slate-200/85 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md sm:w-[22rem]"
+        className="hover-lift w-full rounded-2xl border border-slate-200/85 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md sm:w-88"
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY
           setSwiping(true)
@@ -551,7 +553,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     aria-pressed={active}
                     aria-label={`${active ? 'Remove' : 'Apply'} place type ${cat.label}`}
                     title={cat.label}
-                    className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-all duration-150 ${
+                    className={`flex min-h-19 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-all duration-150 ${
                       active
                         ? 'shadow-[0_8px_18px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-white/18'
                         : 'border border-slate-200/80 bg-white/96 hover:border-slate-300 hover:bg-white'
@@ -578,7 +580,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                         size={14}
                       />
                     </span>
-                    <span className={`flex min-h-[1.7rem] break-words items-center justify-center text-[8.5px] font-medium leading-[1.15] ${
+                    <span className={`flex min-h-[1.7rem] wrap-break-word items-center justify-center text-[8.5px] font-medium leading-[1.15] ${
                       active ? 'text-white' : 'text-body/75'
                     }`}>
                       {cat.label}

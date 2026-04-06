@@ -55,7 +55,7 @@ function EditableBadge({
     <button
       onClick={() => setEditing(true)}
       title="Click to edit"
-      className="min-h-[28px] rounded-full bg-brand-tint px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15 active:scale-95"
+      className="min-h-7 rounded-full bg-brand-tint px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15 active:scale-95"
     >
       {value}{suffix}
     </button>
@@ -128,18 +128,18 @@ function ToggleSwitch({
   label: string
 }) {
   return (
-    <label className="flex min-h-[44px] cursor-pointer items-center justify-between rounded-xl px-1 py-1 transition-colors duration-150 active:bg-brand-hover">
+    <label className="flex min-h-11 cursor-pointer items-center justify-between rounded-xl px-1 py-1 transition-colors duration-150 active:bg-brand-hover">
       <span className="text-[12px] font-medium text-body">{label}</span>
       <button
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+        className={`relative h-6.5 w-11.5 shrink-0 rounded-full transition-colors duration-200 ease-out ${
           checked ? 'bg-brand' : 'bg-slate-200'
         }`}
       >
         <span
-          className={`absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
+          className={`absolute left-0.75 top-0.75 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
             checked ? 'translate-x-5' : 'translate-x-0'
           }`}
         />
@@ -232,7 +232,7 @@ export default function Toolbar() {
               )
               if (ok) clearAllHouses()
             }}
-            className="flex min-h-[40px] w-full items-center gap-2 rounded-lg py-2 text-[12px] font-medium text-red-500 transition-colors duration-150 active:bg-red-50"
+            className="flex min-h-10 w-full items-center gap-2 rounded-lg py-2 text-[12px] font-medium text-red-500 transition-colors duration-150 active:bg-red-50"
           >
             <Trash2 size={14} strokeWidth={2} />
             Clear all houses

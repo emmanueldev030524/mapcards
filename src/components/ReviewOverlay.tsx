@@ -29,7 +29,7 @@ export default function ReviewOverlay({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">Review Mode</p>
-            <h2 className="mt-1 truncate text-[16px] font-bold tracking-tight text-white">{heading}</h2>
+            <h2 className="mt-1 truncate text-base font-bold tracking-tight text-white">{heading}</h2>
             <p className="mt-1 text-[12px] text-white/72">
               {territoryName && territoryNumber ? territoryName : territoryName || 'Inspect your card without editing chrome.'}
             </p>

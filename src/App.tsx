@@ -90,21 +90,12 @@ export default function App() {
 
   const [bulkFillOpen, setBulkFillOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => (typeof window === 'undefined' ? true : window.innerWidth >= 1280),
+  )
   const [basemapPanelOpen, setBasemapPanelOpen] = useState(false)
   const isTablet = useIsTablet()
-
-  // Auto-close sidebar on tablet when entering draw mode
-  useEffect(() => {
-    if (isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road')) {
-      setSidebarOpen(false)
-    }
-  }, [isTablet, activeDrawMode])
-
-  // Start with sidebar closed on tablet
-  useEffect(() => {
-    if (isTablet) setSidebarOpen(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const effectiveSidebarOpen = sidebarOpen && !(isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road'))
 
   const handleModeChange = useCallback(
     (mode: typeof activeDrawMode) => {
@@ -215,7 +206,7 @@ export default function App() {
   return (
     <div className="touch-lock relative flex h-dvh w-full overflow-hidden">
       {/* Backdrop — tablet overlay only */}
-      {!reviewMode && isTablet && sidebarOpen && (
+      {!reviewMode && isTablet && effectiveSidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
@@ -230,10 +221,10 @@ export default function App() {
           'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg/96 backdrop-blur-sm',
           isTablet
             ? `fixed inset-y-0 left-0 z-40 w-[min(22rem,calc(100vw-1.5rem))] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                effectiveSidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
             : `absolute inset-y-0 left-0 z-20 w-68 shadow-[4px_0_24px_rgba(15,23,42,0.08)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                sidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
+                effectiveSidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
               }`,
           !isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road') ? 'sidebar-drawing' : '',
         ].filter(Boolean).join(' ')}
@@ -249,7 +240,7 @@ export default function App() {
         <div className="bg-linear-to-b from-brand to-brand-dark px-4 pb-5 pt-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)] sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-[16px] font-bold tracking-tight text-white sm:text-[17px]">MapCards</h1>
+              <h1 className="text-base font-bold tracking-tight text-white sm:text-[17px]">MapCards</h1>
               <p className="mt-0.5 text-[11px] font-medium text-white/55 sm:text-[11.5px]">Territory Card Maker</p>
             </div>
             <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white/80 backdrop-blur-sm">
@@ -381,22 +372,22 @@ export default function App() {
         {!reviewMode && !basemapPanelOpen && (
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          aria-label={effectiveSidebarOpen ? 'Collapse panel' : 'Expand panel'}
           className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
             isTablet
               ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/30 bg-white/85 text-slate-500 shadow-[2px_0_10px_rgba(0,0,0,0.12)] backdrop-blur-md hover:bg-white hover:text-slate-700'
-              : `${sidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-slate-300/90 bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08)] backdrop-blur-md hover:bg-white hover:text-slate-800`
+              : `${effectiveSidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-slate-300/90 bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08)] backdrop-blur-md hover:bg-white hover:text-slate-800`
           }`}
-          title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          title={effectiveSidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
           {!isTablet && (
             <span
               aria-hidden="true"
-              className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-brand/70 shadow-[0_0_10px_rgba(75,108,167,0.35)]"
+              className="absolute left-0 top-1/2 h-7 w-0.75 -translate-y-1/2 rounded-r-full bg-brand/70 shadow-[0_0_10px_rgba(75,108,167,0.35)]"
             />
           )}
           <svg width={isTablet ? 8 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
-            {sidebarOpen
+            {effectiveSidebarOpen
               ? <path d="M6 0L0 6l6 6V0z" />
               : <path d="M2 0l6 6-6 6V0z" />
             }
@@ -456,7 +447,7 @@ export default function App() {
           onModeChange={setMapMode}
           map={mapInstance}
           onPanelToggle={setBasemapPanelOpen}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={effectiveSidebarOpen}
         />}
       </main>
 

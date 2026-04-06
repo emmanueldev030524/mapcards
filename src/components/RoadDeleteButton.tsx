@@ -14,7 +14,7 @@ export default function RoadDeleteButton() {
 
   return (
     <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <div className="min-w-[18rem] rounded-2xl border border-slate-200/85 bg-white/97 px-3 py-3 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md">
+      <div className="min-w-72 rounded-2xl border border-slate-200/85 bg-white/97 px-3 py-3 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[12px] font-semibold text-heading">Road #{roadIndex > 0 ? roadIndex : 'Selected'}</p>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { useState, useRef, useId, useEffect, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 
 interface SidebarSectionProps {
@@ -11,7 +11,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
   const [open, setOpen] = useState(defaultOpen)
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | undefined>(undefined)
-  const contentId = useRef(`sidebar-section-${title.toLowerCase().replace(/\s+/g, '-')}`)
+  const contentId = useId()
 
   // Measure content height for smooth animation
   useEffect(() => {
@@ -30,8 +30,8 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-controls={contentId.current}
-        className="group flex min-h-[36px] w-full items-center justify-between rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-brand-hover"
+        aria-controls={contentId}
+        className="group flex min-h-9 w-full items-center justify-between rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-brand-hover"
       >
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
           {title}
@@ -43,7 +43,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         />
       </button>
       <div
-        id={contentId.current}
+        id={contentId}
         style={{
           maxHeight: open ? (height ?? 1000) : 0,
           opacity: open ? 1 : 0,

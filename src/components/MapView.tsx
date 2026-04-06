@@ -7,7 +7,7 @@ import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
-import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateStartMarkerSVG } from '../lib/mapPins'
+import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon } from '../lib/mapPins'
 import { BRAND } from '../lib/colors'
 import { showToast } from './Toast'
 
@@ -41,21 +41,25 @@ const TREE_SOURCE = 'tree-points'
 const TREE_LAYER = 'tree-icons'
 const START_MARKER_SOURCE = 'start-marker'
 const START_MARKER_LAYER = 'start-marker-pin'
+const START_MARKER_LABEL_LAYER = 'start-marker-label'
 const ROAD_SOURCE = 'custom-roads'
 const ROAD_CASING = 'custom-roads-casing'
 const ROAD_FILL = 'custom-roads-fill'
-const START_MARKER_ID = 'start-marker'
+const DEFAULT_CENTER: [number, number] = [124.955, 8.333]
 
 // World-extent polygon ring (covers the entire map)
 const WORLD_RING: [number, number][] = [
   [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90],
 ]
 
-export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapReady }: MapViewProps) {
+export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const resizeFrameRef = useRef<number | null>(null)
   const justDraggedRef = useRef(false)
+  const initialCenterRef = useRef(center)
+  const initialZoomRef = useRef(zoom)
+  const onMapReadyRef = useRef(onMapReady)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
@@ -71,12 +75,18 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const moveStartMarker = useStore((s) => s.moveStartMarker)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
+  const startMarker = useStore((s) => s.startMarker)
+  const selectedStartMarker = useStore((s) => s.selectedStartMarker)
   const addHousePoint = useStore((s) => s.addHousePoint)
   const mapMode = useStore((s) => s.mapMode)
   // Derive the effective view mode
   const effectiveMode: MapViewMode = mapMode === 'auto'
     ? (boundary === null ? 'satellite' : 'street')
     : mapMode
+
+  useEffect(() => {
+    onMapReadyRef.current = onMapReady
+  }, [onMapReady])
 
   // Initialize map
   useEffect(() => {
@@ -91,8 +101,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         const map = new maplibregl.Map({
           container: containerRef.current!,
           style,
-          center,
-          zoom,
+          center: initialCenterRef.current,
+          zoom: initialZoomRef.current,
           attributionControl: false,
           fadeDuration: 200,
           canvasContextAttributes: { preserveDrawingBuffer: true },
@@ -331,8 +341,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-stroke-width': 2.5,
               'circle-stroke-color': '#15803d',
               'circle-stroke-opacity': 0.45,
-              'circle-translate': [0, -18],
-              'circle-translate-anchor': 'viewport',
             },
           })
 
@@ -477,32 +485,30 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               data: { type: 'FeatureCollection', features: [] },
             })
 
-            try {
-              const startMarkerImg = await new Promise<HTMLImageElement>((res, rej) => {
-                const img = new Image(32, 40)
-                img.onload = () => res(img)
-                img.onerror = rej
-                img.src = generateStartMarkerSVG()
-              })
-              if (!map.hasImage(START_MARKER_ID)) map.addImage(START_MARKER_ID, startMarkerImg)
-            } catch (err) {
-              if (import.meta.env.DEV) console.error('Start marker image failed to load:', err)
-            }
-
             map.addLayer({
               id: START_MARKER_LAYER,
+              type: 'circle',
+              source: START_MARKER_SOURCE,
+              paint: {
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 6, 16, 8.5, 19, 10.5],
+                'circle-color': '#22c55e',
+                'circle-opacity': 0.98,
+                'circle-stroke-width': 2.5,
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-opacity': 1,
+              },
+            })
+
+            map.addLayer({
+              id: START_MARKER_LABEL_LAYER,
               type: 'symbol',
               source: START_MARKER_SOURCE,
               layout: {
-                'icon-image': START_MARKER_ID,
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.7, 16, 0.92, 19, 1.05],
-                'icon-anchor': 'bottom',
-                'icon-allow-overlap': true,
                 'text-field': ['get', 'label'],
                 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 11, 19, 13],
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-anchor': 'bottom',
-                'text-offset': [0, -3.2],
+                'text-anchor': 'top',
+                'text-offset': [0, 1.05],
                 'text-padding': 2,
                 'text-max-width': 8,
                 'text-allow-overlap': true,
@@ -520,7 +526,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             setLoading(false)
             mapRef.current = map
             setMapReady(true)
-            onMapReady?.(map)
+          onMapReadyRef.current?.(map)
           }
 
           setupHouseLayers().catch((err) => {
@@ -528,7 +534,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             setLoading(false)
             mapRef.current = map
             setMapReady(true)
-            onMapReady?.(map)
+            onMapReadyRef.current?.(map)
           })
         })
 
@@ -651,6 +657,46 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       linesSource?.setData({ type: 'FeatureCollection', features: [] })
     }
   }, [snapToGrid, gridSpacingMeters, boundary, mapReady])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const source = map.getSource(START_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    if (!startMarker) {
+      source.setData({ type: 'FeatureCollection', features: [] })
+      return
+    }
+
+    source.setData({
+      type: 'FeatureCollection',
+      features: [{
+        ...startMarker,
+        properties: {
+          ...(startMarker.properties || {}),
+          id: 'start-marker',
+          label: 'Start Here',
+        },
+      }],
+    })
+  }, [startMarker, mapReady])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const source = map.getSource(SELECTED_START_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    if (selectedStartMarker && startMarker) {
+      source.setData({ type: 'FeatureCollection', features: [startMarker] })
+      return
+    }
+
+    source.setData({ type: 'FeatureCollection', features: [] })
+  }, [selectedStartMarker, startMarker, mapReady])
 
   // boundaryOpacity, maskOpacity synced via direct Zustand subscription below
 
@@ -810,29 +856,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       })
     }
 
-    /** Helper: sync start marker */
-    const syncStartMarker = () => {
-      const source = map.getSource(START_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
-      if (!source) return
-      const { startMarker } = useStore.getState()
-      if (!startMarker) {
-        source.setData({ type: 'FeatureCollection', features: [] })
-        return
-      }
-
-      source.setData({
-        type: 'FeatureCollection',
-        features: [{
-          ...startMarker,
-          properties: {
-            ...(startMarker.properties || {}),
-            id: START_MARKER_ID,
-            label: 'Start Here',
-          },
-        }],
-      })
-    }
-
     /** Helper: sync selected house highlight */
     const syncSelectedHouse = () => {
       const source = map.getSource(SELECTED_SOURCE) as maplibregl.GeoJSONSource | undefined
@@ -863,18 +886,6 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       source.setData({ type: 'FeatureCollection', features: [] })
     }
 
-    /** Helper: sync selected start marker highlight */
-    const syncSelectedStartMarker = () => {
-      const source = map.getSource(SELECTED_START_SOURCE) as maplibregl.GeoJSONSource | undefined
-      if (!source) return
-      const { selectedStartMarker: isSelected, startMarker } = useStore.getState()
-      if (isSelected && startMarker) {
-        source.setData({ type: 'FeatureCollection', features: [startMarker] })
-        return
-      }
-      source.setData({ type: 'FeatureCollection', features: [] })
-    }
-
     /** Helper: sync boundary/mask opacity (slider-driven) */
     const syncOpacity = () => {
       const { boundaryOpacity, maskOpacity } = useStore.getState()
@@ -900,10 +911,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     syncHouses()
     syncTrees()
     syncRoads()
-    syncStartMarker()
     syncSelectedHouse()
     syncSelectedRoad()
-    syncSelectedStartMarker()
     syncOpacity()
     syncIconSize()
 
@@ -914,10 +923,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (next.housePoints !== prev.housePoints || next.customStatuses !== prev.customStatuses) syncHouses()
       if (next.treePoints !== prev.treePoints) syncTrees()
       if (next.customRoads !== prev.customRoads) syncRoads()
-      if (next.startMarker !== prev.startMarker) syncStartMarker()
       if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
       if (next.selectedRoadId !== prev.selectedRoadId || next.customRoads !== prev.customRoads) syncSelectedRoad()
-      if (next.selectedStartMarker !== prev.selectedStartMarker || next.startMarker !== prev.startMarker) syncSelectedStartMarker()
       if (next.boundaryOpacity !== prev.boundaryOpacity || next.maskOpacity !== prev.maskOpacity) syncOpacity()
       if (next.houseIconSize !== prev.houseIconSize || next.badgeIconSize !== prev.badgeIconSize) syncIconSize()
       prev = next
@@ -1350,7 +1357,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       )}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-white">
-          <div className="max-w-[20rem] rounded-lg border border-red-200 bg-red-50 p-4 text-center">
+          <div className="max-w-80 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
             <p className="text-sm text-red-700">{error}</p>
             <button
               onClick={() => window.location.reload()}

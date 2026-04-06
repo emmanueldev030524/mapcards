@@ -227,7 +227,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
   const dropdown = open && dropdownPosition && (
     <ul
       ref={dropdownRef}
-      className="fixed z-[80] max-h-64 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/98 py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+      className="fixed z-80 max-h-64 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/98 py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl"
       style={{
         left: dropdownPosition.left,
         top: dropdownPosition.top,

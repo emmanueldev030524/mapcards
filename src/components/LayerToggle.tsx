@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { getToggleableLayers } from '../lib/mapStyle'
 import { useStore } from '../store'
@@ -26,12 +25,12 @@ function LayerSwitch({ checked }: { checked: boolean }) {
     <span
       role="switch"
       aria-checked={checked}
-      className={`relative inline-flex h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ease-out ${
+      className={`relative inline-flex h-5.5 w-9.5 shrink-0 rounded-full transition-colors duration-200 ease-out ${
         checked ? 'bg-brand' : 'bg-slate-200'
       }`}
     >
       <span
-        className={`absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
+        className={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
           checked ? 'translate-x-4' : 'translate-x-0'
         }`}
       />
@@ -44,59 +43,54 @@ export default function LayerToggle({ map }: LayerToggleProps) {
   const toggleLayer = useStore((s) => s.toggleLayer)
   const layers = getToggleableLayers()
 
-  const handleToggle = useCallback(
-    (layerId: string, mapLayerIds: string[]) => {
-      toggleLayer(layerId)
-      if (!map) return
+  const handleToggle = (layerId: string, mapLayerIds: string[]) => {
+    toggleLayer(layerId)
+    if (!map) return
 
-      const newVisible = !visibleLayers[layerId]
-      const visibility = newVisible ? 'visible' : 'none'
+    const newVisible = !visibleLayers[layerId]
+    const visibility = newVisible ? 'visible' : 'none'
 
-      // Toggle our custom layers
-      for (const mlId of mapLayerIds) {
-        try {
-          map.setLayoutProperty(mlId, 'visibility', visibility)
-        } catch {
-          // Layer may not exist yet
-        }
+    // Toggle our custom layers
+    for (const mlId of mapLayerIds) {
+      try {
+        map.setLayoutProperty(mlId, 'visibility', visibility)
+      } catch {
+        // Layer may not exist yet
       }
+    }
 
-      // For buildings: also toggle ALL base style layers that use the building source-layer
-      if (layerId === 'buildings') {
-        const style = map.getStyle()
-        if (style?.layers) {
-          for (const layer of style.layers) {
-            if ('source-layer' in layer && layer['source-layer'] === 'building') {
-              try {
-                map.setLayoutProperty(layer.id, 'visibility', visibility)
-              } catch { /* skip */ }
-            }
+    // For buildings: also toggle ALL base style layers that use the building source-layer
+    if (layerId === 'buildings') {
+      const style = map.getStyle()
+      if (style?.layers) {
+        for (const layer of style.layers) {
+          if ('source-layer' in layer && layer['source-layer'] === 'building') {
+            try {
+              map.setLayoutProperty(layer.id, 'visibility', visibility)
+            } catch { /* skip */ }
           }
         }
       }
+    }
 
-      // For housenumbers: toggle text visibility on the house icons layer
-      if (layerId === 'housenumbers') {
-        try {
-          if (newVisible) {
-            // Show numbers + labels below house icons
-            map.setLayoutProperty('house-icons', 'text-field', [
-              'format',
-              ['get', 'num'], { 'font-scale': 1.0 },
-              ['case', ['!=', ['get', 'label'], ''],
-                ['concat', '\n', ['get', 'label']],
-                '',
-              ], { 'font-scale': 0.85 },
-            ])
-          } else {
-            // Hide all text
-            map.setLayoutProperty('house-icons', 'text-field', '')
-          }
-        } catch { /* layer may not exist yet */ }
-      }
-    },
-    [map, visibleLayers, toggleLayer],
-  )
+    // For housenumbers: toggle text visibility on the house icons layer
+    if (layerId === 'housenumbers') {
+      try {
+        if (newVisible) {
+          map.setLayoutProperty('house-icons', 'text-field', [
+            'format',
+            ['get', 'num'], { 'font-scale': 1.0 },
+            ['case', ['!=', ['get', 'label'], ''],
+              ['concat', '\n', ['get', 'label']],
+              '',
+            ], { 'font-scale': 0.85 },
+          ])
+        } else {
+          map.setLayoutProperty('house-icons', 'text-field', '')
+        }
+      } catch { /* layer may not exist yet */ }
+    }
+  }
 
   return (
     <div>
@@ -110,7 +104,7 @@ export default function LayerToggle({ map }: LayerToggleProps) {
               {i > 0 && <div className="mx-2.5 border-t border-divider/40" />}
               <button
                 onClick={() => handleToggle(layer.id, layer.layerIds)}
-                className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-all duration-150 active:bg-white/60"
+                className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-all duration-150 active:bg-white/60"
               >
                 <span
                   className="flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200"

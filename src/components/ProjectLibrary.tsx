@@ -59,10 +59,10 @@ function ProjectCard({
     <div className="rounded-lg border border-divider/50 bg-white px-2.5 py-2 transition-colors">
       <div className={`flex gap-2 ${isTablet ? 'flex-col' : 'items-start justify-between'}`}>
         <div className="min-w-0 flex-1">
-          <p className="break-words text-[11.5px] font-semibold leading-snug text-heading">
+          <p className="wrap-break-word text-[11.5px] font-semibold leading-snug text-heading">
             {title}
           </p>
-          <p className="mt-0.5 break-words text-[10px] leading-relaxed text-body/60">
+          <p className="mt-0.5 wrap-break-word text-[10px] leading-relaxed text-body/60">
             {meta}
           </p>
           <p className="mt-0.5 flex items-center gap-1 text-[9.5px] text-body/50">
