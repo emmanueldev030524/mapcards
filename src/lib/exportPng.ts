@@ -113,8 +113,8 @@ function measureLegendHeight(
   const bottomPad = 24
   const dotRadius = 11
   const gap = 40
-  const entryFont = '600 28px "Outfit", "Inter", system-ui, sans-serif'
-  const titleFont = 'bold 38px "Outfit", "Inter", system-ui, sans-serif'
+  const entryFont = '600 28px "Inter", system-ui, sans-serif'
+  const titleFont = 'bold 38px "Inter", system-ui, sans-serif'
 
   // Measure title width
   let legendStartX = px
@@ -175,8 +175,8 @@ function drawLegendBar(
   const topPad = 28
   const dotRadius = 11
   const gap = 40
-  const entryFont = '600 28px "Outfit", "Inter", system-ui, sans-serif'
-  const titleFont = 'bold 38px "Outfit", "Inter", system-ui, sans-serif'
+  const entryFont = '600 28px "Inter", system-ui, sans-serif'
+  const titleFont = 'bold 38px "Inter", system-ui, sans-serif'
 
   // Frosted glass legend bar — clip to bottom rounded corners
   ctx.save()
@@ -272,14 +272,15 @@ function drawStartMarkerLabel(
   const padX = Math.round(14 * scale)
   const padY = Math.round(9 * scale)
   const radius = Math.round(15 * scale)
-  const margin = 42
-  const safeLeft = margin
-  const safeTop = margin
-  const safeRight = canvasWidth - margin
-  const safeBottom = canvasHeight - legendHeight - margin
+  // Keep label clear of the card's rounded corners (24px radius at 300 DPI)
+  const cornerMargin = Math.round(24 * (300 / 300)) + 8
+  const safeLeft = cornerMargin
+  const safeTop = cornerMargin
+  const safeRight = canvasWidth - cornerMargin
+  const safeBottom = canvasHeight - legendHeight - cornerMargin
 
   ctx.save()
-  ctx.font = `700 ${fontSize}px "Outfit", "Inter", system-ui, sans-serif`
+  ctx.font = `700 ${fontSize}px "Inter", system-ui, sans-serif`
   const textWidth = ctx.measureText(label).width
   const boxWidth = textWidth + padX * 2 + Math.round(14 * scale)
   const boxHeight = fontSize + padY * 2
@@ -507,13 +508,15 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, cornerRadius, territoryNumber, legendEntries || [])
     }
 
+    // --- 6. Release rounded-corner clip so the Start Here label can overlap boundary freely ---
+    ctx.restore()
+
     const { startMarker, startMarkerSize } = useStore.getState()
     if (startMarker) {
       drawStartMarkerLabel(ctx, map, startMarker, totalWidth, totalHeight, legendHeight, startMarkerSize)
     }
 
-    // --- 6. Thin hairline border around card ---
-    ctx.restore() // restore the rounded corner clip
+    // --- 7. Thin hairline border around card ---
     roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
     ctx.strokeStyle = '#D5D0C8'
     ctx.lineWidth = 2
