@@ -12,12 +12,9 @@ interface FloatingSettingsProps {
 }
 
 export default function FloatingSettings({ map }: FloatingSettingsProps) {
-  const [open, setOpen] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const [settingsInteracted, setSettingsInteracted] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const isTablet = useIsTablet()
-  const prevModeRef = useRef<string | null>(null)
 
   const boundary = useStore((s) => s.boundary)
   const houseCount = useStore((s) => s.housePoints.length)
@@ -34,41 +31,13 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
     selectedTreeId !== null ||
     selectedRoadId !== null ||
     selectedStartMarker
-
-  // Auto-open when boundary exists and no tool/selection active (unless dismissed)
-  useEffect(() => {
-    if (hasActiveMode || hasSelection) {
-      setOpen(false)
-    } else if (hasContent && !dismissed) {
-      setOpen(true)
-    }
-  }, [hasContent, hasActiveMode, hasSelection, dismissed])
-
-  // When exiting any tool mode, reset dismissed and reopen (only if user hasn't interacted)
-  useEffect(() => {
-    const hadMode = prevModeRef.current !== null
-    if (hadMode && !hasActiveMode && hasContent && !settingsInteracted) {
-      setDismissed(false)
-      setOpen(true)
-    }
-    prevModeRef.current = activeDrawMode
-  }, [activeDrawMode, hasContent, hasActiveMode, settingsInteracted])
-
-  // Reset when boundary removed
-  useEffect(() => {
-    if (!boundary) {
-      setDismissed(false)
-      setOpen(false)
-      setSettingsInteracted(false)
-    }
-  }, [boundary])
+  const open = hasContent && !hasSelection && !hasActiveMode && !dismissed
 
   // Click outside panel to close + dismiss
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false)
         setDismissed(true)
       }
     }
@@ -95,7 +64,6 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
       const pt = point([e.lngLat.lng, e.lngLat.lat])
       if (booleanPointInPolygon(pt, boundary)) {
         setDismissed(false)
-        setOpen(true)
       }
     }
 
@@ -116,7 +84,7 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
               <h3 className="text-[13px] font-bold text-heading">Settings</h3>
             </div>
             <button
-              onClick={() => { setOpen(false); setDismissed(true) }}
+              onClick={() => setDismissed(true)}
               aria-label="Close"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
             >
@@ -130,7 +98,7 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
 
         {/* Content */}
         <div className="max-h-[min(70vh,32rem)] overflow-y-auto px-4 pb-3 pt-3">
-          <div onPointerDown={() => setSettingsInteracted(true)} className="space-y-3">
+          <div className="space-y-3">
             <Toolbar />
           </div>
         </div>

@@ -1,6 +1,6 @@
 import type maplibregl from 'maplibre-gl'
 import { bbox as turfBbox } from '@turf/bbox'
-import type { Feature, Polygon } from 'geojson'
+import type { Feature, Point, Polygon } from 'geojson'
 import type { LegendEntry } from './mapPins'
 import { useStore } from '../store'
 
@@ -16,6 +16,9 @@ export interface ExportOptions {
 const DPI = 300
 const HOUSE_LAYER = 'house-icons'
 const BADGE_LAYER = 'house-badge-icons'
+const TREE_LAYER = 'tree-icons'
+const START_MARKER_LAYER = 'start-marker-pin'
+const START_MARKER_LABEL_LAYER = 'start-marker-label'
 const BOUNDARY_FILL = 'territory-boundary-fill'
 const MASK_LAYER = 'territory-mask-fill'
 
@@ -24,7 +27,14 @@ function nextFrame(): Promise<void> {
 }
 
 function syncCurrentVisualState(map: maplibregl.Map) {
-  const { houseIconSize, badgeIconSize, boundaryOpacity, maskOpacity } = useStore.getState()
+  const {
+    houseIconSize,
+    badgeIconSize,
+    treeIconSize,
+    startMarkerSize,
+    boundaryOpacity,
+    maskOpacity,
+  } = useStore.getState()
 
   try {
     map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
@@ -33,11 +43,42 @@ function syncCurrentVisualState(map: maplibregl.Map) {
       16, 0.55 * houseIconSize,
       19, 0.7 * houseIconSize,
     ])
-  } catch {}
+  } catch { void 0 }
 
-  try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch {}
-  try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch {}
-  try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch {}
+  try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch { void 0 }
+  try {
+    const treeLayer = map.getLayer(TREE_LAYER) as { type?: string } | undefined
+    if (treeLayer?.type === 'symbol') {
+      map.setLayoutProperty(TREE_LAYER, 'icon-size', [
+        'interpolate', ['linear'], ['zoom'],
+        13, 0.4 * treeIconSize,
+        16, 0.7 * treeIconSize,
+        19, 0.9 * treeIconSize,
+      ])
+    } else {
+      map.setPaintProperty(TREE_LAYER, 'circle-radius', 6 * treeIconSize)
+    }
+  } catch { void 0 }
+  try {
+    const startLayer = map.getLayer(START_MARKER_LAYER) as { type?: string } | undefined
+    if (startLayer?.type === 'symbol') {
+      map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', [
+        'interpolate', ['linear'], ['zoom'],
+        13, 0.72 * startMarkerSize,
+        16, 0.9 * startMarkerSize,
+        19, 1.06 * startMarkerSize,
+      ])
+    } else {
+      map.setPaintProperty(START_MARKER_LAYER, 'circle-radius', [
+        'interpolate', ['linear'], ['zoom'],
+        13, 6 * startMarkerSize,
+        16, 8.5 * startMarkerSize,
+        19, 10.5 * startMarkerSize,
+      ])
+    }
+  } catch { void 0 }
+  try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch { void 0 }
+  try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch { void 0 }
 
   map.triggerRepaint()
 }
@@ -214,6 +255,85 @@ function drawLegendBar(
   }
 }
 
+function drawStartMarkerLabel(
+  ctx: CanvasRenderingContext2D,
+  map: maplibregl.Map,
+  startMarker: Feature<Point>,
+  canvasWidth: number,
+  canvasHeight: number,
+  legendHeight: number,
+  startMarkerSize: number,
+) {
+  const [lng, lat] = startMarker.geometry.coordinates
+  const point = map.project([lng, lat])
+  const label = 'Start Here'
+  const scale = Math.max(0.9, Math.min(1.15, startMarkerSize))
+  const fontSize = Math.round(22 * scale)
+  const padX = Math.round(14 * scale)
+  const padY = Math.round(9 * scale)
+  const radius = Math.round(15 * scale)
+  const margin = 42
+  const safeLeft = margin
+  const safeTop = margin
+  const safeRight = canvasWidth - margin
+  const safeBottom = canvasHeight - legendHeight - margin
+
+  ctx.save()
+  ctx.font = `700 ${fontSize}px "Outfit", "Inter", system-ui, sans-serif`
+  const textWidth = ctx.measureText(label).width
+  const boxWidth = textWidth + padX * 2 + Math.round(14 * scale)
+  const boxHeight = fontSize + padY * 2
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+  const gap = Math.round(9 * scale)
+  const anchorX = point.x
+  const anchorY = point.y - Math.round(15 * scale)
+
+  const placements = [
+    { x: anchorX + gap, y: anchorY - Math.round(boxHeight * 0.72), priority: 0 },
+    { x: anchorX - gap - boxWidth, y: anchorY - Math.round(boxHeight * 0.72), priority: 1 },
+    { x: anchorX + gap, y: anchorY - Math.round(boxHeight * 0.48), priority: 2 },
+    { x: anchorX - gap - boxWidth, y: anchorY - Math.round(boxHeight * 0.48), priority: 3 },
+    { x: anchorX - boxWidth / 2, y: anchorY - boxHeight - Math.round(4 * scale), priority: 4 },
+    { x: anchorX + gap, y: anchorY + Math.round(3 * scale), priority: 5 },
+    { x: anchorX - gap - boxWidth, y: anchorY + Math.round(3 * scale), priority: 6 },
+  ]
+
+  const chosen = placements
+    .map((placement) => {
+      const x = clamp(placement.x, safeLeft, safeRight - boxWidth)
+      const y = clamp(placement.y, safeTop, safeBottom - boxHeight)
+      const penalty = Math.abs(x - placement.x) + Math.abs(y - placement.y) + placement.priority * 4
+      return { x, y, penalty }
+    })
+    .sort((a, b) => a.penalty - b.penalty)[0]
+
+  const boxX = chosen.x
+  const boxY = chosen.y
+
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.12)'
+  ctx.shadowBlur = 12
+  ctx.shadowOffsetY = 4
+  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, radius)
+  ctx.fillStyle = 'rgba(255, 252, 247, 0.97)'
+  ctx.fill()
+  ctx.shadowColor = 'transparent'
+
+  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, radius)
+  ctx.strokeStyle = 'rgba(199, 157, 70, 0.42)'
+  ctx.lineWidth = 1.6
+  ctx.stroke()
+
+  ctx.fillStyle = '#9a6700'
+  ctx.beginPath()
+  ctx.arc(boxX + padX, boxY + boxHeight / 2, 4.2 * scale, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.fillStyle = '#14532d'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, boxX + padX + Math.round(11 * scale), boxY + boxHeight / 2)
+  ctx.restore()
+}
+
 export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const { map, boundary, cardWidthInches, cardHeightInches } = options
 
@@ -227,6 +347,9 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const origCenter = map.getCenter()
   const origZoom = map.getZoom()
   const origBearing = map.getBearing()
+  const startLabelVisibility = map.getLayer(START_MARKER_LABEL_LAYER)
+    ? (map.getLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility') as 'visible' | 'none' | undefined)
+    : undefined
 
   // Use the user's current bearing exactly
   const exportBearing = map.getBearing()
@@ -234,6 +357,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   // All map mutations are wrapped in try/finally so the working canvas
   // is always restored — even if an await or canvas step throws.
   try {
+    if (map.getLayer(START_MARKER_LABEL_LAYER)) {
+      map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', 'none')
+    }
+
     // Export can start immediately after a slider change, before MapLibre has
     // fully painted the latest layout mutation. Force the current visual state
     // onto the map and wait a frame so capture matches the on-screen preview.
@@ -380,6 +507,11 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       drawLegendBar(ctx, totalWidth, totalHeight, legendHeight, cornerRadius, territoryNumber, legendEntries || [])
     }
 
+    const { startMarker, startMarkerSize } = useStore.getState()
+    if (startMarker) {
+      drawStartMarkerLabel(ctx, map, startMarker, totalWidth, totalHeight, legendHeight, startMarkerSize)
+    }
+
     // --- 6. Thin hairline border around card ---
     ctx.restore() // restore the rounded corner clip
     roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
@@ -407,6 +539,9 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       bearing: origBearing,
       animate: false,
     } as maplibregl.JumpToOptions)
+    if (map.getLayer(START_MARKER_LABEL_LAYER)) {
+      map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', startLabelVisibility ?? 'visible')
+    }
     map.resize()
     syncCurrentVisualState(map)
   }

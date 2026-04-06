@@ -145,7 +145,9 @@ export function useDraw(options: UseDrawOptions) {
     dblclick: ((e: maplibregl.MapMouseEvent) => void) | null
     touchPreview: ((e: maplibregl.MapTouchEvent) => void) | null
   }>({ click: null, mousemove: null, dblclick: null, touchPreview: null })
-  optionsRef.current = options
+  useEffect(() => {
+    optionsRef.current = options
+  }, [options])
 
   const updateLayers = useCallback(() => {
     const map = mapRef.current
@@ -478,9 +480,9 @@ export function useDraw(options: UseDrawOptions) {
               try {
                 map.setPaintProperty(SNAP_LAYER, 'circle-radius', 14)
                 setTimeout(() => {
-                  try { map.setPaintProperty(SNAP_LAYER, 'circle-radius', 10) } catch {}
+                  try { map.setPaintProperty(SNAP_LAYER, 'circle-radius', 10) } catch { void 0 }
                 }, 150)
-              } catch {}
+              } catch { void 0 }
             }
           } else {
             snapSource.setData({ type: 'FeatureCollection', features: [] })
@@ -577,7 +579,7 @@ export function useDraw(options: UseDrawOptions) {
     }
     window.addEventListener('keydown', onKeyDown)
     keydownRef.current = onKeyDown
-  }, [updateLayers, clearDraw, finishDrawing])
+  }, [updateLayers, finishDrawing])
 
   const setMode = useCallback((mode: DrawMode) => {
     // If re-clicking the same mode while drawing, finish the current drawing

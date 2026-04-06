@@ -47,6 +47,8 @@ interface MapCardsStore {
   maskOpacity: number
   houseIconSize: number
   badgeIconSize: number
+  treeIconSize: number
+  startMarkerSize: number
   snapToGrid: boolean
   gridSpacingMeters: number
   selectedHouseId: string | null
@@ -100,6 +102,8 @@ interface MapCardsStore {
   setMaskOpacity: (opacity: number) => void
   setHouseIconSize: (size: number) => void
   setBadgeIconSize: (size: number) => void
+  setTreeIconSize: (size: number) => void
+  setStartMarkerSize: (size: number) => void
   setSelectedHouseId: (id: string | null) => void
   setSelectedTreeId: (id: string | null) => void
   setSelectedRoadId: (id: string | null) => void
@@ -126,6 +130,8 @@ const DEFAULT_BOUNDARY_OPACITY = 0
 const DEFAULT_MASK_OPACITY = 0.85
 const DEFAULT_HOUSE_ICON_SIZE = 0.8
 const DEFAULT_BADGE_ICON_SIZE = 0.7
+const DEFAULT_TREE_ICON_SIZE = 0.9
+const DEFAULT_START_MARKER_SIZE = 1
 const DEFAULT_SNAP_TO_GRID = false
 const DEFAULT_GRID_SPACING_METERS = 20
 const DEFAULT_MAP_MODE = 'auto' as const
@@ -207,6 +213,8 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   maskOpacity: DEFAULT_MASK_OPACITY,
   houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
   badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+  treeIconSize: DEFAULT_TREE_ICON_SIZE,
+  startMarkerSize: DEFAULT_START_MARKER_SIZE,
   snapToGrid: DEFAULT_SNAP_TO_GRID,
   gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
   selectedHouseId: null,
@@ -423,6 +431,8 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setMaskOpacity: (opacity) => set({ maskOpacity: opacity }),
   setHouseIconSize: (size) => set({ houseIconSize: size }),
   setBadgeIconSize: (size) => set({ badgeIconSize: size }),
+  setTreeIconSize: (size) => set({ treeIconSize: size }),
+  setStartMarkerSize: (size) => set({ startMarkerSize: size }),
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
   setSelectedTreeId: (id) => set({ selectedTreeId: id }),
   setSelectedRoadId: (id) => set({ selectedRoadId: id }),
@@ -516,6 +526,8 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       maskOpacity: DEFAULT_MASK_OPACITY,
       houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
       badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+      treeIconSize: DEFAULT_TREE_ICON_SIZE,
+      startMarkerSize: DEFAULT_START_MARKER_SIZE,
       snapToGrid: DEFAULT_SNAP_TO_GRID,
       gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
       mapMode: DEFAULT_MAP_MODE,
@@ -544,6 +556,8 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       maskOpacity: DEFAULT_MASK_OPACITY,
       houseIconSize: DEFAULT_HOUSE_ICON_SIZE,
       badgeIconSize: DEFAULT_BADGE_ICON_SIZE,
+      treeIconSize: DEFAULT_TREE_ICON_SIZE,
+      startMarkerSize: DEFAULT_START_MARKER_SIZE,
       snapToGrid: DEFAULT_SNAP_TO_GRID,
       gridSpacingMeters: DEFAULT_GRID_SPACING_METERS,
       mapMode: DEFAULT_MAP_MODE,

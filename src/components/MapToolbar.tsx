@@ -10,7 +10,6 @@ import {
   Home,
   TreePine,
   Flag,
-  LayoutGrid,
   MousePointer,
   Undo2,
   Redo2,
@@ -45,7 +44,6 @@ const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shor
   { mode: 'house', label: 'House', Icon: Home, desc: 'Place house marker' },
   { mode: 'tree', label: 'Tree', Icon: TreePine, desc: 'Place tree / landmark' },
   { mode: 'startMarker', label: 'Start', Icon: Flag, desc: 'Place the Start Here marker' },
-  { mode: 'bulkFill', label: 'Bulk Fill', Icon: LayoutGrid, desc: 'Place houses along a road' },
   { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
 

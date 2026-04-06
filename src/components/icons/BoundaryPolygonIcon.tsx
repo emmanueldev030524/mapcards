@@ -9,7 +9,8 @@ interface BoundaryPolygonIconProps extends SVGProps<SVGSVGElement> {
 
 /** Irregular polygon with vertex dots — conveys "click to draw a shape." */
 const BoundaryPolygonIcon = forwardRef<SVGSVGElement, BoundaryPolygonIconProps>(
-  ({ size = 24, strokeWidth = 2, absoluteStrokeWidth: _, className, ...props }, ref) => {
+  ({ size = 24, strokeWidth = 2, absoluteStrokeWidth, className, ...props }, ref) => {
+    void absoluteStrokeWidth
     const s = typeof size === 'number' ? `${size}px` : size
     const vertices: [number, number][] = [
       [12, 3], [20.5, 8], [18, 19], [6, 20], [3.5, 10],

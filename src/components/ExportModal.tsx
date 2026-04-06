@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useId, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import { saveAs } from 'file-saver'
 import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
@@ -34,21 +34,26 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const treePoints = useStore((s) => s.treePoints)
   const customRoads = useStore((s) => s.customRoads)
   const customStatuses = useStore((s) => s.customStatuses)
-  const legendEntries = collectLegend(
+  const legendEntries = useMemo(() => collectLegend(
     housePoints.map((h) => ({ tags: (h.properties.tags as string[]) || [] })),
     customStatuses,
-  )
+  ), [housePoints, customStatuses])
 
-  const getExportOptions = useCallback(() => {
-    return {
-      map: map!,
-      boundary: boundary!,
-      cardWidthInches,
-      cardHeightInches,
-      territoryNumber,
-      legendEntries,
-    }
-  }, [map, boundary, cardWidthInches, cardHeightInches, territoryNumber, legendEntries])
+  const getExportOptions = useCallback(() => ({
+    map: map!,
+    boundary: boundary!,
+    cardWidthInches,
+    cardHeightInches,
+    territoryNumber,
+    legendEntries,
+  }), [
+    map,
+    boundary,
+    cardWidthInches,
+    cardHeightInches,
+    territoryNumber,
+    legendEntries,
+  ])
 
   const previewUrlRef = useRef<string | null>(null)
 

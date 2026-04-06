@@ -301,6 +301,7 @@ const DYNAMIC_LAYER_PREFIXES = [
   'custom-roads',
   'house-',
   'tree-',
+  'start-marker',
   'snap-grid',
   'selected-',
 ]

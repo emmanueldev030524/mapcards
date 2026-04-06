@@ -275,20 +275,33 @@ export function generateChevronSVG(): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
 
-/** Green "Starts Here" pin marker (32x40) */
+/** Premium "Start Here" pin marker (40x48) */
 export function generateStartMarkerSVG(): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
     <defs>
-      <filter id="s" x="-20%" y="-10%" width="140%" height="130%">
-        <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.3"/>
+      <linearGradient id="start-body" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1f8f58"/>
+        <stop offset="100%" stop-color="#0f5f38"/>
+      </linearGradient>
+      <linearGradient id="start-flag" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#f9d976"/>
+        <stop offset="100%" stop-color="#f4b942"/>
+      </linearGradient>
+      <filter id="s" x="-25%" y="-15%" width="150%" height="145%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#052e1a" flood-opacity="0.28"/>
+      </filter>
+      <filter id="shine" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="1.5"/>
       </filter>
     </defs>
-    <path d="M16 38c0 0-12-15-12-22a12 12 0 0124 0c0 7-12 22-12 22z"
-          fill="#22c55e" filter="url(#s)"/>
-    <circle cx="16" cy="15" r="9" fill="rgba(255,255,255,0.2)"/>
-    <g transform="translate(8,7)">
-      <path d="M5 2v12" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-      <path d="M5 2h7l-2 3 2 3H5" fill="rgba(255,255,255,0.9)" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M20 45c0 0-14-17-14-26a14 14 0 0128 0c0 9-14 26-14 26z"
+          fill="url(#start-body)" stroke="#0a4f2d" stroke-width="1.2" filter="url(#s)"/>
+    <ellipse cx="20" cy="19" rx="10.5" ry="10.5" fill="#ffffff" opacity="0.96"/>
+    <ellipse cx="16.5" cy="14.5" rx="5.5" ry="3" fill="#ffffff" opacity="0.28" filter="url(#shine)"/>
+    <g transform="translate(12,10)">
+      <path d="M6 2.5v12" stroke="#14532d" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M6 3h9.2l-2.4 3.3 2.4 3.3H6" fill="url(#start-flag)" stroke="#9a6700" stroke-width="1.1" stroke-linejoin="round"/>
+      <circle cx="6" cy="2.5" r="1.6" fill="#14532d"/>
     </g>
   </svg>`
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)

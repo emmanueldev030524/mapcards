@@ -155,7 +155,13 @@ export default function Toolbar() {
   const setMaskOpacity = useStore((s) => s.setMaskOpacity)
   const houseIconSize = useStore((s) => s.houseIconSize)
   const setHouseIconSize = useStore((s) => s.setHouseIconSize)
+  const treeIconSize = useStore((s) => s.treeIconSize)
+  const setTreeIconSize = useStore((s) => s.setTreeIconSize)
+  const startMarkerSize = useStore((s) => s.startMarkerSize)
+  const setStartMarkerSize = useStore((s) => s.setStartMarkerSize)
   const houseCount = useStore((s) => s.housePoints.length)
+  const treeCount = useStore((s) => s.treePoints.length)
+  const startMarker = useStore((s) => s.startMarker)
   const clearAllHouses = useStore((s) => s.clearAllHouses)
   const boundary = useStore((s) => s.boundary)
   const snapToGrid = useStore((s) => s.snapToGrid)
@@ -165,7 +171,7 @@ export default function Toolbar() {
 
   const hasBoundary = boundary !== null
 
-  if (!hasBoundary && houseCount === 0) return null
+  if (!hasBoundary && houseCount === 0 && treeCount === 0 && !startMarker) return null
 
   return (
     <div className="space-y-3">
@@ -237,6 +243,44 @@ export default function Toolbar() {
             <Trash2 size={14} strokeWidth={2} />
             Clear all houses
           </button>
+        </div>
+      )}
+
+      {treeCount > 0 && (
+        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+          <SliderRow
+            label="Tree Size"
+            value={treeIconSize}
+            displayValue={Math.round(treeIconSize * 100)}
+            suffix="%"
+            min="0.3"
+            max="2"
+            step="0.1"
+            badgeMin={30}
+            badgeMax={200}
+            badgeStep={10}
+            onChange={setTreeIconSize}
+            onBadgeChange={(v) => setTreeIconSize(v / 100)}
+          />
+        </div>
+      )}
+
+      {startMarker && (
+        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+          <SliderRow
+            label="Start Marker Size"
+            value={startMarkerSize}
+            displayValue={Math.round(startMarkerSize * 100)}
+            suffix="%"
+            min="0.5"
+            max="2"
+            step="0.1"
+            badgeMin={50}
+            badgeMax={200}
+            badgeStep={10}
+            onChange={setStartMarkerSize}
+            onBadgeChange={(v) => setStartMarkerSize(v / 100)}
+          />
         </div>
       )}
 

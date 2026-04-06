@@ -7,7 +7,7 @@ import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
-import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon } from '../lib/mapPins'
+import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateStartMarkerSVG } from '../lib/mapPins'
 import { BRAND } from '../lib/colors'
 import { showToast } from './Toast'
 
@@ -33,6 +33,8 @@ const GRID_LINES_SOURCE = 'snap-grid-lines'
 const GRID_LINES_LAYER = 'snap-grid-lines-layer'
 const SELECTED_SOURCE = 'selected-house'
 const SELECTED_LAYER = 'selected-house-ring'
+const SELECTED_TREE_SOURCE = 'selected-tree'
+const SELECTED_TREE_LAYER = 'selected-tree-ring'
 const SELECTED_ROAD_SOURCE = 'selected-road'
 const SELECTED_ROAD_LAYER = 'selected-road-highlight'
 const SELECTED_START_SOURCE = 'selected-start-marker'
@@ -42,6 +44,7 @@ const TREE_LAYER = 'tree-icons'
 const START_MARKER_SOURCE = 'start-marker'
 const START_MARKER_LAYER = 'start-marker-pin'
 const START_MARKER_LABEL_LAYER = 'start-marker-label'
+const START_MARKER_IMAGE = 'start-marker-icon'
 const ROAD_SOURCE = 'custom-roads'
 const ROAD_CASING = 'custom-roads-casing'
 const ROAD_FILL = 'custom-roads-fill'
@@ -75,6 +78,8 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
   const moveStartMarker = useStore((s) => s.moveStartMarker)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
+  const selectedTreeId = useStore((s) => s.selectedTreeId)
+  const treePoints = useStore((s) => s.treePoints)
   const startMarker = useStore((s) => s.startMarker)
   const selectedStartMarker = useStore((s) => s.selectedStartMarker)
   const addHousePoint = useStore((s) => s.addHousePoint)
@@ -308,6 +313,40 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
 
           // Pulse animation is started/stopped by the selectedHouseId effect (not always-on)
 
+          map.addSource(SELECTED_TREE_SOURCE, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          map.addLayer({
+            id: SELECTED_TREE_LAYER + '-pulse',
+            type: 'circle',
+            source: SELECTED_TREE_SOURCE,
+            paint: {
+              'circle-radius': 18,
+              'circle-color': 'transparent',
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#15803d',
+              'circle-stroke-opacity': 0.28,
+              'circle-translate': [0, -12],
+              'circle-translate-anchor': 'viewport',
+            },
+          })
+          map.addLayer({
+            id: SELECTED_TREE_LAYER,
+            type: 'circle',
+            source: SELECTED_TREE_SOURCE,
+            paint: {
+              'circle-radius': 14,
+              'circle-color': '#22c55e',
+              'circle-opacity': 0.1,
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': '#15803d',
+              'circle-stroke-opacity': 0.45,
+              'circle-translate': [0, -12],
+              'circle-translate-anchor': 'viewport',
+            },
+          })
+
           // Selected road highlight (glowing line behind selected road)
           map.addSource(SELECTED_ROAD_SOURCE, {
             type: 'geojson',
@@ -331,16 +370,32 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
             data: { type: 'FeatureCollection', features: [] },
           })
           map.addLayer({
+            id: SELECTED_START_LAYER + '-pulse',
+            type: 'circle',
+            source: SELECTED_START_SOURCE,
+            paint: {
+              'circle-radius': 19,
+              'circle-color': 'transparent',
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#15803d',
+              'circle-stroke-opacity': 0.28,
+              'circle-translate': [0, -17],
+              'circle-translate-anchor': 'viewport',
+            },
+          })
+          map.addLayer({
             id: SELECTED_START_LAYER,
             type: 'circle',
             source: SELECTED_START_SOURCE,
             paint: {
-              'circle-radius': 18,
+              'circle-radius': 15,
               'circle-color': '#22c55e',
               'circle-opacity': 0.12,
               'circle-stroke-width': 2.5,
               'circle-stroke-color': '#15803d',
               'circle-stroke-opacity': 0.45,
+              'circle-translate': [0, -17],
+              'circle-translate-anchor': 'viewport',
             },
           })
 
@@ -485,7 +540,30 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               data: { type: 'FeatureCollection', features: [] },
             })
 
-            map.addLayer({
+            try {
+              const startMarkerImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image(40, 48)
+                img.onload = () => resolve(img)
+                img.onerror = reject
+                img.src = generateStartMarkerSVG()
+              })
+              if (!map.hasImage(START_MARKER_IMAGE)) map.addImage(START_MARKER_IMAGE, startMarkerImg)
+            } catch {
+              void 0
+            }
+
+            map.addLayer(map.hasImage(START_MARKER_IMAGE) ? {
+              id: START_MARKER_LAYER,
+              type: 'symbol',
+              source: START_MARKER_SOURCE,
+              layout: {
+                'icon-image': START_MARKER_IMAGE,
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.72, 16, 0.9, 19, 1.06],
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              },
+            } : {
               id: START_MARKER_LAYER,
               type: 'circle',
               source: START_MARKER_SOURCE,
@@ -507,8 +585,8 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
                 'text-field': ['get', 'label'],
                 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 11, 19, 13],
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-anchor': 'top',
-                'text-offset': [0, 1.05],
+                'text-anchor': 'bottom',
+                'text-offset': [0, -3.05],
                 'text-padding': 2,
                 'text-max-width': 8,
                 'text-allow-overlap': true,
@@ -687,6 +765,24 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     const map = mapRef.current
     if (!map) return
 
+    const source = map.getSource(SELECTED_TREE_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    if (selectedTreeId) {
+      const tree = treePoints.find((p) => p.id === selectedTreeId)
+      if (tree) {
+        source.setData({ type: 'FeatureCollection', features: [tree] })
+        return
+      }
+    }
+
+    source.setData({ type: 'FeatureCollection', features: [] })
+  }, [selectedTreeId, treePoints, mapReady])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
     const source = map.getSource(SELECTED_START_SOURCE) as maplibregl.GeoJSONSource | undefined
     if (!source) return
 
@@ -741,8 +837,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
 
         addHousePoint(lng, lat)
       } else if (mode === 'tree') {
+        const snap = state.snapToGrid
+        const spacing = state.gridSpacingMeters
+        const [lng, lat] = snap
+          ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
+          : [e.lngLat.lng, e.lngLat.lat]
+
         // Prevent duplicate tree in same spot
-        const clickPx = map.project([e.lngLat.lng, e.lngLat.lat])
+        const clickPx = map.project([lng, lat])
         const tooClose = state.treePoints.some((t) => {
           const tPx = map.project(t.geometry.coordinates as [number, number])
           const dx = tPx.x - clickPx.x
@@ -751,7 +853,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         })
         if (tooClose) { showToast('Tree already exists here'); return }
 
-        state.addTreePoint(e.lngLat.lng, e.lngLat.lat)
+        state.addTreePoint(lng, lat)
       } else if (mode === 'startMarker') {
         if (!state.boundary) {
           showToast('Draw a boundary before placing Start Here')
@@ -893,9 +995,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch { void 0 }
     }
 
-    /** Helper: sync house/badge icon size (slider-driven) */
-    const syncIconSize = () => {
-      const { houseIconSize, badgeIconSize } = useStore.getState()
+    /** Helper: sync point-marker sizes (slider-driven) */
+    const syncMarkerSize = () => {
+      const {
+        houseIconSize,
+        badgeIconSize,
+        treeIconSize,
+        startMarkerSize,
+      } = useStore.getState()
       try {
         map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
           'interpolate', ['linear'], ['zoom'],
@@ -905,6 +1012,39 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         ])
       } catch { void 0 }
       try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch { void 0 }
+
+      try {
+        const treeLayer = map.getLayer(TREE_LAYER) as { type?: string } | undefined
+        if (treeLayer?.type === 'symbol') {
+          map.setLayoutProperty(TREE_LAYER, 'icon-size', [
+            'interpolate', ['linear'], ['zoom'],
+            13, 0.4 * treeIconSize,
+            16, 0.7 * treeIconSize,
+            19, 0.9 * treeIconSize,
+          ])
+        } else {
+          map.setPaintProperty(TREE_LAYER, 'circle-radius', 6 * treeIconSize)
+        }
+      } catch { void 0 }
+
+      try {
+        const startLayer = map.getLayer(START_MARKER_LAYER) as { type?: string } | undefined
+        if (startLayer?.type === 'symbol') {
+          map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', [
+            'interpolate', ['linear'], ['zoom'],
+            13, 0.72 * startMarkerSize,
+            16, 0.9 * startMarkerSize,
+            19, 1.06 * startMarkerSize,
+          ])
+        } else {
+          map.setPaintProperty(START_MARKER_LAYER, 'circle-radius', [
+            'interpolate', ['linear'], ['zoom'],
+            13, 6 * startMarkerSize,
+            16, 8.5 * startMarkerSize,
+            19, 10.5 * startMarkerSize,
+          ])
+        }
+      } catch { void 0 }
     }
 
     // Run all syncs once on mount (populate from loaded project data)
@@ -914,7 +1054,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     syncSelectedHouse()
     syncSelectedRoad()
     syncOpacity()
-    syncIconSize()
+    syncMarkerSize()
 
     // Subscribe — Zustand fires this synchronously on every state change.
     // We compare slices to only run the sync that actually changed.
@@ -926,7 +1066,12 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
       if (next.selectedRoadId !== prev.selectedRoadId || next.customRoads !== prev.customRoads) syncSelectedRoad()
       if (next.boundaryOpacity !== prev.boundaryOpacity || next.maskOpacity !== prev.maskOpacity) syncOpacity()
-      if (next.houseIconSize !== prev.houseIconSize || next.badgeIconSize !== prev.badgeIconSize) syncIconSize()
+      if (
+        next.houseIconSize !== prev.houseIconSize ||
+        next.badgeIconSize !== prev.badgeIconSize ||
+        next.treeIconSize !== prev.treeIconSize ||
+        next.startMarkerSize !== prev.startMarkerSize
+      ) syncMarkerSize()
       prev = next
     })
 
@@ -953,7 +1098,45 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     return () => cancelAnimationFrame(rafId)
   }, [selectedHouseId, mapReady])
 
-  // houseIconSize, badgeIconSize synced via direct Zustand subscription below
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !selectedTreeId) return
+
+    let pulsePhase = 0
+    let rafId = requestAnimationFrame(function animate() {
+      pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
+      const scale = 1 + Math.sin(pulsePhase) * 0.3
+      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+      try {
+        map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-radius', 16 + scale * 5)
+        map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+      } catch { void 0 }
+      rafId = requestAnimationFrame(animate)
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [selectedTreeId, mapReady])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !selectedStartMarker) return
+
+    let pulsePhase = 0
+    let rafId = requestAnimationFrame(function animate() {
+      pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
+      const scale = 1 + Math.sin(pulsePhase) * 0.3
+      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+      try {
+        map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-radius', 18 + scale * 5.5)
+        map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+      } catch { void 0 }
+      rafId = requestAnimationFrame(animate)
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [selectedStartMarker, mapReady])
+
+  // house/tree/start sizes synced via direct Zustand subscription below
 
   // Drag-to-move houses & trees (requires 5px movement before drag starts)
   useEffect(() => {
