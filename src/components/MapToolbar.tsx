@@ -9,6 +9,7 @@ import {
   Road,
   Home,
   TreePine,
+  Flag,
   LayoutGrid,
   MousePointer,
   Undo2,
@@ -43,6 +44,7 @@ const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shor
   { mode: 'road', label: 'Road', Icon: Road, desc: 'Draw custom road' },
   { mode: 'house', label: 'House', Icon: Home, desc: 'Place house marker' },
   { mode: 'tree', label: 'Tree', Icon: TreePine, desc: 'Place tree / landmark' },
+  { mode: 'startMarker', label: 'Start', Icon: Flag, desc: 'Place the Start Here marker' },
   { mode: 'bulkFill', label: 'Bulk Fill', Icon: LayoutGrid, desc: 'Place houses along a road' },
   { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
@@ -91,8 +93,10 @@ function getHintMessage(mode: DrawMode, vertexCount: number): string | null {
       return 'Click on the map to place a house'
     case 'tree':
       return 'Click on the map to place a tree or landmark'
+    case 'startMarker':
+      return 'Click inside the boundary to place or replace the Start Here marker'
     case 'select':
-      return 'Click on a house, tree, or road to edit it'
+      return 'Click on a house, tree, road, or start marker to edit it'
     default:
       return null
   }
@@ -122,7 +126,7 @@ export default function MapToolbar({
   onLocationSelect,
 }: MapToolbarProps) {
   const isDrawing = activeMode === 'boundary' || activeMode === 'road'
-  const isPlacing = activeMode === 'house' || activeMode === 'tree'
+  const isPlacing = activeMode === 'house' || activeMode === 'tree' || activeMode === 'startMarker'
   const isTablet = useIsTablet()
   const btnSize = isTablet ? 'h-11 w-11' : 'h-9 w-9'
   const iconSize = isTablet ? 20 : 17
@@ -180,7 +184,7 @@ export default function MapToolbar({
   }, [])
 
   const hideTooltip = useCallback(() => {
-    setTooltip((current) => (current ? null : current))
+    setTooltip(null)
   }, [])
 
   const getTooltipProps = useCallback(
@@ -316,7 +320,9 @@ export default function MapToolbar({
         <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(242,246,251,0.76))] px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.84)]">
           {TOOLS.map(({ mode, label, Icon, desc, shortcut }) => {
             const isActive = activeMode === mode
-            const isDisabledTool = mode === 'boundary' && hasBoundary
+            const isDisabledTool =
+              (mode === 'boundary' && hasBoundary) ||
+              (mode === 'startMarker' && !hasBoundary)
             const toolClass = isTablet ? 'h-11 w-11' : 'h-9 w-9'
 
             return (
@@ -326,8 +332,12 @@ export default function MapToolbar({
                 disabled={isDisabledTool}
                 aria-label={label}
                 aria-pressed={isActive}
-                title={isDisabledTool ? 'Boundary already exists' : desc}
-                {...getTooltipProps({ label, desc, shortcut })}
+                title={isDisabledTool ? (mode === 'startMarker' ? 'Draw a boundary first' : 'Boundary already exists') : desc}
+                {...getTooltipProps({
+                  label,
+                  desc: isDisabledTool && mode === 'startMarker' ? 'Draw a boundary before placing a Start Here marker.' : desc,
+                  shortcut,
+                })}
                 className={`${btnBase} ${toolClass} ${btnFocusRing} gap-2 ${
                   isActive
                     ? 'bg-brand text-white shadow-[0_2px_10px_rgba(75,108,167,0.35)]'

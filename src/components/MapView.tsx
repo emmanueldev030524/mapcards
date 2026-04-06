@@ -7,7 +7,8 @@ import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
-import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon } from '../lib/mapPins'
+import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateStartMarkerSVG } from '../lib/mapPins'
+import { BRAND } from '../lib/colors'
 import { showToast } from './Toast'
 
 interface MapViewProps {
@@ -34,11 +35,16 @@ const SELECTED_SOURCE = 'selected-house'
 const SELECTED_LAYER = 'selected-house-ring'
 const SELECTED_ROAD_SOURCE = 'selected-road'
 const SELECTED_ROAD_LAYER = 'selected-road-highlight'
+const SELECTED_START_SOURCE = 'selected-start-marker'
+const SELECTED_START_LAYER = 'selected-start-marker-ring'
 const TREE_SOURCE = 'tree-points'
 const TREE_LAYER = 'tree-icons'
+const START_MARKER_SOURCE = 'start-marker'
+const START_MARKER_LAYER = 'start-marker-pin'
 const ROAD_SOURCE = 'custom-roads'
 const ROAD_CASING = 'custom-roads-casing'
 const ROAD_FILL = 'custom-roads-fill'
+const START_MARKER_ID = 'start-marker'
 
 // World-extent polygon ring (covers the entire map)
 const WORLD_RING: [number, number][] = [
@@ -62,6 +68,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
   const activeDrawMode = useStore((s) => s.activeDrawMode)
   const moveHousePoint = useStore((s) => s.moveHousePoint)
   const moveTreePoint = useStore((s) => s.moveTreePoint)
+  const moveStartMarker = useStore((s) => s.moveStartMarker)
   const removeHousePoint = useStore((s) => s.removeHousePoint)
   const selectedHouseId = useStore((s) => s.selectedHouseId)
   const addHousePoint = useStore((s) => s.addHousePoint)
@@ -125,7 +132,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             type: 'fill',
             source: BOUNDARY_SOURCE,
             paint: {
-              'fill-color': '#4B6CA7',
+              'fill-color': BRAND,
               'fill-opacity': 0.07,
             },
           })
@@ -195,7 +202,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             source: BOUNDARY_SOURCE,
             layout: { 'line-join': 'round' },
             paint: {
-              'line-color': '#4B6CA7',
+              'line-color': BRAND,
               'line-width': 6,
               'line-opacity': 0.25,
               'line-blur': 6,
@@ -209,7 +216,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             source: BOUNDARY_SOURCE,
             layout: { 'line-join': 'round' },
             paint: {
-              'line-color': '#4B6CA7',
+              'line-color': BRAND,
               'line-width': 2.5,
             },
           })
@@ -265,7 +272,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'circle-radius': 20,
               'circle-color': 'transparent',
               'circle-stroke-width': 2,
-              'circle-stroke-color': '#4B6CA7',
+              'circle-stroke-color': BRAND,
               'circle-stroke-opacity': 0.3,
               'circle-translate': [0, -14],
               'circle-translate-anchor': 'viewport',
@@ -279,10 +286,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             source: SELECTED_SOURCE,
             paint: {
               'circle-radius': 16,
-              'circle-color': '#4B6CA7',
+              'circle-color': BRAND,
               'circle-opacity': 0.1,
               'circle-stroke-width': 2.5,
-              'circle-stroke-color': '#4B6CA7',
+              'circle-stroke-color': BRAND,
               'circle-stroke-opacity': 0.5,
               'circle-translate': [0, -14],
               'circle-translate-anchor': 'viewport',
@@ -306,6 +313,26 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               'line-width': 10,
               'line-opacity': 0.35,
               'line-blur': 3,
+            },
+          })
+
+          map.addSource(SELECTED_START_SOURCE, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          map.addLayer({
+            id: SELECTED_START_LAYER,
+            type: 'circle',
+            source: SELECTED_START_SOURCE,
+            paint: {
+              'circle-radius': 18,
+              'circle-color': '#22c55e',
+              'circle-opacity': 0.12,
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': '#15803d',
+              'circle-stroke-opacity': 0.45,
+              'circle-translate': [0, -18],
+              'circle-translate-anchor': 'viewport',
             },
           })
 
@@ -355,7 +382,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
                 'text-pitch-alignment': 'viewport',
               },
               paint: {
-                'text-color': ['coalesce', ['get', 'bodyColor'], '#4B6CA7'],
+                'text-color': ['coalesce', ['get', 'bodyColor'], BRAND],
                 'text-halo-color': 'rgba(255,255,255,1)',
                 'text-halo-width': 1.5,
                 'text-halo-blur': 0,
@@ -445,6 +472,51 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
               },
             })
 
+            map.addSource(START_MARKER_SOURCE, {
+              type: 'geojson',
+              data: { type: 'FeatureCollection', features: [] },
+            })
+
+            try {
+              const startMarkerImg = await new Promise<HTMLImageElement>((res, rej) => {
+                const img = new Image(32, 40)
+                img.onload = () => res(img)
+                img.onerror = rej
+                img.src = generateStartMarkerSVG()
+              })
+              if (!map.hasImage(START_MARKER_ID)) map.addImage(START_MARKER_ID, startMarkerImg)
+            } catch (err) {
+              if (import.meta.env.DEV) console.error('Start marker image failed to load:', err)
+            }
+
+            map.addLayer({
+              id: START_MARKER_LAYER,
+              type: 'symbol',
+              source: START_MARKER_SOURCE,
+              layout: {
+                'icon-image': START_MARKER_ID,
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.7, 16, 0.92, 19, 1.05],
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'text-field': ['get', 'label'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 11, 19, 13],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-anchor': 'bottom',
+                'text-offset': [0, -3.2],
+                'text-padding': 2,
+                'text-max-width': 8,
+                'text-allow-overlap': true,
+                'text-rotation-alignment': 'viewport',
+                'text-pitch-alignment': 'viewport',
+              },
+              paint: {
+                'text-color': '#166534',
+                'text-halo-color': 'rgba(255,255,255,0.98)',
+                'text-halo-width': 2,
+                'text-halo-blur': 0.2,
+              },
+            })
+
             setLoading(false)
             mapRef.current = map
             setMapReady(true)
@@ -452,7 +524,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           }
 
           setupHouseLayers().catch((err) => {
-            console.error('House layer setup failed:', err)
+            if (import.meta.env.DEV) console.error('House layer setup failed:', err)
             setLoading(false)
             mapRef.current = map
             setMapReady(true)
@@ -461,7 +533,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         })
 
         map.on('error', (e) => {
-          console.error('MapLibre error:', e)
+          if (import.meta.env.DEV) console.error('MapLibre error:', e)
           setError('Map failed to load. Check your connection.')
         })
       } catch (err) {
@@ -598,8 +670,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       const state = useStore.getState()
       const mode = state.activeDrawMode
 
-      // Enforce boundary containment — only place inside the polygon
-      if (state.boundary && (mode === 'house' || mode === 'tree')) {
+      // Enforce boundary containment for point markers
+      if (state.boundary && (mode === 'house' || mode === 'tree' || mode === 'startMarker')) {
         const pt = point([e.lngLat.lng, e.lngLat.lat])
         if (!booleanPointInPolygon(pt, state.boundary)) return
       }
@@ -634,6 +706,30 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         if (tooClose) { showToast('Tree already exists here'); return }
 
         state.addTreePoint(e.lngLat.lng, e.lngLat.lat)
+      } else if (mode === 'startMarker') {
+        if (!state.boundary) {
+          showToast('Draw a boundary before placing Start Here')
+          return
+        }
+
+        const snap = state.snapToGrid
+        const spacing = state.gridSpacingMeters
+        const [lng, lat] = snap
+          ? snapCoord(e.lngLat.lng, e.lngLat.lat, spacing)
+          : [e.lngLat.lng, e.lngLat.lat]
+
+        const pt = point([lng, lat])
+        if (!booleanPointInPolygon(pt, state.boundary)) {
+          showToast('Place Start Here inside the boundary')
+          return
+        }
+
+        state.setStartMarker({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [lng, lat] },
+          properties: { label: 'Start Here' },
+        })
+        state.setSelectedStartMarker(false)
       }
     }
 
@@ -676,6 +772,8 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       } else {
         ensureHouseIcons(map, houseTags, statuses).then(() => {
           source.setData({ type: 'FeatureCollection', features })
+        }).catch((err) => {
+          if (import.meta.env.DEV) console.error('Failed to load house icons:', err)
         })
       }
 
@@ -712,6 +810,29 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       })
     }
 
+    /** Helper: sync start marker */
+    const syncStartMarker = () => {
+      const source = map.getSource(START_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { startMarker } = useStore.getState()
+      if (!startMarker) {
+        source.setData({ type: 'FeatureCollection', features: [] })
+        return
+      }
+
+      source.setData({
+        type: 'FeatureCollection',
+        features: [{
+          ...startMarker,
+          properties: {
+            ...(startMarker.properties || {}),
+            id: START_MARKER_ID,
+            label: 'Start Here',
+          },
+        }],
+      })
+    }
+
     /** Helper: sync selected house highlight */
     const syncSelectedHouse = () => {
       const source = map.getSource(SELECTED_SOURCE) as maplibregl.GeoJSONSource | undefined
@@ -742,11 +863,23 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       source.setData({ type: 'FeatureCollection', features: [] })
     }
 
+    /** Helper: sync selected start marker highlight */
+    const syncSelectedStartMarker = () => {
+      const source = map.getSource(SELECTED_START_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!source) return
+      const { selectedStartMarker: isSelected, startMarker } = useStore.getState()
+      if (isSelected && startMarker) {
+        source.setData({ type: 'FeatureCollection', features: [startMarker] })
+        return
+      }
+      source.setData({ type: 'FeatureCollection', features: [] })
+    }
+
     /** Helper: sync boundary/mask opacity (slider-driven) */
     const syncOpacity = () => {
       const { boundaryOpacity, maskOpacity } = useStore.getState()
-      try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch {}
-      try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch {}
+      try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', boundaryOpacity) } catch { void 0 }
+      try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', maskOpacity) } catch { void 0 }
     }
 
     /** Helper: sync house/badge icon size (slider-driven) */
@@ -759,16 +892,18 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           16, 0.55 * houseIconSize,
           19, 0.7 * houseIconSize,
         ])
-      } catch {}
-      try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch {}
+      } catch { void 0 }
+      try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch { void 0 }
     }
 
     // Run all syncs once on mount (populate from loaded project data)
     syncHouses()
     syncTrees()
     syncRoads()
+    syncStartMarker()
     syncSelectedHouse()
     syncSelectedRoad()
+    syncSelectedStartMarker()
     syncOpacity()
     syncIconSize()
 
@@ -779,8 +914,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (next.housePoints !== prev.housePoints || next.customStatuses !== prev.customStatuses) syncHouses()
       if (next.treePoints !== prev.treePoints) syncTrees()
       if (next.customRoads !== prev.customRoads) syncRoads()
+      if (next.startMarker !== prev.startMarker) syncStartMarker()
       if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
       if (next.selectedRoadId !== prev.selectedRoadId || next.customRoads !== prev.customRoads) syncSelectedRoad()
+      if (next.selectedStartMarker !== prev.selectedStartMarker || next.startMarker !== prev.startMarker) syncSelectedStartMarker()
       if (next.boundaryOpacity !== prev.boundaryOpacity || next.maskOpacity !== prev.maskOpacity) syncOpacity()
       if (next.houseIconSize !== prev.houseIconSize || next.badgeIconSize !== prev.badgeIconSize) syncIconSize()
       prev = next
@@ -818,12 +955,12 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
     let pendingId: string | null = null
     let dragId: string | null = null
-    let dragType: 'house' | 'tree' | null = null
+    let dragType: 'house' | 'tree' | 'start' | null = null
     let startPoint: maplibregl.Point | null = null
     let rafId: number | null = null
     const DRAG_THRESHOLD = 5
     const canvas = map.getCanvas()
-    const DRAGGABLE_LAYERS = [HOUSE_LAYER, TREE_LAYER]
+    const DRAGGABLE_LAYERS = [HOUSE_LAYER, TREE_LAYER, START_MARKER_LAYER]
 
     /** Query both house and tree layers, return { id, type } or null */
     const hitTest = (bbox: [maplibregl.PointLike, maplibregl.PointLike]) => {
@@ -832,16 +969,23 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         const features = map.queryRenderedFeatures(bbox, { layers: [layer] })
         if (features.length > 0) {
           const id = features[0].properties?.id as string | undefined
-          if (id) return { id, type: layer === HOUSE_LAYER ? 'house' as const : 'tree' as const }
+          if (id) {
+            const type =
+              layer === HOUSE_LAYER ? 'house' as const :
+              layer === TREE_LAYER ? 'tree' as const :
+              'start' as const
+            return { id, type }
+          }
         }
       }
       return null
     }
 
     /** Move the dragged feature via the appropriate store action */
-    const moveDragged = (id: string, type: 'house' | 'tree', lng: number, lat: number) => {
+    const moveDragged = (id: string, type: 'house' | 'tree' | 'start', lng: number, lat: number) => {
       if (type === 'house') moveHousePoint(id, lng, lat)
-      else moveTreePoint(id, lng, lat)
+      else if (type === 'tree') moveTreePoint(id, lng, lat)
+      else moveStartMarker(lng, lat)
     }
 
     const onMouseDown = (e: maplibregl.MapMouseEvent) => {
@@ -875,10 +1019,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       }
 
       if (!dragId) {
-        // Show grab cursor on hover over houses or trees
-        if (!activeDrawMode || activeDrawMode === 'select') {
-          const layers = DRAGGABLE_LAYERS.filter((l) => map.getLayer(l))
-          const features = layers.length > 0 ? map.queryRenderedFeatures(e.point, { layers }) : []
+      // Show grab cursor on hover over editable point markers
+      if (!activeDrawMode || activeDrawMode === 'select') {
+        const layers = DRAGGABLE_LAYERS.filter((l) => map.getLayer(l))
+        const features = layers.length > 0 ? map.queryRenderedFeatures(e.point, { layers }) : []
           canvas.style.cursor = features.length > 0 ? 'grab' : ''
         }
         return
@@ -908,7 +1052,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
         dragId = null
         dragType = null
         canvas.style.cursor = ''
-        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
+        if (useStore.getState()._lastMoveId) useStore.setState({ _lastMoveId: null })
         justDraggedRef.current = true
         setTimeout(() => { justDraggedRef.current = false }, 100)
       }
@@ -927,7 +1071,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       if (dragId) {
         dragId = null
         dragType = null
-        useStore.getState()._lastMoveId && useStore.setState({ _lastMoveId: null })
+        if (useStore.getState()._lastMoveId) useStore.setState({ _lastMoveId: null })
         justDraggedRef.current = true
         setTimeout(() => { justDraggedRef.current = false }, 300)
       }
@@ -1032,7 +1176,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       map.off('touchmove', onTouchMove)
       map.off('touchend', onTouchEnd)
     }
-  }, [activeDrawMode, moveHousePoint, moveTreePoint, mapReady])
+  }, [activeDrawMode, moveHousePoint, moveTreePoint, moveStartMarker, mapReady])
 
   // Click-to-select house or road + Delete/Backspace to remove
   useEffect(() => {
@@ -1042,7 +1186,9 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     const selectHouse = useStore.getState().setSelectedHouseId
     const selectTree = useStore.getState().setSelectedTreeId
     const selectRoad = useStore.getState().setSelectedRoadId
+    const selectStartMarker = useStore.getState().setSelectedStartMarker
     const removeRoad = useStore.getState().removeCustomRoad
+    const setStartMarker = useStore.getState().setStartMarker
 
     const onClick = (e: maplibregl.MapMouseEvent) => {
       // Skip if this click follows a drag (house/tree was moved, not tapped)
@@ -1064,6 +1210,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           selectHouse(id)
           selectTree(null)
           selectRoad(null)
+          selectStartMarker(false)
           return
         }
       }
@@ -1077,8 +1224,20 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             selectTree(id)
             selectHouse(null)
             selectRoad(null)
+            selectStartMarker(false)
             return
           }
+        }
+      }
+
+      if (map.getLayer(START_MARKER_LAYER)) {
+        const startFeatures = map.queryRenderedFeatures(bbox, { layers: [START_MARKER_LAYER] })
+        if (startFeatures.length > 0) {
+          selectStartMarker(true)
+          selectHouse(null)
+          selectTree(null)
+          selectRoad(null)
+          return
         }
       }
 
@@ -1092,6 +1251,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
             selectRoad(id)
             selectHouse(null)
             selectTree(null)
+            selectStartMarker(false)
             return
           }
         }
@@ -1101,6 +1261,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
       selectHouse(null)
       selectTree(null)
       selectRoad(null)
+      selectStartMarker(false)
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1122,6 +1283,10 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
           e.preventDefault()
           removeRoad(state.selectedRoadId)
           selectRoad(null)
+        } else if (state.selectedStartMarker) {
+          e.preventDefault()
+          setStartMarker(null)
+          selectStartMarker(false)
         }
       }
     }
@@ -1140,7 +1305,11 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
     const map = mapRef.current
     if (!map) return
 
-    const needsBoundaryCheck = activeDrawMode === 'house' || activeDrawMode === 'tree' || activeDrawMode === 'road'
+    const needsBoundaryCheck =
+      activeDrawMode === 'house' ||
+      activeDrawMode === 'tree' ||
+      activeDrawMode === 'road' ||
+      activeDrawMode === 'startMarker'
 
     if (!needsBoundaryCheck) {
       // Boundary drawing or no mode — static cursor
@@ -1150,7 +1319,7 @@ export default function MapView({ center = [124.955, 8.333], zoom = 16, onMapRea
 
     const boundary = useStore.getState().boundary
     if (!boundary) {
-      map.getCanvas().style.cursor = 'crosshair'
+      map.getCanvas().style.cursor = activeDrawMode === 'startMarker' ? 'not-allowed' : 'crosshair'
       return
     }
 

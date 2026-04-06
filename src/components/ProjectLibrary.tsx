@@ -113,7 +113,7 @@ export default function ProjectLibrary({ refreshKey, flushPendingSave }: Project
   }, [])
 
   useEffect(() => {
-    refreshProjects().catch(console.error)
+    refreshProjects().catch((err) => { if (import.meta.env.DEV) console.error(err) })
   }, [refreshProjects, refreshKey, projectId])
 
   const savedProjects = useMemo(

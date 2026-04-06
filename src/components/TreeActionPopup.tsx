@@ -22,7 +22,7 @@ export default function TreeActionPopup() {
       if (!ok) return
       removeTree(selectedId)
       setSelected(null)
-    }).catch(console.error)
+    }).catch((err) => { if (import.meta.env.DEV) console.error(err) })
   }, [selectedId, removeTree, setSelected, treeIndex])
 
   if (!tree) return null

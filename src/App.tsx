@@ -3,6 +3,7 @@ import type { Feature, Polygon, LineString } from 'geojson'
 import maplibregl from 'maplibre-gl'
 // No lucide imports needed — sidebar tab uses custom SVG triangles
 import BoundaryPolygonIcon from './components/icons/BoundaryPolygonIcon'
+import { BRAND } from './lib/colors'
 import { useIsTablet } from './hooks/useMediaQuery'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
@@ -17,6 +18,7 @@ import BulkFillDialog from './components/BulkFillDialog'
 import HouseEditPopup from './components/HouseEditPopup'
 import TreeActionPopup from './components/TreeActionPopup'
 import RoadDeleteButton from './components/RoadDeleteButton'
+import StartMarkerPopup from './components/StartMarkerPopup'
 import SidebarSection from './components/SidebarSection'
 import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
 import Toast from './components/Toast'
@@ -132,7 +134,9 @@ export default function App() {
         setBulkFillOpen(false)
         setReviewMode(false)
         useStore.getState().setSelectedHouseId(null)
+        useStore.getState().setSelectedTreeId(null)
         useStore.getState().setSelectedRoadId(null)
+        useStore.getState().setSelectedStartMarker(false)
       }
       // Ctrl+Z / Cmd+Z = undo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -178,7 +182,7 @@ export default function App() {
       })
 
       // Drop a marker pin with a popup showing the location name
-      const marker = new maplibregl.Marker({ color: '#4B6CA7' })
+      const marker = new maplibregl.Marker({ color: BRAND })
         .setLngLat([selection.lng, selection.lat])
         .setPopup(
           new maplibregl.Popup({ offset: 25, closeButton: false })
@@ -203,6 +207,7 @@ export default function App() {
       useStore.getState().setSelectedHouseId(null)
       useStore.getState().setSelectedTreeId(null)
       useStore.getState().setSelectedRoadId(null)
+      useStore.getState().setSelectedStartMarker(false)
     }
     setReviewMode(next)
   }, [reviewMode, setActiveDrawMode, setMode, setReviewMode])
@@ -422,11 +427,13 @@ export default function App() {
           onClearBoundary={async () => {
             const ok = await showConfirm(
               'Clear Everything?',
-              'This removes the boundary, all houses, trees, and roads. This action cannot be undone.',
+              'This removes the boundary, start marker, all houses, trees, and roads. This action cannot be undone.',
               { variant: 'destructive', confirmLabel: 'Clear All' },
             )
             if (!ok) return
             setBoundary(null)
+            useStore.getState().setStartMarker(null)
+            useStore.getState().setSelectedStartMarker(false)
             clearAll()
             useStore.getState().clearAllHouses()
             useStore.getState().clearAllTrees()
@@ -443,6 +450,7 @@ export default function App() {
         {!reviewMode && <HouseEditPopup map={mapInstance} />}
         {!reviewMode && <TreeActionPopup />}
         {!reviewMode && <RoadDeleteButton />}
+        {!reviewMode && <StartMarkerPopup />}
         {!reviewMode && <MapModeThumbnail
           currentMode={mapMode === 'auto' ? (boundary === null ? 'satellite' : 'street') : mapMode}
           onModeChange={setMapMode}

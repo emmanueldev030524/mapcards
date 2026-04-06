@@ -3,6 +3,7 @@ import type maplibregl from 'maplibre-gl'
 import { X, Satellite, Map, FileText, Building2, Hash, ShoppingBag, GraduationCap, Church, Cross } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { getToggleableLayers } from '../lib/mapStyle'
+import { BRAND } from '../lib/colors'
 import { useStore } from '../store'
 import { useIsTablet } from '../hooks/useMediaQuery'
 
@@ -272,7 +273,7 @@ export default function MapModeThumbnail({
               <FileText
                 size={isTablet ? 17 : 16}
                 strokeWidth={2}
-                style={{ color: currentMode === 'clean' ? '#4B6CA7' : '#94a3b8' }}
+                style={{ color: currentMode === 'clean' ? BRAND : '#94a3b8' }}
                 className="shrink-0 transition-colors duration-200"
               />
               <div className="flex-1 text-left">

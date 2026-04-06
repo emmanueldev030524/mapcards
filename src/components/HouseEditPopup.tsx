@@ -333,6 +333,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
             <input
               type="text"
               value={house.properties.label || ''}
+              aria-label="House name"
               onChange={(e) => updateLabel(house.id, e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
               placeholder="e.g. Gallardo Family"
@@ -494,6 +495,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     <input
                       type="text"
                       value={newLabel}
+                      aria-label="New status name"
                       onChange={(e) => setNewLabel(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleAddStatus(); if (e.key === 'Escape') setAdding(false) }}
                       placeholder="Status name..."

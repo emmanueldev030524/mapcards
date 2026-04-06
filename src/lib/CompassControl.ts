@@ -1,10 +1,8 @@
 import type maplibregl from 'maplibre-gl'
 
-const SVG_NS = 'http://www.w3.org/2000/svg'
+import { BRAND, BRAND_LIGHT } from './colors'
 
-/** Brand color from @theme */
-const BRAND = '#4B6CA7'
-const BRAND_LIGHT = '#5A7DB8'
+const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /** Helper to create an SVG element with attributes */
 function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {

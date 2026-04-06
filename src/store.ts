@@ -52,6 +52,7 @@ interface MapCardsStore {
   selectedHouseId: string | null
   selectedTreeId: string | null
   selectedRoadId: string | null
+  selectedStartMarker: boolean
   mapMode: 'satellite' | 'street' | 'clean' | 'auto' // auto = satellite before boundary, clean after
   reviewMode: boolean
 
@@ -83,6 +84,7 @@ interface MapCardsStore {
   updateHouseLabel: (id: string, label: string) => void
   toggleHouseTag: (id: string, tag: string) => void
   setStartMarker: (f: Feature<Point> | null) => void
+  moveStartMarker: (lng: number, lat: number) => void
   addTreePoint: (lng: number, lat: number) => void
   removeTreePoint: (id: string) => void
   clearAllTrees: () => void
@@ -101,6 +103,7 @@ interface MapCardsStore {
   setSelectedHouseId: (id: string | null) => void
   setSelectedTreeId: (id: string | null) => void
   setSelectedRoadId: (id: string | null) => void
+  setSelectedStartMarker: (selected: boolean) => void
   setSnapToGrid: (snap: boolean) => void
   setGridSpacing: (meters: number) => void
   setMapMode: (mode: 'satellite' | 'street' | 'clean' | 'auto') => void
@@ -125,7 +128,7 @@ const DEFAULT_HOUSE_ICON_SIZE = 0.8
 const DEFAULT_BADGE_ICON_SIZE = 0.7
 const DEFAULT_SNAP_TO_GRID = false
 const DEFAULT_GRID_SPACING_METERS = 20
-const DEFAULT_MAP_MODE: 'auto' = 'auto'
+const DEFAULT_MAP_MODE = 'auto' as const
 const STATUS_TAG_IDS = new Set(PIN_CATEGORIES.filter((cat) => cat.group === 'status').map((cat) => cat.id))
 
 /** Strip legacy/duplicate statuses and ensure current defaults exist */
@@ -209,6 +212,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   selectedHouseId: null,
   selectedTreeId: null,
   selectedRoadId: null,
+  selectedStartMarker: false,
   mapMode: DEFAULT_MAP_MODE,
   reviewMode: false,
 
@@ -270,6 +274,23 @@ export const useStore = create<MapCardsStore>((set, get) => ({
 
   // Drawing (all undoable)
   setStartMarker: (f) => setWithUndo(get, set, { startMarker: f }),
+  moveStartMarker: (lng, lat) => {
+    const s = get()
+    if (!s.startMarker) return
+    const nextMarker: Feature<Point> = {
+      ...s.startMarker,
+      geometry: { ...s.startMarker.geometry, coordinates: [lng, lat] },
+    }
+    const isFirstMove = s._lastMoveId !== 'start-marker'
+    if (isFirstMove) {
+      setWithUndo(get, set, {
+        startMarker: nextMarker,
+        _lastMoveId: 'start-marker',
+      })
+    } else {
+      set({ startMarker: nextMarker })
+    }
+  },
   setBoundary: (f) => setWithUndo(get, set, { boundary: f }),
 
   addCustomRoad: (f) =>
@@ -360,7 +381,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
     setWithUndo(get, set, () => ({ treePoints: [] })),
 
   addCustomStatus: (label, color) =>
-    set((s) => ({ customStatuses: [...s.customStatuses, { id: `status-${uuid().slice(0, 8)}`, label, color }] })),
+    setWithUndo(get, set, (s) => ({ customStatuses: [...s.customStatuses, { id: `status-${uuid().slice(0, 8)}`, label, color }] })),
 
   removeCustomStatus: (id) =>
     setWithUndo(get, set, (s) => ({
@@ -405,6 +426,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   setSelectedHouseId: (id) => set({ selectedHouseId: id }),
   setSelectedTreeId: (id) => set({ selectedTreeId: id }),
   setSelectedRoadId: (id) => set({ selectedRoadId: id }),
+  setSelectedStartMarker: (selected) => set({ selectedStartMarker: selected }),
   setSnapToGrid: (snap) => set({ snapToGrid: snap }),
   setGridSpacing: (meters) => set({ gridSpacingMeters: meters }),
   setMapMode: (mode) => set({ mapMode: mode }),
@@ -488,6 +510,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       selectedHouseId: null,
       selectedTreeId: null,
       selectedRoadId: null,
+      selectedStartMarker: false,
       visibleLayers: DEFAULT_VISIBLE_LAYERS,
       boundaryOpacity: DEFAULT_BOUNDARY_OPACITY,
       maskOpacity: DEFAULT_MASK_OPACITY,
@@ -515,6 +538,7 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       selectedHouseId: null,
       selectedTreeId: null,
       selectedRoadId: null,
+      selectedStartMarker: false,
       visibleLayers: DEFAULT_VISIBLE_LAYERS,
       boundaryOpacity: DEFAULT_BOUNDARY_OPACITY,
       maskOpacity: DEFAULT_MASK_OPACITY,

@@ -99,6 +99,7 @@ export default function ProjectManager({
     )
     if (!ok) return
 
+    await flushPendingSave()
     await deleteProject(projectId)
     const nextProject = await loadProject()
     if (nextProject) loadProjectToStore(nextProject)
@@ -195,6 +196,7 @@ export default function ProjectManager({
               type="text"
               value={draftName}
               autoFocus
+              aria-label="Project name"
               onChange={(e) => setDraftName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') commitRename()

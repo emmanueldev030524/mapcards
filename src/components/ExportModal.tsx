@@ -78,7 +78,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       })
       .catch((err) => {
         if (cancelled) return
-        console.error('Export failed:', err)
+        if (import.meta.env.DEV) console.error('Export failed:', err)
         setErrorMsg(err instanceof Error ? err.message : 'Export failed')
         setState('error')
       })
@@ -119,7 +119,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       saveAs(blob, `territory-${territoryNumber || territoryName || 'map'}.pdf`)
       setState('ready')
     } catch (err) {
-      console.error('PDF export failed:', err)
+      if (import.meta.env.DEV) console.error('PDF export failed:', err)
       setErrorMsg(err instanceof Error ? err.message : 'PDF export failed')
       setState('error')
     }

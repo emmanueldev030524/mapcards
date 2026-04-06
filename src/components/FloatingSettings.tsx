@@ -25,10 +25,15 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
   const selectedHouseId = useStore((s) => s.selectedHouseId)
   const selectedTreeId = useStore((s) => s.selectedTreeId)
   const selectedRoadId = useStore((s) => s.selectedRoadId)
+  const selectedStartMarker = useStore((s) => s.selectedStartMarker)
 
   const hasContent = boundary !== null || houseCount > 0
   const hasActiveMode = activeDrawMode !== null
-  const hasSelection = selectedHouseId !== null || selectedTreeId !== null || selectedRoadId !== null
+  const hasSelection =
+    selectedHouseId !== null ||
+    selectedTreeId !== null ||
+    selectedRoadId !== null ||
+    selectedStartMarker
 
   // Auto-open when boundary exists and no tool/selection active (unless dismissed)
   useEffect(() => {
@@ -78,7 +83,7 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
 
     const handler = (e: maplibregl.MapMouseEvent) => {
       // Skip if click hit an element
-      const hitLayers = ['house-icons', 'tree-icons', 'custom-roads-fill'].filter((l) => map.getLayer(l))
+      const hitLayers = ['house-icons', 'tree-icons', 'start-marker-pin', 'custom-roads-fill'].filter((l) => map.getLayer(l))
       if (hitLayers.length > 0) {
         const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
           [e.point.x - 12, e.point.y - 12],

@@ -76,7 +76,9 @@ export async function loadPinImages(map: MapImageHost): Promise<void> {
 
 // ─── Dynamic house icon system ───
 
-const HOUSE_DEFAULT_COLOR = '#4B6CA7'
+import { BRAND } from './colors'
+
+const HOUSE_DEFAULT_COLOR = BRAND
 
 type MapImageHost = { hasImage: (id: string) => boolean; addImage: (id: string, img: HTMLImageElement) => void }
 

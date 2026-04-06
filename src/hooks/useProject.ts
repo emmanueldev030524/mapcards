@@ -14,12 +14,16 @@ function toComparableSnapshot(data: ProjectData) {
 
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
+const BASE_DELAY = 500
+const MAX_BACKOFF = 16_000
+
 export function useAutoSave() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savePromiseRef = useRef<Promise<void> | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const saveStateRef = useRef<SaveState>('idle')
+  const errorCountRef = useRef(0)
 
   const updateSaveState = useCallback((next: SaveState) => {
     saveStateRef.current = next
@@ -40,6 +44,7 @@ export function useAutoSave() {
       .then(() => {
         lastPersistedProjectSnapshot = comparable
         setLastSavedAt(data.updatedAt)
+        errorCountRef.current = 0
         if (toComparableSnapshot(useStore.getState().getProjectData()) === comparable) {
           updateSaveState('saved')
         } else {
@@ -47,7 +52,8 @@ export function useAutoSave() {
         }
       })
       .catch((err) => {
-        console.error(err)
+        errorCountRef.current++
+        if (import.meta.env.DEV) console.error(err)
         updateSaveState('error')
         throw err
       })
@@ -85,12 +91,18 @@ export function useAutoSave() {
 
       updateSaveState('dirty')
       if (debounceRef.current) clearTimeout(debounceRef.current)
+
+      // Exponential backoff on repeated errors (500ms, 1s, 2s, ... 16s max)
+      const delay = errorCountRef.current > 0
+        ? Math.min(BASE_DELAY * Math.pow(2, errorCountRef.current), MAX_BACKOFF)
+        : BASE_DELAY
+
       debounceRef.current = setTimeout(() => {
         debounceRef.current = null
         persistCurrentProject().catch(() => {
           // Error state is already handled in persistCurrentProject.
         })
-      }, 500)
+      }, delay)
     })
 
     return () => {
@@ -111,6 +123,8 @@ export function useLoadOnStart() {
         lastPersistedProjectSnapshot = toComparableSnapshot(data)
         loadProjectToStore(data)
       }
-    }).catch(console.error)
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.error(err)
+    })
   }, [loadProjectToStore])
 }

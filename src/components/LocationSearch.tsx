@@ -291,6 +291,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
             })
           }
         }}
+        aria-label="Search for a location"
         placeholder={compact ? 'Search location...' : 'Search...'}
         className={
           compact

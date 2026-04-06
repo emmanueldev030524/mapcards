@@ -9,6 +9,13 @@ export default defineConfig({
       // jsPDF bundles html2canvas + dompurify for its .html() method.
       // We only use .addImage() — mark them external to save ~221KB.
       external: ['html2canvas', 'dompurify'],
+      output: {
+        manualChunks(id) {
+          if (id.includes('maplibre-gl')) return 'maplibre'
+          if (id.includes('@turf')) return 'turf'
+          if (id.includes('jspdf') || id.includes('file-saver')) return 'pdf'
+        },
+      },
     },
   },
 })
