@@ -2,6 +2,13 @@ import { useState, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { Trash2 } from 'lucide-react'
 import { showConfirm } from './ConfirmDialog'
+import PopupToggle from './PopupToggle'
+import {
+  popupSectionFlat,
+  popupSectionDivider,
+  popupRowLabel,
+  popupValueBadge,
+} from '../lib/popupStyles'
 
 /** Compute CSS percentage for range fill gradient */
 function rangePct(value: number, min: number, max: number) {
@@ -55,7 +62,7 @@ function EditableBadge({
     <button
       onClick={() => setEditing(true)}
       title="Click to edit"
-      className="min-h-7 rounded-full bg-brand-tint px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15 active:scale-95"
+      className={popupValueBadge}
     >
       {value}{suffix}
     </button>
@@ -91,9 +98,9 @@ function SliderRow({
   onBadgeChange: (v: number) => void
 }) {
   return (
-    <div className="space-y-2 py-1">
+    <div className="space-y-2 py-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium text-body">{label}</span>
+        <span className={popupRowLabel}>{label}</span>
         <EditableBadge
           value={displayValue}
           suffix={suffix}
@@ -114,37 +121,6 @@ function SliderRow({
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
       />
     </div>
-  )
-}
-
-/** iOS-style toggle switch */
-function ToggleSwitch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  label: string
-}) {
-  return (
-    <label className="flex min-h-11 cursor-pointer items-center justify-between rounded-xl px-1 py-1 transition-colors duration-150 active:bg-brand-hover">
-      <span className="text-[12px] font-medium text-body">{label}</span>
-      <button
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-6.5 w-11.5 shrink-0 rounded-full transition-colors duration-200 ease-out ${
-          checked ? 'bg-brand' : 'bg-slate-200'
-        }`}
-      >
-        <span
-          className={`absolute left-0.75 top-0.75 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out ${
-            checked ? 'translate-x-5' : 'translate-x-0'
-          }`}
-        />
-      </button>
-    </label>
   )
 }
 
@@ -174,11 +150,11 @@ export default function Toolbar() {
   if (!hasBoundary && houseCount === 0 && treeCount === 0 && !startMarker) return null
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
 
       {/* ── Boundary controls card ── */}
       {hasBoundary && (
-        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+        <div className={popupSectionFlat}>
           <SliderRow
             label="Fill Opacity"
             value={boundaryOpacity}
@@ -193,7 +169,7 @@ export default function Toolbar() {
             onChange={setBoundaryOpacity}
             onBadgeChange={(v) => setBoundaryOpacity(v / 100)}
           />
-          <div className="border-t border-divider/40" />
+          <div className={popupSectionDivider} />
           <SliderRow
             label="Mask Opacity"
             value={maskOpacity}
@@ -213,7 +189,7 @@ export default function Toolbar() {
 
       {/* ── House controls card ── */}
       {houseCount > 0 && (
-        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+        <div className={popupSectionFlat}>
           <SliderRow
             label="House Size"
             value={houseIconSize}
@@ -228,7 +204,7 @@ export default function Toolbar() {
             onChange={setHouseIconSize}
             onBadgeChange={(v) => setHouseIconSize(v / 100)}
           />
-          <div className="border-t border-divider/40" />
+          <div className={popupSectionDivider} />
           <button
             onClick={async () => {
               const ok = await showConfirm(
@@ -238,16 +214,16 @@ export default function Toolbar() {
               )
               if (ok) clearAllHouses()
             }}
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg py-2 text-[12px] font-medium text-red-500 transition-colors duration-150 active:bg-red-50"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-200/50 bg-rose-50/50 py-2 text-[12px] font-semibold text-rose-600 transition-colors duration-150 hover:border-rose-300/70 hover:bg-rose-100/70 hover:text-rose-700 focus-visible:ring-2 focus-visible:ring-rose-300/60 focus-visible:outline-none"
           >
-            <Trash2 size={14} strokeWidth={2} />
+            <Trash2 size={14} strokeWidth={2.2} />
             Clear all houses
           </button>
         </div>
       )}
 
       {treeCount > 0 && (
-        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+        <div className={popupSectionFlat}>
           <SliderRow
             label="Tree Size"
             value={treeIconSize}
@@ -266,7 +242,7 @@ export default function Toolbar() {
       )}
 
       {startMarker && (
-        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
+        <div className={popupSectionFlat}>
           <SliderRow
             label="Start Marker Size"
             value={startMarkerSize}
@@ -286,15 +262,15 @@ export default function Toolbar() {
 
       {/* ── Grid controls card ── */}
       {hasBoundary && (
-        <div className="rounded-xl bg-input-bg/50 px-3.5 py-1">
-          <ToggleSwitch
+        <div className={popupSectionFlat}>
+          <PopupToggle
             checked={snapToGrid}
             onChange={setSnapToGrid}
             label="Snap to Grid"
           />
           {snapToGrid && (
             <>
-              <div className="border-t border-divider/40" />
+              <div className={popupSectionDivider} />
               <SliderRow
                 label="Grid Spacing"
                 value={gridSpacingMeters}

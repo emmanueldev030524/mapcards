@@ -15,6 +15,7 @@ import {
   getStartMarkerLabelOffsetEm,
 } from '../lib/startMarkerLayout'
 import { BRAND } from '../lib/colors'
+import { applyTooltipAttrs } from '../lib/tooltips'
 import { showToast } from './Toast'
 
 interface MapViewProps {
@@ -134,6 +135,22 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         map.addControl(compassCtrl, 'bottom-right')
         const navCtrl = new maplibregl.NavigationControl({ showCompass: false })
         map.addControl(navCtrl, 'bottom-right')
+        const zoomInButton = map.getContainer().querySelector<HTMLButtonElement>('.maplibregl-ctrl-zoom-in')
+        if (zoomInButton) {
+          if (!zoomInButton.getAttribute('aria-label')) zoomInButton.setAttribute('aria-label', 'Zoom in')
+          applyTooltipAttrs(zoomInButton, {
+            label: 'Zoom in',
+            description: 'Get a closer view of the map.',
+          })
+        }
+        const zoomOutButton = map.getContainer().querySelector<HTMLButtonElement>('.maplibregl-ctrl-zoom-out')
+        if (zoomOutButton) {
+          if (!zoomOutButton.getAttribute('aria-label')) zoomOutButton.setAttribute('aria-label', 'Zoom out')
+          applyTooltipAttrs(zoomOutButton, {
+            label: 'Zoom out',
+            description: 'See more of the area at once.',
+          })
+        }
         // Attribution hidden — OpenFreeMap + OpenMapTiles credited in app docs
 
         map.on('load', () => {

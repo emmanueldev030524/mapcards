@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import type { DrawMode } from '../types/project'
 import { useIsTablet } from '../hooks/useMediaQuery'
@@ -19,6 +18,7 @@ import {
   Eye,
 } from 'lucide-react'
 import BoundaryPolygonIcon from './icons/BoundaryPolygonIcon'
+import { tooltipAttrs } from '../lib/tooltips'
 
 interface MapToolbarProps {
   activeMode: DrawMode
@@ -46,35 +46,6 @@ const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shor
   { mode: 'startMarker', label: 'Start', Icon: Flag, desc: 'Place the Start Here marker' },
   { mode: 'select', label: 'Select', Icon: MousePointer, desc: 'Select & edit elements', shortcut: 'Esc' },
 ]
-
-interface HoverTipState {
-  label: string
-  desc?: string
-  shortcut?: string
-  left: number
-  top: number
-}
-
-/* Tooltip with optional description and keyboard shortcut badge */
-function Tip({ label, desc, shortcut }: { label: string; desc?: string; shortcut?: string }) {
-  return (
-    <div className="max-w-56 rounded-xl border border-slate-800/90 bg-slate-950/96 px-3 py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(15,23,42,0.35)] backdrop-blur-sm">
-      <span className="flex items-center gap-1.5">
-        {label}
-        {shortcut && (
-          <kbd className="rounded bg-white/15 px-1.5 py-px text-[10px] font-medium tracking-wide text-white/70">
-            {shortcut}
-          </kbd>
-        )}
-      </span>
-      {desc && (
-        <span className="mt-0.5 block whitespace-normal text-[10px] font-normal leading-relaxed text-white/72">
-          {desc}
-        </span>
-      )}
-    </div>
-  )
-}
 
 /** Step-by-step hint for the active drawing/placement mode */
 function getHintMessage(mode: DrawMode, vertexCount: number): string | null {
@@ -107,8 +78,20 @@ function getActiveTool(mode: DrawMode) {
 
 /* Shared button base — animation handled by .btn-press in CSS */
 const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
-const btnInteractive = 'hover:bg-slate-100/88'
-const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1'
+// Subtle hover lift + soft inner bg. The lift is overridden by btn-press :active
+// (which scales down), so the two interactions compose cleanly.
+const btnShell = 'border border-white/34 bg-[linear-gradient(180deg,rgba(255,255,255,0.42),rgba(244,247,251,0.24))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]'
+const btnInteractive = 'hover:-translate-y-px hover:border-brand/20 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(239,244,252,0.52))] hover:text-brand hover:shadow-[0_10px_18px_-16px_rgba(75,108,167,0.24),0_4px_8px_-8px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.86)]'
+const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-1'
+const btnDisabled = 'cursor-not-allowed border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(244,247,251,0.14))] text-slate-300/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.38)]'
+const btnActive = 'scale-[1.04] border-brand/24 bg-[linear-gradient(180deg,rgba(248,250,254,0.98),rgba(233,240,250,0.96))] text-brand ring-1 ring-inset ring-white/46 shadow-[0_14px_24px_-16px_rgba(75,108,167,0.34),0_6px_12px_-10px_rgba(75,108,167,0.2),inset_0_1px_0_rgba(255,255,255,0.94)]'
+const btnDanger = 'border border-rose-200/72 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,241,242,0.9))] text-rose-600 shadow-[0_10px_20px_-18px_rgba(244,63,94,0.3),0_4px_8px_-6px_rgba(15,23,42,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] hover:-translate-y-px hover:border-rose-300/80 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(255,228,230,0.94))] hover:text-rose-700 hover:shadow-[0_14px_24px_-16px_rgba(244,63,94,0.34),0_6px_10px_-8px_rgba(244,63,94,0.18),inset_0_1px_0_rgba(255,255,255,0.96)]'
+// Secondary group container — history + review clusters. Thinner glass,
+// subordinate weight so the primary drawing-tools cluster reads as hero.
+const groupContainer = 'flex shrink-0 items-center gap-0.5 rounded-full border border-white/66 bg-[linear-gradient(180deg,rgba(255,255,255,0.74),rgba(244,247,252,0.58))] px-1 py-0.5 shadow-[0_10px_18px_-18px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.82),inset_0_-1px_0_rgba(255,255,255,0.16)] backdrop-blur-sm'
+// Primary group container — drawing tools cluster. Denser glass and a
+// stronger inset highlight so it reads as the hero of the toolbar.
+const primaryGroupContainer = 'flex shrink-0 items-center gap-0.5 rounded-full border border-white/82 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(244,247,252,0.72))] px-1 py-0.5 shadow-[0_14px_24px_-20px_rgba(15,23,42,0.24),0_4px_10px_-10px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-1px_0_rgba(255,255,255,0.18)] backdrop-blur-sm'
 
 export default function MapToolbar({
   activeMode,
@@ -151,8 +134,6 @@ export default function MapToolbar({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
-  const [tooltip, setTooltip] = useState<HoverTipState | null>(null)
-
   const checkScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
@@ -173,44 +154,21 @@ export default function MapToolbar({
     }
   }, [checkScroll])
 
-  const showTooltip = useCallback((event: React.SyntheticEvent<HTMLElement>, next: Omit<HoverTipState, 'left' | 'top'>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const center = rect.left + rect.width / 2
-    const viewportPadding = 16
-    const left = Math.min(window.innerWidth - viewportPadding, Math.max(viewportPadding, center))
-    const top = rect.bottom + 10
-    setTooltip({ ...next, left, top })
-  }, [])
-
-  const hideTooltip = useCallback(() => {
-    setTooltip(null)
-  }, [])
-
-  const getTooltipProps = useCallback(
-    (next: Omit<HoverTipState, 'left' | 'top'>) => ({
-      onMouseEnter: (event: React.MouseEvent<HTMLElement>) => showTooltip(event, next),
-      onMouseLeave: hideTooltip,
-      onFocus: (event: React.FocusEvent<HTMLElement>) => showTooltip(event, next),
-      onBlur: hideTooltip,
-    }),
-    [hideTooltip, showTooltip],
-  )
-
   const hintMessage = getHintMessage(activeMode, displayedVertexCount)
   const activeTool = getActiveTool(activeMode)
 
   return (
     <>
-    <div className="absolute left-1/2 top-3 z-10 w-[calc(100%-1rem)] max-w-max -translate-x-1/2">
+    <div data-popup-safe-top="true" className="absolute left-1/2 top-3 z-10 w-[calc(100%-1rem)] max-w-max -translate-x-1/2">
     <div className="pointer-events-none absolute inset-x-10 -inset-y-1 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.72),transparent_68%)] blur-xl" />
     <div className="pointer-events-none absolute inset-x-14 top-0 h-5 rounded-full bg-white/52 blur-md" />
     <div
       role="toolbar"
       aria-label="Map drawing tools"
-      className="relative flex w-full max-w-[calc(100vw-1rem)] items-center overflow-hidden rounded-full border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(247,249,252,0.94))] shadow-[0_18px_40px_rgba(15,23,42,0.2),0_6px_16px_rgba(15,23,42,0.1),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-[22px] will-change-transform"
+      className="relative flex w-full max-w-[calc(100vw-1rem)] items-center overflow-hidden rounded-full border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(247,249,252,0.72))] shadow-[0_28px_56px_-16px_rgba(15,23,42,0.26),0_12px_28px_-10px_rgba(15,23,42,0.16),0_2px_6px_-1px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-1px_0_rgba(255,255,255,0.22)] backdrop-blur-[28px] backdrop-saturate-150 will-change-transform"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.46),transparent_36%,rgba(255,255,255,0.24)_68%,transparent)]" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/90" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.5),transparent_38%,rgba(255,255,255,0.22)_72%,transparent)]" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/92" />
       {/* Left fade edge */}
       {canScrollLeft && (
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-7 rounded-l-full bg-linear-to-r from-white via-white/70 to-transparent" />
@@ -228,12 +186,12 @@ export default function MapToolbar({
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
-            <div className="mx-0.5 h-5 w-px shrink-0 bg-slate-300/85" />
+            <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
           </>
         )}
 
         {/* ── History group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-white/84 px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.78)]">
+        <div className={groupContainer}>
           <button
             onClick={() => {
               if (isDrawing && onDrawUndo) onDrawUndo()
@@ -241,15 +199,14 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canUndo}
             aria-label="Undo"
-            title="Undo"
-            {...getTooltipProps({ label: 'Undo', shortcut: `${MOD}Z` })}
+            {...tooltipAttrs({ label: 'Go back one step', shortcut: `${MOD}Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canUndo
-                ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-300'
+                ? `${btnShell} ${btnInteractive}`
+                : btnDisabled
             }`}
           >
-            <Undo2 size={iconSize} strokeWidth={2} />
+            <Undo2 size={iconSize} strokeWidth={2.15} />
           </button>
           <button
             onClick={() => {
@@ -258,15 +215,14 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canRedo}
             aria-label="Redo"
-            title="Redo"
-            {...getTooltipProps({ label: 'Redo', shortcut: `${MOD}⇧Z` })}
+            {...tooltipAttrs({ label: 'Redo the last step', shortcut: `${MOD}⇧Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canRedo
-                ? `text-slate-700 ${btnInteractive}`
-                : 'cursor-not-allowed text-slate-300'
+                ? `${btnShell} ${btnInteractive}`
+                : btnDisabled
             }`}
           >
-            <Redo2 size={iconSize} strokeWidth={2} />
+            <Redo2 size={iconSize} strokeWidth={2.15} />
           </button>
         </div>
 
@@ -276,20 +232,19 @@ export default function MapToolbar({
             onClick={onDrawFinish}
             disabled={!canFinish}
             aria-label={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
-            title={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
-            {...getTooltipProps({ label: 'Finish', shortcut: 'Enter' })}
+            {...tooltipAttrs({ label: 'Finish drawing', shortcut: 'Enter' })}
             className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold ${
               canFinish
-                ? 'bg-emerald-500 text-white shadow-[0_6px_14px_rgba(16,185,129,0.24)] hover:bg-emerald-600'
+                ? 'bg-[linear-gradient(180deg,#34d399,#10b981)] text-white ring-1 ring-inset ring-white/30 shadow-[0_6px_18px_-4px_rgba(16,185,129,0.55),0_2px_6px_-1px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] hover:brightness-105 hover:-translate-y-px'
                 : 'cursor-not-allowed bg-slate-100 text-slate-400'
             }`}
           >
             <span className="flex items-center gap-1">
-              <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
+              <Check size={isTablet ? 16 : 14} strokeWidth={2.6} />
               Done
               {displayedVertexCount > 0 && (
                 <span className={`ml-0.5 rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
-                  canFinish ? 'bg-white/25' : 'bg-black/8'
+                  canFinish ? 'bg-white/28 text-white' : 'bg-black/8'
                 }`}>
                   {displayedVertexCount}
                 </span>
@@ -301,22 +256,21 @@ export default function MapToolbar({
           <button
             onClick={() => onModeChange(null)}
             aria-label="Done placing"
-            title="Done placing"
-            {...getTooltipProps({ label: 'Exit mode', shortcut: 'Esc' })}
-            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[0_6px_14px_rgba(16,185,129,0.24)] hover:bg-emerald-600`}
+            {...tooltipAttrs({ label: 'Stop placing items', shortcut: 'Esc' })}
+            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-[linear-gradient(180deg,#34d399,#10b981)] px-3.5 py-1.5 text-[12px] font-semibold text-white ring-1 ring-inset ring-white/30 shadow-[0_6px_18px_-4px_rgba(16,185,129,0.55),0_2px_6px_-1px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] hover:brightness-105 hover:-translate-y-px`}
           >
             <span className="flex items-center gap-1">
-              <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
+              <Check size={isTablet ? 16 : 14} strokeWidth={2.6} />
               Done
             </span>
           </button>
         )}
 
-        {/* ── Divider dot ── */}
-        <div className="mx-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400/85 shadow-[0_0_0_3px_rgba(255,255,255,0.55)]" />
+        {/* ── Section divider (hairline) ── */}
+        <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
 
-        {/* ── Drawing tools group ── */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(242,246,251,0.76))] px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.84)]">
+        {/* ── Drawing tools group (primary / hero) ── */}
+        <div className={primaryGroupContainer}>
           {TOOLS.map(({ mode, label, Icon, desc, shortcut }) => {
             const isActive = activeMode === mode
             const isDisabledTool =
@@ -331,37 +285,43 @@ export default function MapToolbar({
                 disabled={isDisabledTool}
                 aria-label={label}
                 aria-pressed={isActive}
-                title={isDisabledTool ? (mode === 'startMarker' ? 'Draw a boundary first' : 'Boundary already exists') : desc}
-                {...getTooltipProps({
-                  label,
-                  desc: isDisabledTool && mode === 'startMarker' ? 'Draw a boundary before placing a Start Here marker.' : desc,
+                {...tooltipAttrs({
+                  label:
+                    mode === 'boundary' ? 'Draw boundary' :
+                    mode === 'road' ? 'Draw road' :
+                    mode === 'house' ? 'Add a house' :
+                    mode === 'tree' ? 'Add a tree or landmark' :
+                    mode === 'startMarker' ? 'Add Start Here marker' :
+                    'Select and edit items',
+                  description: isDisabledTool && mode === 'startMarker' ? 'Draw a boundary before placing the Start Here marker.' : desc,
                   shortcut,
                 })}
                 className={`${btnBase} ${toolClass} ${btnFocusRing} gap-2 ${
                   isActive
-                    ? 'bg-brand text-white shadow-[0_2px_10px_rgba(75,108,167,0.35)]'
+                    ? btnActive
                     : isDisabledTool
-                      ? 'cursor-not-allowed text-slate-300'
-                      : `text-slate-700 ${btnInteractive}`
+                      ? btnDisabled
+                      : `${btnShell} ${btnInteractive}`
                 }`}
               >
-                <Icon size={iconSize} strokeWidth={isActive ? 2.2 : 2} />
+                <Icon size={iconSize} strokeWidth={isActive ? 2.35 : 2.2} />
               </button>
             )
           })}
         </div>
 
         {(canReview || (hasBoundary && onClearBoundary)) && (
-          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/85 bg-white/84 px-1 py-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.78)]">
+          <>
+            <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
+            <div className={groupContainer}>
             {canReview && onReviewToggle && (
               <button
                 onClick={onReviewToggle}
                 aria-label="Review map"
-                title="Review map"
-                {...getTooltipProps({ label: 'Review', desc: 'Preview the territory without editing chrome.' })}
-                className={`${btnBase} ${btnSize} ${btnFocusRing} text-slate-700 ${btnInteractive}`}
+                {...tooltipAttrs({ label: 'Preview your card', description: 'See the territory without editing controls.' })}
+                className={`${btnBase} ${btnSize} ${btnFocusRing} ${btnShell} ${btnInteractive}`}
               >
-                <Eye size={iconSize} strokeWidth={2} />
+                <Eye size={iconSize} strokeWidth={2.2} />
               </button>
             )}
 
@@ -369,14 +329,14 @@ export default function MapToolbar({
               <button
                 onClick={onClearBoundary}
                 aria-label="Clear boundary"
-                title="Clear boundary"
-                {...getTooltipProps({ label: 'Clear boundary', shortcut: 'Del' })}
-                className={`${btnBase} ${btnSize} ${btnFocusRing} text-red-500 hover:bg-red-50 hover:text-red-600`}
+                {...tooltipAttrs({ label: 'Clear the map', description: 'Remove the boundary and everything inside it.', shortcut: 'Del' })}
+                className={`${btnBase} ${btnSize} ${btnFocusRing} ${btnDanger}`}
               >
-                <Trash2 size={iconSize} strokeWidth={2} />
+                <Trash2 size={iconSize} strokeWidth={2.2} />
               </button>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -389,7 +349,7 @@ export default function MapToolbar({
 
     {/* Contextual helper card — top-right, replaces FloatingSettings during active mode */}
     {hintMessage && activeTool && (
-      <div className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
+      <div data-popup-safe-top="true" className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
         <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
           isTablet ? 'w-[min(18rem,calc(100vw-1.5rem))]' : 'w-64'
         }`}>
@@ -448,7 +408,7 @@ export default function MapToolbar({
 
     {/* Floating undo pill — tablet only, during drawing */}
     {isTablet && isDrawing && displayedVertexCount > 0 && (
-      <div className="absolute right-3 z-10" style={{ top: isTablet ? 'calc(5.5rem + 8.5rem)' : 'calc(3.5rem + 7rem)' }}>
+      <div data-popup-safe-top="true" className="absolute right-3 z-10" style={{ top: isTablet ? 'calc(5.5rem + 8.5rem)' : 'calc(3.5rem + 7rem)' }}>
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
@@ -458,16 +418,6 @@ export default function MapToolbar({
           Undo point
         </button>
       </div>
-    )}
-
-    {tooltip && createPortal(
-      <div
-        className="pointer-events-none fixed z-90 -translate-x-1/2"
-        style={{ left: tooltip.left, top: tooltip.top }}
-      >
-        <Tip label={tooltip.label} desc={tooltip.desc} shortcut={tooltip.shortcut} />
-      </div>,
-      document.body,
     )}
     </>
   )

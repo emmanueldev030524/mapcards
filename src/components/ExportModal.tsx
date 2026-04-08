@@ -5,6 +5,7 @@ import { useStore } from '../store'
 import { exportToPng } from '../lib/exportPng'
 import { exportToPdf } from '../lib/exportPdf'
 import type maplibregl from 'maplibre-gl'
+import PopupCloseButton from './PopupCloseButton'
 
 interface ExportModalProps {
   open: boolean
@@ -223,13 +224,9 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
                 </span>
               )
             )}
-            <button
+            <PopupCloseButton
               onClick={handleClose}
-              aria-label="Close"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 active:scale-90"
-            >
-              <X size={18} strokeWidth={2} />
-            </button>
+            />
           </div>
         </div>
 

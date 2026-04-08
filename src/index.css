@@ -36,6 +36,191 @@
 }
 
 @layer base {
+  :root {
+    --sidebar-panel-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(245, 247, 251, 0.92));
+    --sidebar-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 249, 252, 0.8));
+    --sidebar-card-bg-soft: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(245, 247, 250, 0.62));
+    --sidebar-border: rgba(148, 163, 184, 0.24);
+    --sidebar-border-strong: rgba(148, 163, 184, 0.34);
+    --sidebar-text-primary: #1f2937;
+    --sidebar-text-secondary: rgba(71, 85, 105, 0.76);
+    --sidebar-shadow-panel:
+      18px 0 38px -24px rgba(15, 23, 42, 0.3),
+      8px 0 18px -16px rgba(15, 23, 42, 0.22),
+      inset -1px 0 0 rgba(255, 255, 255, 0.55);
+    --sidebar-shadow-card:
+      0 18px 40px -28px rgba(15, 23, 42, 0.28),
+      0 8px 18px -16px rgba(15, 23, 42, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.84);
+    --sidebar-shadow-soft:
+      0 10px 24px -22px rgba(15, 23, 42, 0.22),
+      0 4px 10px -8px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    --sidebar-shadow-button:
+      0 10px 20px -18px rgba(15, 23, 42, 0.28),
+      0 3px 8px -6px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --sidebar-shadow-button-hover:
+      0 14px 24px -18px rgba(15, 23, 42, 0.32),
+      0 6px 12px -10px rgba(15, 23, 42, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    --sidebar-shadow-input:
+      inset 0 1px 1px rgba(255, 255, 255, 0.85),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.36),
+      0 1px 2px rgba(15, 23, 42, 0.03);
+    --sidebar-shadow-input-focus:
+      0 0 0 3px rgba(75, 108, 167, 0.14),
+      0 10px 22px -18px rgba(75, 108, 167, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    --sidebar-radius-card: 20px;
+    --sidebar-radius-control: 14px;
+    --sidebar-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .sidebar-panel-surface {
+    background: var(--sidebar-panel-bg);
+    border-right: 1px solid rgba(255, 255, 255, 0.52);
+    box-shadow: var(--sidebar-shadow-panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  .sidebar-header-surface {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(104, 135, 193, 0.96), rgba(75, 108, 167, 0.98) 52%, rgba(61, 90, 142, 0.98));
+    box-shadow:
+      inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+      0 18px 36px -28px rgba(61, 90, 142, 0.5);
+  }
+
+  .sidebar-header-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.32), transparent 42%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 36%, rgba(255, 255, 255, 0.1) 72%, transparent);
+    pointer-events: none;
+  }
+
+  .sidebar-card-surface {
+    border: 1px solid var(--sidebar-border);
+    border-radius: var(--sidebar-radius-card);
+    background: var(--sidebar-card-bg);
+    box-shadow: var(--sidebar-shadow-card);
+    backdrop-filter: blur(16px) saturate(135%);
+    -webkit-backdrop-filter: blur(16px) saturate(135%);
+  }
+
+  .sidebar-card-surface-soft {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: calc(var(--sidebar-radius-card) - 4px);
+    background: var(--sidebar-card-bg-soft);
+    box-shadow: var(--sidebar-shadow-soft);
+    backdrop-filter: blur(12px) saturate(125%);
+    -webkit-backdrop-filter: blur(12px) saturate(125%);
+  }
+
+  .sidebar-section-heading {
+    color: rgba(71, 85, 105, 0.8);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-icon-button {
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(243, 246, 250, 0.82));
+    box-shadow: var(--sidebar-shadow-button);
+    color: rgba(71, 85, 105, 0.88);
+    transition:
+      transform var(--sidebar-transition),
+      background-color var(--sidebar-transition),
+      border-color var(--sidebar-transition),
+      box-shadow var(--sidebar-transition),
+      color var(--sidebar-transition);
+  }
+
+  .sidebar-icon-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(75, 108, 167, 0.26);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 247, 252, 0.9));
+    box-shadow: var(--sidebar-shadow-button-hover);
+    color: var(--sidebar-text-primary);
+  }
+
+  .sidebar-icon-button:active {
+    transform: scale(0.95);
+  }
+
+  .sidebar-icon-button-danger {
+    border-color: rgba(248, 113, 113, 0.22);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(254, 242, 242, 0.88));
+    color: rgba(220, 38, 38, 0.72);
+  }
+
+  .sidebar-icon-button-danger:hover {
+    border-color: rgba(248, 113, 113, 0.34);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 226, 226, 0.92));
+    color: rgba(190, 24, 24, 0.86);
+  }
+
+  .sidebar-input-surface {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(244, 247, 250, 0.72));
+    box-shadow: var(--sidebar-shadow-input);
+    transition:
+      background-color var(--sidebar-transition),
+      border-color var(--sidebar-transition),
+      box-shadow var(--sidebar-transition),
+      color var(--sidebar-transition);
+  }
+
+  .sidebar-input-surface:hover {
+    border-color: rgba(75, 108, 167, 0.22);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 252, 0.82));
+  }
+
+  .sidebar-input-surface:focus {
+    border-color: rgba(75, 108, 167, 0.34);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: var(--sidebar-shadow-input-focus);
+  }
+
+  .sidebar-input-surface::placeholder {
+    color: rgba(100, 116, 139, 0.6);
+  }
+
+  .sidebar-primary-button {
+    border: 1px solid rgba(61, 90, 142, 0.38);
+    background: linear-gradient(180deg, rgba(101, 133, 192, 0.98), rgba(75, 108, 167, 0.98) 58%, rgba(61, 90, 142, 0.98));
+    box-shadow:
+      0 18px 30px -20px rgba(61, 90, 142, 0.56),
+      0 8px 16px -12px rgba(61, 90, 142, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    transition:
+      transform var(--sidebar-transition),
+      box-shadow var(--sidebar-transition),
+      filter var(--sidebar-transition),
+      background-color var(--sidebar-transition);
+  }
+
+  .sidebar-primary-button:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 22px 34px -22px rgba(61, 90, 142, 0.6),
+      0 10px 18px -12px rgba(61, 90, 142, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    filter: saturate(1.03);
+  }
+
+  .sidebar-primary-button:active {
+    transform: scale(0.98);
+  }
+
   /* Custom sidebar scrollbar */
   .sidebar-scroll::-webkit-scrollbar {
     width: 6px;
@@ -163,17 +348,6 @@
     transform: translateY(-1px);
   }
 
-  /* Adaptive chrome: sidebar fades when drawing */
-  .sidebar-drawing {
-    opacity: 0.35;
-    pointer-events: none;
-    transform: translateX(-4px);
-    filter: blur(0.5px);
-  }
-  aside {
-    transition: opacity 250ms ease, transform 250ms ease, filter 250ms ease;
-  }
-
   /* Layer toggle pulse animation */
   @keyframes layer-pulse {
     0% { transform: scale(1); }
@@ -211,42 +385,122 @@
   :root {
     --map-control-size: 36px;
     --map-control-gap: 8px;
-    --map-control-edge-offset-x: 4px;
-    --map-control-edge-offset-y: 16px;
-    --map-control-zoom-pill-padding-x: 2px;
+    --map-control-edge-offset-x: 8px;
+    --map-control-edge-offset-y: 18px;
+    --map-control-zoom-pill-padding-x: 5px;
     --map-control-zoom-pill-width: calc((var(--map-control-size) * 2) + (var(--map-control-zoom-pill-padding-x) * 2));
     --map-control-stack-width: calc(var(--map-control-size) + var(--map-control-gap) + var(--map-control-zoom-pill-width));
+    --floating-control-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(246, 248, 252, 0.78));
+    --floating-control-surface-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 247, 252, 0.86));
+    --floating-control-border: rgba(255, 255, 255, 0.7);
+    --floating-control-border-muted: rgba(148, 163, 184, 0.28);
+    --floating-control-shadow:
+      0 28px 56px -20px rgba(15, 23, 42, 0.28),
+      0 12px 24px -12px rgba(15, 23, 42, 0.18),
+      0 3px 8px -4px rgba(15, 23, 42, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+    --floating-control-shadow-hover:
+      0 32px 64px -22px rgba(15, 23, 42, 0.32),
+      0 14px 28px -14px rgba(15, 23, 42, 0.2),
+      0 4px 10px -4px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.22);
+    --floating-control-focus:
+      0 0 0 3px rgba(75, 108, 167, 0.16),
+      0 16px 28px -18px rgba(75, 108, 167, 0.44);
   }
 
-  /* ── MapLibre controls — horizontal pill, light frosted glass ── */
+  .floating-control-trigger {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--floating-control-border);
+    background: var(--floating-control-surface);
+    box-shadow: var(--floating-control-shadow);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    transition:
+      transform 150ms cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 150ms cubic-bezier(0.32, 0.72, 0, 1),
+      border-color 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .floating-control-trigger::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.44), transparent 46%),
+      linear-gradient(140deg, rgba(255, 255, 255, 0.28), transparent 38%, rgba(255, 255, 255, 0.16) 74%, transparent);
+    pointer-events: none;
+  }
+
+  .floating-control-trigger:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.82);
+    box-shadow: var(--floating-control-shadow-hover);
+  }
+
+  .floating-control-trigger:active {
+    transform: scale(0.97);
+  }
+
+  .floating-control-trigger:focus-visible {
+    box-shadow: var(--floating-control-shadow-hover), var(--floating-control-focus);
+  }
+
+  /* ── MapLibre controls — horizontal pill, premium floating glass ── */
   .maplibregl-ctrl-group {
     display: flex !important;
     flex-direction: row !important;
-    background: rgba(255, 255, 255, 0.88) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    position: relative;
+    isolation: isolate;
+    background: var(--floating-control-surface) !important;
+    backdrop-filter: blur(24px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+    border: 1px solid var(--floating-control-border) !important;
     border-radius: 9999px !important;
-    box-shadow:
-      0 6px 20px rgba(15, 23, 42, 0.12),
-      0 2px 6px rgba(15, 23, 42, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+    box-shadow: var(--floating-control-shadow) !important;
     overflow: hidden;
+  }
+  .maplibregl-ctrl-group::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.46), transparent 42%),
+      linear-gradient(140deg, rgba(255, 255, 255, 0.26), transparent 40%, rgba(255, 255, 255, 0.12) 72%, transparent);
+    pointer-events: none;
+    z-index: 0;
   }
   /* Extra padding only on the zoom pill, not compass */
   .maplibregl-ctrl-group:not(:has(.maplibregl-ctrl-compass)) {
     padding: 0 var(--map-control-zoom-pill-padding-x) !important;
   }
   .maplibregl-ctrl-group button {
+    position: relative;
+    z-index: 1;
     width: var(--map-control-size) !important;
     height: var(--map-control-size) !important;
     border: none !important;
     background: transparent !important;
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    outline: none;
+    transition:
+      background-color 150ms ease,
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 150ms ease,
+      filter 150ms ease;
   }
   .maplibregl-ctrl-group button:hover {
-    background: rgba(0, 0, 0, 0.05) !important;
+    background: rgba(255, 255, 255, 0.38) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+    filter: saturate(1.04);
+  }
+  .maplibregl-ctrl-group button:focus-visible {
+    background: rgba(255, 255, 255, 0.44) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52), 0 0 0 2px rgba(75, 108, 167, 0.22);
   }
   .maplibregl-ctrl-group button:active {
     transform: scale(0.88);
@@ -255,16 +509,17 @@
   /* Vertical divider between buttons (horizontal layout) */
   .maplibregl-ctrl-group button + button {
     border-top: none !important;
-    border-left: 1px solid rgba(0, 0, 0, 0.06) !important;
+    border-left: 1px solid rgba(148, 163, 184, 0.18) !important;
   }
   /* Style the +/- icons — high contrast */
   .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
-    filter: none;
-    opacity: 0.85;
-    transition: opacity 0.15s ease;
+    filter: contrast(1.08) saturate(0.84);
+    opacity: 0.82;
+    transition: opacity 0.15s ease, filter 0.15s ease;
   }
   .maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
     opacity: 1;
+    filter: contrast(1.14) saturate(0.92);
   }
   /* Compass container — perfect circle, no extra padding */
   .maplibregl-ctrl-group:has(.maplibregl-ctrl-compass) {
@@ -369,6 +624,9 @@
   @media (max-width: 1279px) {
     :root {
       --map-control-size: 44px;
+      --map-control-gap: 10px;
+      --map-control-edge-offset-x: 10px;
+      --map-control-edge-offset-y: 20px;
     }
     .maplibregl-ctrl-group button {
       width: var(--map-control-size) !important;

@@ -26,20 +26,20 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
   }, [])
 
   return (
-    <div className="rounded-xl border border-divider/50 bg-white/80 px-2.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur-sm">
+    <div className="sidebar-card-surface px-2.5 py-1.5">
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="group flex min-h-9 w-full items-center justify-between rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-brand-hover"
+        className="group flex min-h-10 w-full items-center justify-between rounded-[16px] px-2.5 py-1.5 text-left transition-[background-color,transform] duration-150 hover:bg-white/60 hover:-translate-y-px"
       >
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-heading">
+        <h3 className="sidebar-section-heading text-[10.5px] text-body/80">
           {title}
         </h3>
         <ChevronRight
-          size={13}
+          size={14}
           strokeWidth={2}
-          className={`text-body transition-transform duration-300 ease-out ${open ? 'rotate-90' : ''}`}
+          className={`text-body/60 transition-transform duration-300 ease-out group-hover:text-body/85 ${open ? 'rotate-90' : ''}`}
         />
       </button>
       <div
@@ -50,7 +50,7 @@ export default function SidebarSection({ title, children, defaultOpen = true }: 
         }}
         className="overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
       >
-        <div ref={contentRef} className="px-1 pb-1 pt-1.5">
+        <div ref={contentRef} className="px-1.5 pb-1.5 pt-2">
           {children}
         </div>
       </div>

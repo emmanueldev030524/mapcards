@@ -1,6 +1,24 @@
 import type maplibregl from 'maplibre-gl'
 
 import { BRAND, BRAND_LIGHT } from './colors'
+import {
+  applyTooltipAttrs,
+} from './tooltips'
+import { createPopupCloseSvg, getPopupCloseIconSize } from './popupClose'
+import {
+  popupBody,
+  popupCloseButton,
+  popupCloseButtonTablet,
+  popupContainer,
+  popupHeader,
+  popupHeaderSubtitle,
+  popupHeaderTitle,
+  popupRowLabel,
+  popupSecondaryButton,
+  popupSectionDivider,
+  popupSectionFlat,
+  popupValueBadge,
+} from './popupStyles'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -53,6 +71,7 @@ export class CompassControl implements maplibregl.IControl {
   private tiltTrack!: HTMLDivElement
   private tiltFill!: HTMLDivElement
   private tiltRow!: HTMLDivElement
+  private tiltDivider!: HTMLDivElement
   private map: maplibregl.Map | null = null
   private panelOpen = false
   private activeSlider: 'heading' | 'tilt' | null = null
@@ -77,6 +96,10 @@ export class CompassControl implements maplibregl.IControl {
     this.compassBtn = document.createElement('button')
     this.compassBtn.className = 'maplibregl-ctrl-compass'
     this.compassBtn.setAttribute('aria-label', 'Compass')
+    applyTooltipAttrs(this.compassBtn, {
+      label: 'Change map direction',
+      description: 'Adjust heading and reset the map to north.',
+    })
     const btnSize = isTablet ? '44px' : '36px'
     Object.assign(this.compassBtn.style, {
       display: 'flex',
@@ -111,21 +134,14 @@ export class CompassControl implements maplibregl.IControl {
     })
     this.wrapper.appendChild(this.compassBtn)
 
-    // --- Frosted glass popup panel ---
+    // --- Shared popup shell ---
     this.panel = document.createElement('div')
+    this.panel.className = popupContainer
     Object.assign(this.panel.style, {
       position: 'absolute',
       width: window.matchMedia('(max-width: 1279px)').matches ? '180px' : '220px',
-      background: 'rgba(255,255,255,0.92)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      borderRadius: '16px',
-      border: '1px solid rgba(255,255,255,0.6)',
-      padding: '14px 16px 12px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)',
       display: 'none',
       flexDirection: 'column',
-      gap: '10px',
       zIndex: '1000',
       pointerEvents: 'auto',
       opacity: '0',
@@ -137,56 +153,42 @@ export class CompassControl implements maplibregl.IControl {
 
     // Header row
     const header = document.createElement('div')
-    Object.assign(header.style, {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    })
+    header.className = popupHeader
 
-    const title = document.createElement('span')
-    Object.assign(title.style, {
-      color: '#374151',
-      fontSize: '11px',
-      fontWeight: '600',
-      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em',
-    })
+    const headerText = document.createElement('div')
+    headerText.className = 'min-w-0'
+
+    const title = document.createElement('h3')
+    title.className = popupHeaderTitle
     title.textContent = 'Orientation'
-    header.appendChild(title)
+    headerText.appendChild(title)
+
+    const subtitle = document.createElement('p')
+    subtitle.className = popupHeaderSubtitle
+    subtitle.textContent = 'Adjust heading and quickly return the map to north.'
+    headerText.appendChild(subtitle)
+    header.appendChild(headerText)
 
     const closeBtn = document.createElement('button')
-    Object.assign(closeBtn.style, {
-      background: 'none',
-      border: 'none',
-      color: '#9ca3af',
-      fontSize: isTablet ? '16px' : '14px',
-      cursor: 'pointer',
-      lineHeight: '1',
-      padding: isTablet ? '6px' : '4px',
-      borderRadius: '50%',
-      width: isTablet ? '32px' : '24px',
-      height: isTablet ? '32px' : '24px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      transition: 'color 0.15s, background 0.15s',
-    })
-    closeBtn.textContent = '\u2715'
-    closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.style.color = '#374151'
-      closeBtn.style.background = 'rgba(0,0,0,0.05)'
-    })
-    closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.style.color = '#9ca3af'
-      closeBtn.style.background = 'none'
-    })
+    closeBtn.className = isTablet ? popupCloseButtonTablet : popupCloseButton
+    closeBtn.appendChild(createPopupCloseSvg(getPopupCloseIconSize(isTablet)))
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       this.closePanel()
     })
     header.appendChild(closeBtn)
     this.panel.appendChild(header)
+
+    const body = document.createElement('div')
+    body.className = popupBody
+    Object.assign(body.style, {
+      maxHeight: isTablet ? 'min(70vh, 32rem)' : 'min(60vh, 28rem)',
+      overflowY: 'auto',
+      overscrollBehavior: 'contain',
+    })
+
+    const controlsCard = document.createElement('div')
+    controlsCard.className = popupSectionFlat
 
     // --- Tilt slider (hidden) ---
     const tiltSlider = this.createSliderRow('Tilt', '\u00b0', isTablet)
@@ -195,7 +197,12 @@ export class CompassControl implements maplibregl.IControl {
     this.tiltThumb = tiltSlider.thumb
     this.tiltRow = tiltSlider.row
     this.tiltRow.style.display = this.showTilt ? 'flex' : 'none'
-    this.panel.appendChild(this.tiltRow)
+    controlsCard.appendChild(this.tiltRow)
+
+    this.tiltDivider = document.createElement('div')
+    this.tiltDivider.className = popupSectionDivider
+    this.tiltDivider.style.display = this.showTilt ? 'block' : 'none'
+    controlsCard.appendChild(this.tiltDivider)
 
     // --- Heading slider ---
     const headingSlider = this.createSliderRow('Heading', '\u00b0', isTablet)
@@ -203,23 +210,13 @@ export class CompassControl implements maplibregl.IControl {
     this.headingFill = headingSlider.fill
     this.headingThumb = headingSlider.thumb
     this.headingLabel = headingSlider.valueLabel
-    this.panel.appendChild(headingSlider.row)
+    controlsCard.appendChild(headingSlider.row)
+    body.appendChild(controlsCard)
 
     // --- Reset to north button (pill) ---
     const resetBtn = document.createElement('button')
-    Object.assign(resetBtn.style, {
-      color: BRAND,
-      fontSize: isTablet ? '13px' : '11px',
-      fontWeight: '600',
-      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
-      background: 'rgba(75,108,167,0.06)',
-      border: 'none',
-      cursor: 'pointer',
-      alignSelf: 'flex-end',
-      padding: isTablet ? '8px 16px' : '5px 12px',
-      borderRadius: '9999px',
-      transition: 'background 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-    })
+    resetBtn.className = popupSecondaryButton
+    resetBtn.style.alignSelf = 'flex-end'
     resetBtn.textContent = 'Reset to north'
     resetBtn.addEventListener('click', (e) => {
       e.preventDefault()
@@ -228,21 +225,8 @@ export class CompassControl implements maplibregl.IControl {
         this.map.easeTo({ bearing: 0, pitch: 0, duration: 400 })
       }
     })
-    resetBtn.addEventListener('mouseenter', () => {
-      resetBtn.style.background = 'rgba(75,108,167,0.12)'
-      resetBtn.style.color = BRAND_LIGHT
-    })
-    resetBtn.addEventListener('mouseleave', () => {
-      resetBtn.style.background = 'rgba(75,108,167,0.06)'
-      resetBtn.style.color = BRAND
-    })
-    resetBtn.addEventListener('mousedown', () => {
-      resetBtn.style.transform = 'scale(0.95)'
-    })
-    resetBtn.addEventListener('mouseup', () => {
-      resetBtn.style.transform = 'scale(1)'
-    })
-    this.panel.appendChild(resetBtn)
+    body.appendChild(resetBtn)
+    this.panel.appendChild(body)
 
     // Append panel to map container
     map.getContainer().appendChild(this.panel)
@@ -280,35 +264,44 @@ export class CompassControl implements maplibregl.IControl {
   setTiltVisible(visible: boolean) {
     this.showTilt = visible
     this.tiltRow.style.display = visible ? 'flex' : 'none'
+    this.tiltDivider.style.display = visible ? 'block' : 'none'
   }
 
   // --- Slider row builder (light theme) ---
 
   private createSliderRow(label: string, unit: string, isTablet = false) {
     const row = document.createElement('div')
-    Object.assign(row.style, {
+    row.className = 'space-y-2 py-1.5'
+
+    const topRow = document.createElement('div')
+    Object.assign(topRow.style, {
       display: 'flex',
       alignItems: 'center',
+      justifyContent: 'space-between',
       gap: '8px',
     })
 
     // Label
     const lbl = document.createElement('span')
-    Object.assign(lbl.style, {
-      color: '#6b7280',
-      fontSize: '12px',
-      fontWeight: '500',
-      minWidth: '52px',
-      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
-    })
+    lbl.className = popupRowLabel
     lbl.textContent = label
-    row.appendChild(lbl)
+    topRow.appendChild(lbl)
+
+    // Value label
+    const valueLabel = document.createElement('span')
+    valueLabel.className = `${popupValueBadge} inline-flex items-center justify-center`
+    Object.assign(valueLabel.style, {
+      minWidth: isTablet ? '42px' : '36px',
+    })
+    valueLabel.textContent = `0${unit}`
+    topRow.appendChild(valueLabel)
+    row.appendChild(topRow)
 
     // Track (wide hit area)
     const track = document.createElement('div')
     Object.assign(track.style, {
-      flex: '1',
-      height: isTablet ? '36px' : '28px',
+      width: '100%',
+      height: isTablet ? '24px' : '20px',
       display: 'flex',
       alignItems: 'center',
       cursor: 'pointer',
@@ -333,7 +326,7 @@ export class CompassControl implements maplibregl.IControl {
     Object.assign(bar.style, {
       width: '100%',
       height: '4px',
-      background: '#e5e7eb',
+      background: '#E8EAF0',
       borderRadius: '9999px',
       position: 'relative',
       overflow: 'visible',
@@ -354,8 +347,8 @@ export class CompassControl implements maplibregl.IControl {
     // Thumb (matches existing range inputs)
     const thumb = document.createElement('div')
     Object.assign(thumb.style, {
-      width: isTablet ? '18px' : '14px',
-      height: isTablet ? '18px' : '14px',
+      width: isTablet ? '16px' : '16px',
+      height: isTablet ? '16px' : '16px',
       borderRadius: '50%',
       background: '#ffffff',
       border: `2.5px solid ${BRAND}`,
@@ -371,20 +364,6 @@ export class CompassControl implements maplibregl.IControl {
     bar.appendChild(thumb)
     track.appendChild(bar)
     row.appendChild(track)
-
-    // Value label
-    const valueLabel = document.createElement('span')
-    Object.assign(valueLabel.style, {
-      color: '#374151',
-      fontSize: '12px',
-      fontWeight: '600',
-      fontFamily: "'Outfit', system-ui, -apple-system, sans-serif",
-      fontVariantNumeric: 'tabular-nums',
-      minWidth: '32px',
-      textAlign: 'right',
-    })
-    valueLabel.textContent = `0${unit}`
-    row.appendChild(valueLabel)
 
     return { row, track, fill, thumb, valueLabel }
   }

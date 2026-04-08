@@ -37,7 +37,8 @@ function getProjectSubtitle(territoryNumber: string, territoryName: string) {
   return 'Local project'
 }
 
-const actionBtn = 'group/tip relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-150 active:scale-[0.93] focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none'
+const actionBtn = 'sidebar-icon-button group/tip relative flex h-8 w-8 items-center justify-center rounded-[12px] text-brand/72 hover:border-brand/24 hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:outline-none'
+const actionBtnDanger = `${actionBtn} sidebar-icon-button-danger`
 const tipClass = 'pointer-events-none absolute -bottom-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100'
 
 export default function ProjectManager({
@@ -169,14 +170,14 @@ export default function ProjectManager({
 
   return (
     <div className="space-y-2.5">
-      <div className="overflow-visible rounded-xl border border-divider/50 bg-white px-3 py-2.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+      <div className="sidebar-card-surface overflow-visible px-3.5 py-3">
         {/* Header */}
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/60">Current Project</p>
+          <p className="sidebar-section-heading">Current Project</p>
           {!renaming && (
             <button
               onClick={startRename}
-              className="group/tip relative flex h-7 w-7 items-center justify-center rounded-lg border border-brand/25 bg-brand/8 text-brand transition-colors hover:bg-brand/15 hover:text-brand-dark"
+              className={actionBtn}
               aria-label="Rename project"
             >
               <RiPencilFill size={12} />
@@ -186,7 +187,7 @@ export default function ProjectManager({
         </div>
 
         {/* Project name — inline editable */}
-        <div className="mt-1">
+        <div className="mt-1.5">
           {renaming ? (
             <input
               type="text"
@@ -200,41 +201,41 @@ export default function ProjectManager({
               }}
               onBlur={commitRename}
               placeholder="Untitled Project"
-              className="w-full bg-transparent text-[14px] font-semibold text-heading outline-none border-b border-brand/40 pb-0.5 placeholder:text-body/30 focus:border-brand/60 transition-colors duration-150"
+              className="sidebar-input-surface w-full rounded-[14px] px-3 py-2 text-[14px] font-semibold tracking-[-0.01em] text-heading outline-none placeholder:text-body/40"
             />
           ) : (
             <h3
-              className="cursor-text wrap-break-word text-[14px] font-semibold leading-snug text-heading"
+              className="cursor-text wrap-break-word text-[14px] font-semibold leading-snug tracking-[-0.015em] text-heading"
               onClick={startRename}
               title="Click to rename"
             >
               {displayName}
             </h3>
           )}
-          <p className="mt-0.5 wrap-break-word text-[10.5px] leading-relaxed text-body/58">
+          <p className="mt-1 wrap-break-word text-[10.5px] leading-relaxed text-body/64">
             {subtitle}
           </p>
         </div>
 
         {/* Action row */}
-        <div className="mt-2 flex items-center gap-1 border-t border-divider/40 pt-2 pb-1">
+        <div className="mt-3 flex items-center gap-1.5 border-t border-white/55 pt-2.5 pb-0.5">
           <button
             onClick={handleExportJSON}
-            className={`${actionBtn} border-brand/20 bg-brand/6 text-brand/70 hover:bg-brand/12 hover:text-brand`}
+            className={actionBtn}
           >
             <RiSave3Fill size={15} />
             <span className="pointer-events-none absolute -bottom-8 left-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Save backup file</span>
           </button>
           <button
             onClick={handleImportJSON}
-            className={`${actionBtn} border-brand/15 bg-brand/5 text-brand/60 hover:bg-brand/10 hover:text-brand`}
+            className={actionBtn}
           >
             <RiUploadCloud2Fill size={15} />
             <span className={tipClass}>Load from file</span>
           </button>
           <button
             onClick={handleNew}
-            className={`${actionBtn} border-brand/15 bg-brand/5 text-brand/60 hover:bg-brand/10 hover:text-brand`}
+            className={actionBtn}
           >
             <Plus size={14} strokeWidth={2.5} />
             <span className={tipClass}>New project</span>
@@ -242,7 +243,7 @@ export default function ProjectManager({
           <div className="flex-1" />
           <button
             onClick={handleDeleteCurrent}
-            className={`${actionBtn} border-red-200/60 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500`}
+            className={actionBtnDanger}
           >
             <RiDeleteBin5Fill size={15} />
             <span className="pointer-events-none absolute -bottom-8 right-0 z-50 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover/tip:opacity-100">Delete project</span>
