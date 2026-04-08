@@ -8,6 +8,12 @@ import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
 import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateStartMarkerSVG } from '../lib/mapPins'
+import { buildHouseIconSizeExpression, buildTreeIconSizeExpression } from '../lib/mapMarkerSizing'
+import {
+  buildStartMarkerIconSizeExpression,
+  buildStartMarkerTextSizeExpression,
+  getStartMarkerLabelOffsetEm,
+} from '../lib/startMarkerLayout'
 import { BRAND } from '../lib/colors'
 import { showToast } from './Toast'
 
@@ -420,7 +426,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               source: HOUSE_SOURCE,
               layout: {
                 'icon-image': ['get', 'iconImage'],
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.35, 16, 0.55, 19, 0.7],
+                'icon-size': buildHouseIconSizeExpression(),
                 'icon-allow-overlap': true,
                 'icon-anchor': 'bottom',
                 'text-field': useStore.getState().visibleLayers['housenumbers']
@@ -519,7 +525,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               source: TREE_SOURCE,
               layout: {
                 'icon-image': 'tree-icon',
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 16, 0.7, 19, 0.9],
+                'icon-size': buildTreeIconSizeExpression(),
                 'icon-allow-overlap': true,
                 'icon-anchor': 'bottom',
               },
@@ -558,7 +564,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               source: START_MARKER_SOURCE,
               layout: {
                 'icon-image': START_MARKER_IMAGE,
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.72, 16, 0.9, 19, 1.06],
+                'icon-size': buildStartMarkerIconSizeExpression(),
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
@@ -583,10 +589,10 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               source: START_MARKER_SOURCE,
               layout: {
                 'text-field': ['get', 'label'],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 11, 19, 13],
+                'text-size': buildStartMarkerTextSizeExpression(),
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 'text-anchor': 'bottom',
-                'text-offset': [0, -3.05],
+                'text-offset': [0, getStartMarkerLabelOffsetEm(map.getZoom(), useStore.getState().startMarkerSize)],
                 'text-padding': 2,
                 'text-max-width': 8,
                 'text-allow-overlap': true,
@@ -896,11 +902,11 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     const syncHouses = () => {
       const source = map.getSource(HOUSE_SOURCE) as maplibregl.GeoJSONSource | undefined
       if (!source) return
-      const { housePoints, customStatuses: statuses } = useStore.getState()
+      const { housePoints } = useStore.getState()
 
       const features = housePoints.map((p, i) => {
         const tags = p.properties.tags || []
-        const { key, spec } = resolveHouseIcon(tags, statuses)
+        const { key, spec } = resolveHouseIcon(tags)
         return {
           ...p,
           properties: {
@@ -915,10 +921,10 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       })
 
       const houseTags = housePoints.map((p) => ({ tags: p.properties.tags || [] }))
-      if (allHouseIconsExist(map, houseTags, statuses)) {
+      if (allHouseIconsExist(map, houseTags)) {
         source.setData({ type: 'FeatureCollection', features })
       } else {
-        ensureHouseIcons(map, houseTags, statuses).then(() => {
+        ensureHouseIcons(map, houseTags).then(() => {
           source.setData({ type: 'FeatureCollection', features })
         }).catch((err) => {
           if (import.meta.env.DEV) console.error('Failed to load house icons:', err)
@@ -1004,24 +1010,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         startMarkerSize,
       } = useStore.getState()
       try {
-        map.setLayoutProperty(HOUSE_LAYER, 'icon-size', [
-          'interpolate', ['linear'], ['zoom'],
-          13, 0.35 * houseIconSize,
-          16, 0.55 * houseIconSize,
-          19, 0.7 * houseIconSize,
-        ])
+        map.setLayoutProperty(HOUSE_LAYER, 'icon-size', buildHouseIconSizeExpression(houseIconSize))
       } catch { void 0 }
       try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', badgeIconSize) } catch { void 0 }
 
       try {
         const treeLayer = map.getLayer(TREE_LAYER) as { type?: string } | undefined
         if (treeLayer?.type === 'symbol') {
-          map.setLayoutProperty(TREE_LAYER, 'icon-size', [
-            'interpolate', ['linear'], ['zoom'],
-            13, 0.4 * treeIconSize,
-            16, 0.7 * treeIconSize,
-            19, 0.9 * treeIconSize,
-          ])
+          map.setLayoutProperty(TREE_LAYER, 'icon-size', buildTreeIconSizeExpression(treeIconSize))
         } else {
           map.setPaintProperty(TREE_LAYER, 'circle-radius', 6 * treeIconSize)
         }
@@ -1030,12 +1026,8 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       try {
         const startLayer = map.getLayer(START_MARKER_LAYER) as { type?: string } | undefined
         if (startLayer?.type === 'symbol') {
-          map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', [
-            'interpolate', ['linear'], ['zoom'],
-            13, 0.72 * startMarkerSize,
-            16, 0.9 * startMarkerSize,
-            19, 1.06 * startMarkerSize,
-          ])
+          map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', buildStartMarkerIconSizeExpression(startMarkerSize))
+          map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'text-offset', [0, getStartMarkerLabelOffsetEm(map.getZoom(), startMarkerSize)])
         } else {
           map.setPaintProperty(START_MARKER_LAYER, 'circle-radius', [
             'interpolate', ['linear'], ['zoom'],
@@ -1047,6 +1039,22 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       } catch { void 0 }
     }
 
+    const syncStartMarkerLabelPosition = () => {
+      const { startMarkerSize } = useStore.getState()
+      try {
+        map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'text-offset', [0, getStartMarkerLabelOffsetEm(map.getZoom(), startMarkerSize)])
+      } catch { void 0 }
+    }
+
+    let startMarkerLabelFrame: number | null = null
+    const queueStartMarkerLabelPosition = () => {
+      if (startMarkerLabelFrame !== null) return
+      startMarkerLabelFrame = requestAnimationFrame(() => {
+        startMarkerLabelFrame = null
+        syncStartMarkerLabelPosition()
+      })
+    }
+
     // Run all syncs once on mount (populate from loaded project data)
     syncHouses()
     syncTrees()
@@ -1055,12 +1063,15 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     syncSelectedRoad()
     syncOpacity()
     syncMarkerSize()
+    syncStartMarkerLabelPosition()
+
+    map.on('zoom', queueStartMarkerLabelPosition)
 
     // Subscribe — Zustand fires this synchronously on every state change.
     // We compare slices to only run the sync that actually changed.
     let prev = useStore.getState()
     const unsub = useStore.subscribe((next) => {
-      if (next.housePoints !== prev.housePoints || next.customStatuses !== prev.customStatuses) syncHouses()
+      if (next.housePoints !== prev.housePoints) syncHouses()
       if (next.treePoints !== prev.treePoints) syncTrees()
       if (next.customRoads !== prev.customRoads) syncRoads()
       if (next.selectedHouseId !== prev.selectedHouseId || next.housePoints !== prev.housePoints) syncSelectedHouse()
@@ -1075,7 +1086,11 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       prev = next
     })
 
-    return unsub
+    return () => {
+      map.off('zoom', queueStartMarkerLabelPosition)
+      if (startMarkerLabelFrame !== null) cancelAnimationFrame(startMarkerLabelFrame)
+      unsub()
+    }
   }, [mapReady])
 
   // Pulse animation for selected house — driven by React selector (changes rarely)

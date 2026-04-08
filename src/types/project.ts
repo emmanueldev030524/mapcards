@@ -30,7 +30,6 @@ export interface ProjectData {
   housePoints: FeatureWithMeta<Point>[]
   treePoints?: FeatureWithMeta<Point>[]
   startMarker?: Feature<Point> | null
-  customStatuses?: Array<{ id: string; label: string; color: string }>
 }
 
 export const DEFAULT_PROJECT: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'> = {

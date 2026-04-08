@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect, useId, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useRef } from 'react'
 import { saveAs } from 'file-saver'
 import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
 import { exportToPng } from '../lib/exportPng'
 import { exportToPdf } from '../lib/exportPdf'
-import { collectLegend } from '../lib/mapPins'
 import type maplibregl from 'maplibre-gl'
 
 interface ExportModalProps {
@@ -18,7 +17,6 @@ type ExportState = 'preview' | 'generating' | 'ready' | 'error'
 export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const [state, setState] = useState<ExportState>('preview')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [pngBlob, setPngBlob] = useState<Blob | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [progressStage, setProgressStage] = useState('')
   const [previewNaturalWidth, setPreviewNaturalWidth] = useState<number | null>(null)
@@ -33,26 +31,23 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const housePoints = useStore((s) => s.housePoints)
   const treePoints = useStore((s) => s.treePoints)
   const customRoads = useStore((s) => s.customRoads)
-  const customStatuses = useStore((s) => s.customStatuses)
-  const legendEntries = useMemo(() => collectLegend(
-    housePoints.map((h) => ({ tags: (h.properties.tags as string[]) || [] })),
-    customStatuses,
-  ), [housePoints, customStatuses])
+  const houseIconSize = useStore((s) => s.houseIconSize)
+  const badgeIconSize = useStore((s) => s.badgeIconSize)
+  const treeIconSize = useStore((s) => s.treeIconSize)
+  const startMarkerSize = useStore((s) => s.startMarkerSize)
+  const boundaryOpacity = useStore((s) => s.boundaryOpacity)
+  const maskOpacity = useStore((s) => s.maskOpacity)
 
   const getExportOptions = useCallback(() => ({
     map: map!,
     boundary: boundary!,
     cardWidthInches,
     cardHeightInches,
-    territoryNumber,
-    legendEntries,
   }), [
     map,
     boundary,
     cardWidthInches,
     cardHeightInches,
-    territoryNumber,
-    legendEntries,
   ])
 
   const previewUrlRef = useRef<string | null>(null)
@@ -66,14 +61,12 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       setState('generating')
       setProgressStage('Capturing map...')
       setPreviewUrl(null)
-      setPngBlob(null)
       setErrorMsg('')
       setPreviewNaturalWidth(null)
 
       exportToPng(getExportOptions())
         .then((blob) => {
           if (cancelled) return
-          setPngBlob(blob)
           setProgressStage('Building preview...')
           const url = URL.createObjectURL(blob)
           if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
@@ -93,7 +86,23 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       cancelled = true
       cancelAnimationFrame(frameId)
     }
-  }, [open, map, boundary, territoryNumber, cardWidthInches, cardHeightInches, housePoints, treePoints, customRoads, customStatuses, getExportOptions])
+  }, [
+    open,
+    map,
+    boundary,
+    cardWidthInches,
+    cardHeightInches,
+    housePoints,
+    treePoints,
+    customRoads,
+    houseIconSize,
+    badgeIconSize,
+    treeIconSize,
+    startMarkerSize,
+    boundaryOpacity,
+    maskOpacity,
+    getExportOptions,
+  ])
 
   useEffect(() => {
     if (!open) return
@@ -119,9 +128,21 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   }, [])
 
   const handleDownloadPng = useCallback(() => {
-    if (!pngBlob) return
-    saveAs(pngBlob, `territory-${territoryNumber || territoryName || 'map'}.png`)
-  }, [pngBlob, territoryName, territoryNumber])
+    if (!boundary) return
+    setState('generating')
+    setProgressStage('Capturing map...')
+    exportToPng(getExportOptions())
+      .then((blob) => {
+        saveAs(blob, `territory-${territoryNumber || territoryName || 'map'}.png`)
+        setState('ready')
+        setProgressStage('')
+      })
+      .catch((err) => {
+        if (import.meta.env.DEV) console.error('PNG export failed:', err)
+        setErrorMsg(err instanceof Error ? err.message : 'PNG export failed')
+        setState('error')
+      })
+  }, [boundary, getExportOptions, territoryName, territoryNumber])
 
   const handleDownloadPdf = useCallback(async () => {
     if (!boundary) return
@@ -144,7 +165,6 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
     previewUrlRef.current = null
     setPreviewUrl(null)
-    setPngBlob(null)
     setState('preview')
     setProgressStage('')
     setPreviewNaturalWidth(null)
@@ -184,12 +204,6 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
                 <>
                   <span className="text-body/25">&bull;</span>
                   <span>{treePoints.length} trees</span>
-                </>
-              )}
-              {legendEntries.length > 0 && (
-                <>
-                  <span className="text-body/25">&bull;</span>
-                  <span>{legendEntries.length} legend</span>
                 </>
               )}
             </div>

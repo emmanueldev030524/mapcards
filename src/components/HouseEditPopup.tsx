@@ -3,8 +3,7 @@ import type maplibregl from 'maplibre-gl'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
-import { X, Plus, Check, ChevronDown, Trash2 } from 'lucide-react'
-import { showConfirm } from './ConfirmDialog'
+import { X } from 'lucide-react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 /**
@@ -24,22 +23,6 @@ function CategoryIcon({ cat, size = 16, className }: { cat: PinCategory; size?: 
   )
 }
 
-const PRESET_COLORS = [
-  '#f39c12', '#e74c3c', '#e67e22', '#2ecc71', '#3498db',
-  '#9b59b6', '#1abc9c', '#34495e', '#95a5a6', '#d35400',
-]
-const DEFAULT_STATUS_IDS = new Set(['rv', 'bs'])
-
-function recolorCategoryIcon(cat: PinCategory, color: string): PinCategory {
-  return {
-    ...cat,
-    iconPaths: cat.iconPaths
-      .replace(/stroke="#fff"/g, `stroke="${color}"`)
-      .replace(/fill="#fff"/g, `fill="${color}"`)
-      .replace(/fill="rgba\(255,255,255,0\.9\)"/g, `fill="${color}"`),
-  }
-}
-
 interface HouseEditPopupProps {
   map: maplibregl.Map | null
 }
@@ -51,20 +34,11 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const toggleTag = useStore((s) => s.toggleHouseTag)
   const removeHouse = useStore((s) => s.removeHousePoint)
   const setSelected = useStore((s) => s.setSelectedHouseId)
-  const customStatuses = useStore((s) => s.customStatuses)
-  const addCustomStatus = useStore((s) => s.addCustomStatus)
-  const removeCustomStatus = useStore((s) => s.removeCustomStatus)
-
-  const [adding, setAdding] = useState(false)
-  const [statusPickerOpen, setStatusPickerOpen] = useState(false)
-  const [newLabel, setNewLabel] = useState('')
-  const [newColor, setNewColor] = useState(PRESET_COLORS[0])
 
   const [swipeY, setSwipeY] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const touchStartY = useRef(0)
   const popupRef = useRef<HTMLDivElement>(null)
-  const statusSectionRef = useRef<HTMLDivElement>(null)
   const isPhone = useMediaQuery('(max-width: 767px)')
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window
 
@@ -84,46 +58,12 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const house = selectedId ? housePoints.find((p) => p.id === selectedId) : null
   const houseIndex = house ? housePoints.indexOf(house) + 1 : 0
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      setStatusPickerOpen(false)
-      setAdding(false)
-    })
-    return () => cancelAnimationFrame(id)
-  }, [selectedId])
-
-  useEffect(() => {
-    if (!statusPickerOpen) return
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      if (statusSectionRef.current && !statusSectionRef.current.contains(target)) {
-        setStatusPickerOpen(false)
-        setAdding(false)
-      }
-    }
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('touchstart', handlePointerDown, true)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('touchstart', handlePointerDown, true)
-    }
-  }, [statusPickerOpen])
-
   const handleDelete = useCallback(() => {
     if (selectedId) {
       removeHouse(selectedId)
       setSelected(null)
     }
   }, [selectedId, removeHouse, setSelected])
-
-  const handleAddStatus = () => {
-    const label = newLabel.trim()
-    if (!label) return
-    addCustomStatus(label, newColor)
-    setNewLabel('')
-    setNewColor(PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)])
-    setAdding(false)
-  }
 
   // Determine if popup should be top or bottom based on house screen position
   const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('bottom')
@@ -243,9 +183,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   if (!house) return null
 
   const tags = house.properties.tags || []
-  const placeCats = PIN_CATEGORIES.filter((c) => c.group === 'place')
-  const activeStatus = customStatuses.find((status) => tags.includes(status.id))
-  const activeStatusIcon = activeStatus ? PIN_CATEGORIES.find((c) => c.id === activeStatus.id) : null
+  const placeCats = PIN_CATEGORIES
 
   const showAtTop = keyboardOpen ? true : isPhone ? popupPosition === 'top' : false
   const mobileTopInset = 'max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))'
@@ -342,197 +280,6 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
               autoFocus={!isTouch}
               className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
             />
-          </div>
-
-          {/* Status — pill chips, user-manageable */}
-          <div ref={statusSectionRef} className="relative rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
-              Status
-            </label>
-            <p className="mb-2 text-[11px] leading-relaxed text-body/78">
-              One status per house.
-            </p>
-            <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/70">Current Status</p>
-                  <div className="mt-1">
-                    {activeStatus ? (
-                      <span
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.1)]"
-                        style={{ backgroundColor: activeStatus.color }}
-                      >
-                        {activeStatusIcon ? (
-                          <CategoryIcon cat={activeStatusIcon} size={12} className="opacity-90" />
-                        ) : (
-                          <span className="h-2.5 w-2.5 rounded-full bg-white/35" />
-                        )}
-                        <span className="truncate">{activeStatus.label}</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-body/70">
-                        No status
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setStatusPickerOpen((open) => !open)}
-                  className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                  aria-expanded={statusPickerOpen}
-                  aria-label={statusPickerOpen ? 'Hide status picker' : 'Show status picker'}
-                >
-                  {activeStatus ? 'Change' : 'Select'}
-                  <ChevronDown
-                    size={12}
-                    strokeWidth={2.4}
-                    className={`transition-transform duration-150 ${statusPickerOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {statusPickerOpen && (
-              <div className="absolute right-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-4rem))] space-y-2 rounded-2xl border border-slate-200/90 bg-white/98 p-2.5 shadow-[0_22px_40px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md">
-                <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                  <button
-                    onClick={() => {
-                      toggleTag(house.id, activeStatus?.id || '')
-                      setStatusPickerOpen(false)
-                      setAdding(false)
-                    }}
-                    disabled={!activeStatus}
-                    className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
-                      activeStatus
-                        ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                        : 'cursor-not-allowed border-slate-200/70 bg-slate-50/60 text-slate-400'
-                    }`}
-                  >
-                    <div>
-                      <p className="text-[12px] font-semibold">No status</p>
-                      <p className="text-[10px] text-body/65">Clear current status.</p>
-                    </div>
-                    {!activeStatus && <Check size={14} strokeWidth={2.4} className="text-brand" />}
-                  </button>
-
-                  {customStatuses.map((status) => {
-                    const active = activeStatus?.id === status.id
-                    const pinCat = PIN_CATEGORIES.find((c) => c.id === status.id)
-                    const statusIconCat = pinCat ? recolorCategoryIcon(pinCat, active ? '#ffffff' : status.color) : null
-                    const isRemovable = !DEFAULT_STATUS_IDS.has(status.id)
-
-                    return (
-                      <div key={status.id} className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            toggleTag(house.id, status.id)
-                            setStatusPickerOpen(false)
-                            setAdding(false)
-                          }}
-                          aria-pressed={active}
-                          aria-label={`${active ? 'Remove' : 'Apply'} status ${status.label}`}
-                          className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border px-3 py-1.5 text-left transition-colors ${
-                            active
-                              ? 'border-transparent text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]'
-                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                          }`}
-                          style={active ? { backgroundColor: status.color } : undefined}
-                        >
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-                              style={{
-                                backgroundColor: active ? 'rgba(255,255,255,0.2)' : `${status.color}15`,
-                              }}
-                            >
-                              {statusIconCat ? (
-                                <CategoryIcon cat={statusIconCat} size={12} className={active ? 'opacity-95' : 'opacity-85'} />
-                              ) : (
-                                <span
-                                  className="block h-2.5 w-2.5 rounded-full"
-                                  style={{ backgroundColor: active ? 'rgba(255,255,255,0.45)' : status.color }}
-                                />
-                              )}
-                            </span>
-                            <span className={`truncate text-[11px] font-semibold ${active ? 'text-white' : 'text-slate-700'}`}>
-                              {status.label}
-                            </span>
-                          </div>
-                          {active && <Check size={14} strokeWidth={2.4} className="shrink-0 text-white" />}
-                        </button>
-
-                        {isRemovable && (
-                          <button
-                            onClick={async () => {
-                              const ok = await showConfirm(
-                                `Remove "${status.label}"?`,
-                                'This status will be removed from all houses that use it.',
-                                { variant: 'destructive', confirmLabel: 'Remove' },
-                              )
-                              if (ok) removeCustomStatus(status.id)
-                            }}
-                            aria-label={`Delete status ${status.label}`}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                          >
-                            <Trash2 size={14} strokeWidth={2} />
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {!adding ? (
-                  <div className="border-t border-slate-200/80 pt-2">
-                    <button
-                      onClick={() => setAdding(true)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                    >
-                      <Plus size={13} strokeWidth={2.5} />
-                      Add custom status
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/75 p-2.5">
-                    <input
-                      type="text"
-                      value={newLabel}
-                      aria-label="New status name"
-                      onChange={(e) => setNewLabel(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddStatus(); if (e.key === 'Escape') setAdding(false) }}
-                      placeholder="Status name..."
-                      autoFocus
-                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
-                    />
-                    <div className="flex items-center gap-1.5">
-                      {PRESET_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setNewColor(c)}
-                          className={`h-5 w-5 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-brand ring-offset-1' : 'hover:scale-110'}`}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={handleAddStatus}
-                        disabled={!newLabel.trim()}
-                        className="flex-1 rounded-full bg-brand px-2 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-40"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => setAdding(false)}
-                        className="rounded-full px-2 py-1.5 text-[11px] font-medium text-body transition-colors hover:bg-slate-100"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Place type — icon tiles */}

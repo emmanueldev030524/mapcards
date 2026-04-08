@@ -3,13 +3,7 @@ import { v4 as uuid } from 'uuid'
 import type { Feature, Polygon, LineString, Point } from 'geojson'
 import type { DrawMode, FeatureWithMeta, ProjectData } from './types/project'
 import { DEFAULT_PROJECT } from './types/project'
-import { PIN_CATEGORIES } from './lib/mapPins'
-
-export interface CustomStatus {
-  id: string
-  label: string
-  color: string
-}
+import { PLACE_TAG_IDS } from './lib/mapPins'
 
 /** Snapshot of undoable project data */
 interface UndoSnapshot {
@@ -38,7 +32,6 @@ interface MapCardsStore {
   housePoints: FeatureWithMeta<Point>[]
   treePoints: FeatureWithMeta<Point>[]
   startMarker: Feature<Point> | null
-  customStatuses: CustomStatus[]
 
   // UI state (not persisted)
   activeDrawMode: DrawMode
@@ -91,9 +84,6 @@ interface MapCardsStore {
   removeTreePoint: (id: string) => void
   clearAllTrees: () => void
   moveTreePoint: (id: string, lng: number, lat: number) => void
-  addCustomStatus: (label: string, color: string) => void
-  removeCustomStatus: (id: string) => void
-  updateCustomStatus: (id: string, label: string, color: string) => void
 
   // Actions — UI
   setActiveDrawMode: (mode: DrawMode) => void
@@ -120,11 +110,6 @@ interface MapCardsStore {
   getProjectData: () => ProjectData
 }
 
-const DEFAULT_STATUSES: CustomStatus[] = [
-  { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
-  { id: 'bs', label: 'Bible Study', color: '#3498db' },
-]
-
 const DEFAULT_VISIBLE_LAYERS = { buildings: true }
 const DEFAULT_BOUNDARY_OPACITY = 0
 const DEFAULT_MASK_OPACITY = 0.85
@@ -135,21 +120,19 @@ const DEFAULT_START_MARKER_SIZE = 1
 const DEFAULT_SNAP_TO_GRID = false
 const DEFAULT_GRID_SPACING_METERS = 20
 const DEFAULT_MAP_MODE = 'auto' as const
-const STATUS_TAG_IDS = new Set(PIN_CATEGORIES.filter((cat) => cat.group === 'status').map((cat) => cat.id))
 
-/** Strip legacy/duplicate statuses and ensure current defaults exist */
-function migrateStatuses(statuses: CustomStatus[]): CustomStatus[] {
-  const legacyIds = new Set(['notHome', 'dnc'])
-  const duplicateLabels = new Set(['rv', 'return visit', 'bible study', 'bs'])
-  const migrated = statuses.filter((s) =>
-    !legacyIds.has(s.id) &&
-    !duplicateLabels.has(s.label.toLowerCase()),
-  )
-  if (migrated.length === 0) return DEFAULT_STATUSES
-  for (const def of DEFAULT_STATUSES) {
-    if (!migrated.some((s) => s.id === def.id)) migrated.unshift(def)
-  }
-  return migrated
+/**
+ * Strip legacy status tags (rv, bs, notHome, dnc, user-created status-* ids)
+ * from loaded house features. The app no longer tracks status; any tag that
+ * isn't a known place tag is silently dropped on load.
+ */
+function stripLegacyStatusTags<F extends FeatureWithMeta<Point>>(houses: F[]): F[] {
+  return houses.map((h) => {
+    const tags = h.properties.tags || []
+    const placeOnly = tags.filter((t) => PLACE_TAG_IDS.has(t))
+    if (placeOnly.length === tags.length) return h
+    return { ...h, properties: { ...h.properties, tags: placeOnly } }
+  })
 }
 
 /** Push current project data onto undo stack, then apply changes */
@@ -202,10 +185,6 @@ export const useStore = create<MapCardsStore>((set, get) => ({
   housePoints: DEFAULT_PROJECT.housePoints,
   treePoints: [],
   startMarker: null,
-  customStatuses: [
-    { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
-    { id: 'bs', label: 'Bible Study', color: '#3498db' },
-  ],
 
   activeDrawMode: null,
   visibleLayers: DEFAULT_VISIBLE_LAYERS,
@@ -352,13 +331,9 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       housePoints: s.housePoints.map((p) => {
         if (p.id !== id) return p
         const tags = p.properties.tags || []
-        const has = tags.includes(tag as never)
-        const isStatusTag = STATUS_TAG_IDS.has(tag) || s.customStatuses.some((status) => status.id === tag)
-        const nextTags = has
+        const nextTags = tags.includes(tag as never)
           ? tags.filter((t) => t !== tag)
-          : isStatusTag
-            ? [...tags.filter((t) => !STATUS_TAG_IDS.has(t) && !s.customStatuses.some((status) => status.id === t)), tag]
-            : [...tags, tag]
+          : [...tags, tag]
         return {
           ...p,
           properties: {
@@ -387,23 +362,6 @@ export const useStore = create<MapCardsStore>((set, get) => ({
 
   clearAllTrees: () =>
     setWithUndo(get, set, () => ({ treePoints: [] })),
-
-  addCustomStatus: (label, color) =>
-    setWithUndo(get, set, (s) => ({ customStatuses: [...s.customStatuses, { id: `status-${uuid().slice(0, 8)}`, label, color }] })),
-
-  removeCustomStatus: (id) =>
-    setWithUndo(get, set, (s) => ({
-      customStatuses: s.customStatuses.filter((st) => st.id !== id),
-      // Strip the deleted status from every house that references it
-      housePoints: s.housePoints.map((h) => {
-        const tags = h.properties.tags || []
-        if (!tags.includes(id)) return h
-        return { ...h, properties: { ...h.properties, tags: tags.filter((t: string) => t !== id) } }
-      }),
-    })),
-
-  updateCustomStatus: (id, label, color) =>
-    set((s) => ({ customStatuses: s.customStatuses.map((st) => st.id === id ? { ...st, label, color } : st) })),
 
   bulkAddHouses: (points) =>
     setWithUndo(get, set, (s) => ({
@@ -501,15 +459,12 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       mapZoom: data.mapZoom,
       boundary: data.boundary,
       customRoads: data.customRoads,
-      housePoints: data.housePoints,
+      // Strip legacy status tags (rv/bs/notHome/dnc/custom status-*) from
+      // houses on load so projects saved before the status removal don't
+      // carry orphaned tag references.
+      housePoints: stripLegacyStatusTags(data.housePoints),
       treePoints: data.treePoints || [],
       startMarker: data.startMarker || null,
-      customStatuses: migrateStatuses(
-        data.customStatuses || [
-          { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
-          { id: 'bs', label: 'Bible Study', color: '#3498db' },
-        ],
-      ),
       // Reset transient editing state so prior territory doesn't leak
       _undoStack: [],
       _redoStack: [],
@@ -542,10 +497,6 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       projectName: DEFAULT_PROJECT.projectName || '',
       treePoints: [],
       startMarker: null,
-      customStatuses: [
-        { id: 'rv', label: 'Return Visit', color: '#2ecc71' },
-        { id: 'bs', label: 'Bible Study', color: '#3498db' },
-      ],
       activeDrawMode: null,
       selectedHouseId: null,
       selectedTreeId: null,
@@ -589,7 +540,6 @@ export const useStore = create<MapCardsStore>((set, get) => ({
       housePoints: s.housePoints,
       treePoints: s.treePoints,
       startMarker: s.startMarker,
-      customStatuses: s.customStatuses,
     }
   },
 }))
