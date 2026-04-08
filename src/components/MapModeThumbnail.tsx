@@ -1,13 +1,24 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type maplibregl from 'maplibre-gl'
-import { X, Satellite, Map, FileText, Building2, Hash, ShoppingBag, GraduationCap, Church, Cross } from 'lucide-react'
+import { FileText, Building2, Hash, ShoppingBag, GraduationCap, Church, Cross } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { getToggleableLayers } from '../lib/mapStyle'
 import { BRAND } from '../lib/colors'
 import { useStore } from '../store'
 import { useIsTablet } from '../hooks/useMediaQuery'
+import PopupToggle from './PopupToggle'
+import {
+  popupContainer,
+  popupHeader,
+  popupHeaderTitle,
+  popupHeaderSubtitle,
+  popupSectionLabel,
+} from '../lib/popupStyles'
+import { tooltipAttrs } from '../lib/tooltips'
+import PopupCloseButton from './PopupCloseButton'
 
 type MapMode = 'satellite' | 'street' | 'clean'
+type PreviewMapMode = Exclude<MapMode, 'clean'>
 
 interface MapModeThumbnailProps {
   currentMode: MapMode
@@ -17,9 +28,9 @@ interface MapModeThumbnailProps {
   sidebarOpen?: boolean
 }
 
-const MAP_TYPES: { value: MapMode; label: string; Icon: typeof Satellite; gradient: string }[] = [
-  { value: 'satellite', label: 'Satellite', Icon: Satellite, gradient: 'from-emerald-800 to-emerald-950' },
-  { value: 'street', label: 'Street', Icon: Map, gradient: 'from-sky-100 via-blue-50 to-slate-100' },
+const MAP_TYPES: { value: PreviewMapMode; label: string }[] = [
+  { value: 'satellite', label: 'Satellite' },
+  { value: 'street', label: 'Street' },
 ]
 
 const DETAIL_ICONS: Record<string, LucideIcon> = {
@@ -31,22 +42,75 @@ const DETAIL_ICONS: Record<string, LucideIcon> = {
   'poi-hospitals': Cross,
 }
 
-/** Toggle switch — matches Toolbar.tsx iOS-style toggle */
-function Toggle({ checked }: { checked: boolean }) {
+const STREET_PREVIEW_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+const SATELLITE_PREVIEW_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+const FIXED_PREVIEW_VIEW: Record<PreviewMapMode, { center: [number, number]; zoom: number }> = {
+  street: {
+    center: [-122.4194, 37.7749],
+    zoom: 15,
+  },
+  satellite: {
+    center: [-122.4194, 37.7749],
+    zoom: 15,
+  },
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function lngLatToTile(center: [number, number], zoom: number) {
+  const [lng, lat] = center
+  const z = clamp(Math.round(zoom), 13, 17)
+  const tilesPerAxis = 2 ** z
+  const latRad = clamp(lat, -85.05112878, 85.05112878) * (Math.PI / 180)
+  const x = Math.floor((((lng + 180) / 360) * tilesPerAxis) % tilesPerAxis)
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * tilesPerAxis,
+  )
+
+  return {
+    z,
+    x: ((x % tilesPerAxis) + tilesPerAxis) % tilesPerAxis,
+    y: clamp(y, 0, tilesPerAxis - 1),
+  }
+}
+
+function getPreviewTileUrl(mode: PreviewMapMode, center: [number, number], zoom: number) {
+  const { x, y, z } = lngLatToTile(center, zoom)
+  const template = mode === 'satellite' ? SATELLITE_PREVIEW_TILE_URL : STREET_PREVIEW_TILE_URL
+  return template
+    .replace('{z}', String(z))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y))
+}
+
+function BasemapPreviewTile({
+  mode,
+  className,
+}: {
+  mode: PreviewMapMode
+  className: string
+}) {
+  const fixedPreviewView = FIXED_PREVIEW_VIEW[mode]
+  const previewTileUrl = getPreviewTileUrl(mode, fixedPreviewView.center, fixedPreviewView.zoom)
+
   return (
-    <span
-      role="switch"
-      aria-checked={checked}
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-out ${
-        checked ? 'bg-brand' : 'bg-slate-200'
-      }`}
-    >
-      <span
-        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform duration-200 ease-out ${
-          checked ? 'translate-x-4' : 'translate-x-0'
-        }`}
+    <div className={className}>
+      <img
+        src={previewTileUrl}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="h-full w-full object-cover object-center select-none"
       />
-    </span>
+      <div className={`pointer-events-none absolute inset-0 ${
+        mode === 'satellite'
+          ? 'bg-[linear-gradient(180deg,rgba(12,24,20,0.06),rgba(10,18,15,0.22))]'
+          : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(226,232,240,0.16))]'
+      }`} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-5 bg-[linear-gradient(180deg,rgba(255,255,255,0.28),transparent)]" />
+    </div>
   )
 }
 
@@ -132,7 +196,6 @@ export default function MapModeThumbnail({
 
   // Thumbnail: show the current mode icon
   const current = MAP_TYPES.find((m) => m.value === currentMode) || MAP_TYPES[1]
-  const isLight = current.value !== 'satellite'
 
   return (
     <div
@@ -143,29 +206,25 @@ export default function MapModeThumbnail({
       {/* Thumbnail button */}
       <button
         onClick={() => setPanelOpen((v) => !v)}
-        title="Basemap settings"
-        className={`touch-active flex flex-col items-center justify-end overflow-hidden rounded-2xl border-2 border-white/85 bg-linear-to-b shadow-[0_14px_30px_rgba(15,23,42,0.18),0_4px_12px_rgba(15,23,42,0.08)] transition-all duration-200 hover:scale-105 hover:shadow-[0_16px_34px_rgba(15,23,42,0.22)] active:scale-95 ${current.gradient} ${
-          isTablet ? 'h-20 w-20' : 'h-16 w-16'
-        } ${panelOpen ? 'ring-2 ring-brand/40' : ''}`}
+        aria-label="Basemap settings"
+        {...tooltipAttrs({
+          label: 'Change map style',
+          description: 'Switch between street and satellite views.',
+        })}
+        className={`floating-control-trigger touch-active flex items-stretch rounded-[22px] p-0.5 text-left ${
+          isTablet ? 'h-21 w-21' : 'h-17 w-17'
+        } ${panelOpen ? 'border-white/85 ring-2 ring-brand/30 ring-offset-0' : ''}`}
       >
-        <div className="flex flex-1 items-center justify-center">
-          <current.Icon
-            size={isTablet ? 22 : 18}
-            strokeWidth={1.5}
-          className={isLight ? 'text-slate-700' : 'text-white/85'}
+        <BasemapPreviewTile
+          mode={current.value}
+          className="relative flex h-full w-full overflow-hidden rounded-[19px] border border-white/45 bg-white/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-10px_18px_rgba(15,23,42,0.07)]"
         />
-      </div>
-        <div className={`w-full px-1 pb-1.5 text-center text-[9px] font-semibold leading-none ${
-          isLight ? 'text-slate-700' : 'text-white'
-        }`}>
-          {current.label}
-        </div>
       </button>
 
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
         <div
-          className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.2),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
+          className={`${popupContainer} ${
             isTablet ? 'fixed bottom-28 w-80' : 'absolute left-0 bottom-20 w-72'
           } flex flex-col`}
           style={{
@@ -174,49 +233,44 @@ export default function MapModeThumbnail({
           }}
         >
           {/* Header — always visible */}
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-200/75 bg-slate-50/80 px-5 pt-3.5 pb-3">
-            <div>
-              <h3 className="text-[14px] font-bold text-heading">Basemap</h3>
-              <p className="mt-0.5 text-[11px] text-body/75">Adjust map style and visible details</p>
+          <div className={popupHeader}>
+            <div className="min-w-0">
+              <h3 className={popupHeaderTitle}>Basemap</h3>
+              <p className={popupHeaderSubtitle}>Adjust map style and visible details</p>
             </div>
-            <button
+            <PopupCloseButton
               onClick={() => setPanelOpen(false)}
-              aria-label="Close"
-              className={`flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${
-                isTablet ? 'h-9 w-9' : 'h-8 w-8'
-              }`}
-            >
-              <X size={isTablet ? 18 : 16} strokeWidth={2} />
-            </button>
+              isTablet={isTablet}
+            />
           </div>
 
           {/* Scrollable body */}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
           {/* ── Type section ── */}
-          <div className="px-4 pb-3 pt-3">
-            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-body/65">Type</p>
+          <div className="px-4 pb-3 pt-3.5">
+            <p className={popupSectionLabel}>Type</p>
             <div className="flex gap-2">
               {MAP_TYPES.map((mode) => {
                 const active = currentMode === mode.value
-                const light = mode.value !== 'satellite'
                 return (
                   <button
                     key={mode.value}
                     onClick={() => onModeChange(mode.value)}
-                    className={`touch-active flex-1 overflow-hidden rounded-xl transition-all duration-150 ${
+                    className={`btn-press flex-1 overflow-hidden rounded-xl transition-all duration-150 ${
                       active
-                        ? 'ring-2 ring-brand ring-offset-2 shadow-[0_4px_14px_rgba(75,108,167,0.18)]'
-                        : 'ring-1 ring-slate-200/80 hover:ring-slate-300'
+                        ? 'ring-2 ring-brand ring-offset-2 shadow-[0_6px_18px_-4px_rgba(75,108,167,0.38),0_2px_6px_-1px_rgba(75,108,167,0.22)]'
+                        : 'ring-1 ring-slate-200/75 hover:-translate-y-px hover:ring-slate-300 hover:shadow-[0_4px_10px_rgba(15,23,42,0.06)]'
                     }`}
                   >
-                    <div className={`flex items-center justify-center bg-linear-to-b ${mode.gradient} ${
-                      isTablet ? 'h-14' : 'h-12'
-                    }`}>
-                      <mode.Icon size={isTablet ? 22 : 20} strokeWidth={1.5} className={light ? 'text-slate-600' : 'text-white/90'} />
-                    </div>
-                    <div className={`px-2 py-1.5 text-center text-[11px] font-semibold ${
-                      active ? 'bg-brand/6 text-brand' : 'bg-white text-body/70'
+                    <BasemapPreviewTile
+                      mode={mode.value}
+                      className={`relative flex w-full overflow-hidden ${
+                        isTablet ? 'h-14' : 'h-12'
+                      }`}
+                    />
+                    <div className={`px-2 py-1.5 text-center text-[11px] font-semibold transition-colors duration-150 ${
+                      active ? 'bg-brand/8 text-brand' : 'bg-white text-body/72'
                     }`}>
                       {mode.label}
                     </div>
@@ -226,65 +280,67 @@ export default function MapModeThumbnail({
             </div>
           </div>
 
-          <div className="mx-4 border-t border-slate-100" />
+          <div className="mx-4 border-t border-slate-200/55" />
 
           {/* ── Details section (layer toggles) ── */}
-          <div className="px-4 pt-3 pb-1">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-body/65">Details</p>
+          <div className="px-4 pt-3 pb-2">
+            <p className={popupSectionLabel}>Details</p>
             {layers.map((layer, i) => {
               const LayerIcon = DETAIL_ICONS[layer.id]
               const isChecked = visibleLayers[layer.id] || false
               return (
                 <div key={layer.id}>
-                  {i > 0 && <div className="border-t border-divider/30" />}
+                  {i > 0 && <div className="border-t border-slate-200/40" />}
                   <button
                     onClick={() => handleLayerToggle(layer.id, layer.layerIds)}
-                    className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors ${
-                      isChecked ? 'bg-brand/5' : 'hover:bg-slate-50'
-                    } active:bg-input-bg/50`}
+                    aria-pressed={isChecked}
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-150 ${
+                      isChecked ? 'bg-brand/6' : 'hover:bg-slate-100/60'
+                    } active:bg-brand-hover`}
                   >
                     {LayerIcon && (
                       <LayerIcon
                         size={isTablet ? 17 : 16}
                         strokeWidth={2}
                         style={{ color: isChecked ? layer.color : '#94a3b8' }}
-                        className="shrink-0 transition-colors duration-200"
+                        className="shrink-0 transition-colors duration-150"
                       />
                     )}
-                    <span className={`flex-1 text-left text-[12px] font-medium transition-colors duration-200 ${
+                    <span className={`flex-1 text-left text-[12px] font-medium transition-colors duration-150 ${
                       isChecked ? 'text-heading' : 'text-body/85'
                     }`}>
                       {layer.label}
                     </span>
-                    <Toggle checked={isChecked} />
+                    <PopupToggle checked={isChecked} readOnly />
                   </button>
                 </div>
               )
             })}
 
             {/* Clean mode — toggle row */}
-            <div className="border-t border-divider/30" />
+            <div className="border-t border-slate-200/40" />
             <button
               onClick={() => onModeChange(currentMode === 'clean' ? 'street' : 'clean')}
-              className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors ${
-                currentMode === 'clean' ? 'bg-brand/5' : 'hover:bg-slate-50'
-              } active:bg-input-bg/50`}
+              aria-pressed={currentMode === 'clean'}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-150 ${
+                currentMode === 'clean' ? 'bg-brand/6' : 'hover:bg-slate-100/60'
+              } active:bg-brand-hover`}
             >
               <FileText
                 size={isTablet ? 17 : 16}
                 strokeWidth={2}
                 style={{ color: currentMode === 'clean' ? BRAND : '#94a3b8' }}
-                className="shrink-0 transition-colors duration-200"
+                className="shrink-0 transition-colors duration-150"
               />
               <div className="flex-1 text-left">
-                <span className={`block text-[12px] font-medium transition-colors duration-200 ${
+                <span className={`block text-[12px] font-medium transition-colors duration-150 ${
                   currentMode === 'clean' ? 'text-heading' : 'text-body/85'
                 }`}>
                   Clean
                 </span>
                 <span className="block text-[10px] text-body/55">Hide all labels & roads</span>
               </div>
-              <Toggle checked={currentMode === 'clean'} />
+              <PopupToggle checked={currentMode === 'clean'} readOnly />
             </button>
           </div>
 

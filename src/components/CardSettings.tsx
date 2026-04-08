@@ -1,16 +1,16 @@
 import { useStore } from '../store'
 
 const inputClass =
-  'peer w-full rounded-xl border border-divider bg-surface px-3 pb-2 pt-6 text-[13px] text-heading outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder-transparent hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
+  'sidebar-input-surface peer w-full rounded-[16px] px-3.5 pb-2.5 pt-6 text-[13px] font-medium text-heading outline-none placeholder-transparent'
 
 const inputCompact =
-  'peer w-full rounded-xl border border-divider bg-surface px-3 pb-1 pt-5 text-[13px] text-heading outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder-transparent hover:border-brand/20 focus:border-brand/30 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
+  'sidebar-input-surface peer w-full rounded-[16px] px-3.5 pb-1.5 pt-5.5 text-[13px] font-medium text-heading outline-none placeholder-transparent'
 
 const floatLabelClass =
-  'pointer-events-none absolute left-3 top-1.5 origin-left text-[10px] font-semibold text-body transition-all duration-150 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
+  'pointer-events-none absolute left-3.5 top-1.5 origin-left text-[10px] font-semibold tracking-[0.02em] text-body/78 transition-all duration-150 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body/70 peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
 
 const floatLabelCompact =
-  'pointer-events-none absolute left-3 top-1 origin-left text-[10px] font-semibold text-body transition-all duration-150 peer-placeholder-shown:top-2.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body peer-focus:top-1 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
+  'pointer-events-none absolute left-3.5 top-1 origin-left text-[10px] font-semibold tracking-[0.02em] text-body/78 transition-all duration-150 peer-placeholder-shown:top-2.5 peer-placeholder-shown:text-[13px] peer-placeholder-shown:font-medium peer-placeholder-shown:text-body/70 peer-focus:top-1 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:text-brand'
 
 export default function CardSettings() {
   const territoryName = useStore((s) => s.territoryName)
@@ -22,7 +22,7 @@ export default function CardSettings() {
   const setCardDimensions = useStore((s) => s.setCardDimensions)
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {/* Territory Name — floating label */}
       <div className="relative">
         <input
@@ -54,7 +54,7 @@ export default function CardSettings() {
       </div>
 
       {/* Dimensions — compact row */}
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+      <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <input
             type="number"
@@ -89,7 +89,7 @@ export default function CardSettings() {
         </div>
       </div>
 
-      <p className="px-1 text-[11px] leading-relaxed text-body/65">
+      <p className="px-1 text-[11px] leading-relaxed text-body/68">
         Card size controls the export layout only. Your map styling and territory data stay unchanged.
       </p>
     </div>

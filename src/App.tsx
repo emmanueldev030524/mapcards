@@ -23,11 +23,13 @@ import SidebarSection from './components/SidebarSection'
 import ConfirmDialog, { showConfirm } from './components/ConfirmDialog'
 import Toast from './components/Toast'
 import AriaLiveRegion from './components/AriaLiveRegion'
+import TooltipProvider from './components/TooltipProvider'
 import SaveStatus from './components/SaveStatus'
 import ReviewOverlay from './components/ReviewOverlay'
 import { useStore } from './store'
 import { useDraw } from './hooks/useDraw'
 import { useAutoSave, useLoadOnStart } from './hooks/useProject'
+import { tooltipAttrs } from './lib/tooltips'
 
 export default function App() {
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
@@ -95,7 +97,35 @@ export default function App() {
   )
   const [basemapPanelOpen, setBasemapPanelOpen] = useState(false)
   const isTablet = useIsTablet()
-  const effectiveSidebarOpen = sidebarOpen && !(isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road'))
+
+  // Smart sidebar auto-collapse during drawing mode.
+  //
+  // Rules:
+  // 1. When a drawing mode starts (boundary / road / house / tree / startMarker),
+  //    collapse the sidebar ONCE so the user gets maximum canvas space.
+  // 2. `select` is excluded — it's edit-mode, not drawing, and users often need
+  //    sidebar access while selecting items.
+  // 3. The `autoCollapsedRef` latch ensures we only fire once per drawing
+  //    session. If the user manually reopens the sidebar mid-drawing, we don't
+  //    fight them — they can toggle freely and we leave their choice alone.
+  // 4. When drawing ends, we reset the latch (so the next session auto-collapses
+  //    again) but we do NOT touch `sidebarOpen`. The sidebar stays in whatever
+  //    state the user left it — the predictable "respect user intent" behavior.
+  const autoCollapsedRef = useRef(false)
+  useEffect(() => {
+    const isDrawingMode = activeDrawMode !== null && activeDrawMode !== 'select'
+    if (isDrawingMode) {
+      if (!autoCollapsedRef.current) {
+        autoCollapsedRef.current = true
+        const frame = window.requestAnimationFrame(() => {
+          setSidebarOpen(false)
+        })
+        return () => window.cancelAnimationFrame(frame)
+      }
+    } else {
+      autoCollapsedRef.current = false
+    }
+  }, [activeDrawMode])
 
   const handleModeChange = useCallback(
     (mode: typeof activeDrawMode) => {
@@ -206,7 +236,7 @@ export default function App() {
   return (
     <div className="touch-lock relative flex h-dvh w-full overflow-hidden">
       {/* Backdrop — tablet overlay only */}
-      {!reviewMode && isTablet && effectiveSidebarOpen && (
+      {!reviewMode && isTablet && sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
@@ -217,33 +247,25 @@ export default function App() {
       {/* Sidebar */}
       {!reviewMode && (
         <aside
-        className={[
-          'flex shrink-0 flex-col border-r border-divider bg-sidebar-bg/96 backdrop-blur-sm',
+        data-tooltip-exclusion="sidebar-panel"
+        className={
           isTablet
-            ? `fixed inset-y-0 left-0 z-40 w-[min(22rem,calc(100vw-1.5rem))] shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                effectiveSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            ? `sidebar-panel-surface fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1.5rem))] shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
-            : `absolute inset-y-0 left-0 z-20 w-68 shadow-[4px_0_24px_rgba(15,23,42,0.08)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                effectiveSidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
-              }`,
-          !isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road') ? 'sidebar-drawing' : '',
-        ].filter(Boolean).join(' ')}
-        onMouseEnter={(e) => {
-          if (!isTablet && activeDrawMode) e.currentTarget.classList.remove('sidebar-drawing')
-        }}
-        onMouseLeave={(e) => {
-          if (!isTablet && (activeDrawMode === 'boundary' || activeDrawMode === 'road'))
-            e.currentTarget.classList.add('sidebar-drawing')
-        }}
+            : `sidebar-panel-surface absolute inset-y-0 left-0 z-20 flex w-68 shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
+              }`
+        }
       >
         {/* Header */}
-        <div className="bg-linear-to-b from-brand to-brand-dark px-4 pb-5 pt-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)] sm:px-5">
-          <div className="flex items-start justify-between gap-3">
+        <div className="sidebar-header-surface px-4 pb-5 pt-5 sm:px-5">
+          <div className="relative flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-base font-bold tracking-tight text-white sm:text-[17px]">MapCards</h1>
-              <p className="mt-0.5 text-[11px] font-medium text-white/55 sm:text-[11.5px]">Territory Card Maker</p>
+              <h1 className="text-base font-bold tracking-[-0.02em] text-white sm:text-[17px]">MapCards</h1>
+              <p className="mt-1 text-[11px] font-medium tracking-[0.015em] text-white/72 sm:text-[11.5px]">Territory Card Maker</p>
             </div>
-            <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white/80 backdrop-blur-sm">
+            <span className="rounded-full border border-white/18 bg-white/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-md">
               STUDIO
             </span>
           </div>
@@ -258,7 +280,7 @@ export default function App() {
             />
           </div>
 
-          <div className="mx-3.5 border-t border-divider/50" />
+          <div className="mx-4 border-t border-white/55" />
 
           {/* Card Settings */}
           <div className="px-3.5 py-2">
@@ -267,7 +289,7 @@ export default function App() {
             </SidebarSection>
           </div>
 
-          <div className="mx-3.5 border-t border-divider/50" />
+          <div className="mx-4 border-t border-white/55" />
 
           {/* Export */}
           <div className="px-3.5 py-2">
@@ -277,14 +299,14 @@ export default function App() {
           </div>
 
           {/* Workflow progress dots */}
-          <div className="mx-3.5 mt-2 rounded-2xl border border-divider/60 bg-white/80 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-body/75">Progress</p>
-              <p className="text-[11px] font-medium text-body/55">
+          <div className="sidebar-card-surface mx-3.5 mt-2 px-4 py-3.5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="sidebar-section-heading">Progress</p>
+              <p className="text-[11px] font-semibold tracking-[0.01em] text-body/58">
                 {[boundary !== null, customRoads.length > 0, housePoints.length > 0].filter(Boolean).length}/3 complete
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
             {[
               { label: 'Boundary', done: boundary !== null },
               { label: 'Roads', done: customRoads.length > 0 },
@@ -293,14 +315,14 @@ export default function App() {
             ].map((step, i) => (
               <div key={step.label} className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-1">
-                  <div className={`h-2 w-2 rounded-full transition-all duration-300 ${
-                    step.done ? 'bg-brand scale-100' : 'bg-slate-200 scale-90'
+                  <div className={`h-2.5 w-2.5 rounded-full shadow-[0_0_0_3px_rgba(255,255,255,0.78)] transition-all duration-300 ${
+                    step.done ? 'scale-100 bg-brand' : 'scale-90 bg-slate-300/80'
                   }`} style={step.done ? { animation: 'dot-fill 300ms ease-out' } : undefined} />
-                  <span className={`text-[9px] font-medium ${step.done ? 'text-brand' : 'text-body/40'}`}>
+                  <span className={`text-[9.5px] font-semibold tracking-[0.02em] ${step.done ? 'text-brand' : 'text-body/42'}`}>
                     {step.label}
                   </span>
                 </div>
-                {i < 3 && <div className={`mb-3 h-px w-4 ${step.done ? 'bg-brand/30' : 'bg-slate-200'}`} />}
+                {i < 3 && <div className={`mb-3 h-px w-5 rounded-full ${step.done ? 'bg-brand/28' : 'bg-slate-200/90'}`} />}
               </div>
             ))}
             </div>
@@ -308,26 +330,26 @@ export default function App() {
 
           {/* Contextual guidance */}
           {!boundary && (
-            <div className="mx-3.5 mt-3 rounded-2xl border border-brand/10 bg-brand/5 px-4 py-4 text-center shadow-[0_4px_14px_rgba(75,108,167,0.06)]">
-              <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
+            <div className="sidebar-card-surface mx-3.5 mt-3 border-brand/10 bg-[linear-gradient(180deg,rgba(95,129,191,0.08),rgba(255,255,255,0.88))] px-4 py-4 text-center">
+              <div className="mx-auto mb-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-brand/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                 <BoundaryPolygonIcon size={16} strokeWidth={2} className="text-brand" />
               </div>
-              <p className="text-[12px] font-semibold text-heading">Draw a boundary</p>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-body/60">
+              <p className="text-[12px] font-semibold tracking-[-0.01em] text-heading">Draw a boundary</p>
+              <p className="mt-1 text-[10px] leading-relaxed text-body/66">
                 Define your territory on the map to get started.
               </p>
             </div>
           )}
           {boundary && customRoads.length === 0 && (
-            <div className="mx-3.5 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
-              <p className="text-[11px] text-body/60">
+            <div className="sidebar-card-surface-soft mx-3.5 mt-3 px-3.5 py-3 text-center">
+              <p className="text-[11px] text-body/64">
                 <span className="font-medium text-body/80">Next:</span> Add roads to help navigate
               </p>
             </div>
           )}
           {boundary && customRoads.length > 0 && housePoints.length === 0 && (
-            <div className="mx-3.5 mt-3 rounded-xl border border-divider/60 bg-white/75 px-3 py-3 text-center">
-              <p className="text-[11px] text-body/60">
+            <div className="sidebar-card-surface-soft mx-3.5 mt-3 px-3.5 py-3 text-center">
+              <p className="text-[11px] text-body/64">
                 <span className="font-medium text-body/80">Next:</span> Place houses in your territory
               </p>
             </div>
@@ -336,15 +358,15 @@ export default function App() {
           {/* Stats — compact inline */}
           {(boundary || customRoads.length > 0 || housePoints.length > 0) && (
             <div className="px-3.5 pb-4 pt-3">
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider/60 bg-white/80 px-3.5 py-3 text-[13px] shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-                <span className={`inline-flex items-center gap-1.5 font-medium ${boundary ? 'text-emerald-text' : 'text-body/40'}`}>
+              <div className="sidebar-card-surface flex flex-wrap items-center gap-2.5 px-3.5 py-3 text-[12.5px]">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold tracking-[0.01em] ${boundary ? 'bg-emerald-50/90 text-emerald-text' : 'bg-slate-100/80 text-body/45'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${boundary ? 'bg-emerald-500' : 'bg-body/20'}`} />
                   Boundary
                 </span>
-                <span className="font-semibold tabular-nums text-body">
+                <span className="font-semibold tabular-nums tracking-[0.01em] text-body">
                   {customRoads.length} <span className="font-medium text-body/50">roads</span>
                 </span>
-                <span className="font-semibold tabular-nums text-body">
+                <span className="font-semibold tabular-nums tracking-[0.01em] text-body">
                   {housePoints.length} <span className="font-medium text-body/50">houses</span>
                 </span>
               </div>
@@ -353,7 +375,7 @@ export default function App() {
         </div>
 
         {/* Auto-save indicator */}
-        <div className="shrink-0 border-t border-divider/30 bg-white/55 px-4 py-2.5 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-white/55 bg-white/45 px-4 py-2.5 backdrop-blur-md">
           <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
         </div>
       </aside>
@@ -372,13 +394,17 @@ export default function App() {
         {!reviewMode && !basemapPanelOpen && (
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          aria-label={effectiveSidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          data-tooltip-exclusion="sidebar-handle"
+          {...tooltipAttrs({
+            label: sidebarOpen ? 'Hide side panel' : 'Show side panel',
+            description: sidebarOpen ? 'Make more room for the map.' : 'Open the project controls.',
+          })}
           className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
             isTablet
-              ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/30 bg-white/85 text-slate-500 shadow-[2px_0_10px_rgba(0,0,0,0.12)] backdrop-blur-md hover:bg-white hover:text-slate-700'
-              : `${effectiveSidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-slate-300/90 bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08)] backdrop-blur-md hover:bg-white hover:text-slate-800`
+              ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/45 bg-white/84 text-slate-500 shadow-[2px_0_10px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-md hover:bg-white/94 hover:text-slate-700'
+              : `${sidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,247,251,0.88))] text-slate-600 shadow-[0_14px_28px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md hover:bg-white hover:text-slate-800`
           }`}
-          title={effectiveSidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
           {!isTablet && (
             <span
@@ -387,7 +413,7 @@ export default function App() {
             />
           )}
           <svg width={isTablet ? 8 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
-            {effectiveSidebarOpen
+            {sidebarOpen
               ? <path d="M6 0L0 6l6 6V0z" />
               : <path d="M2 0l6 6-6 6V0z" />
             }
@@ -447,7 +473,7 @@ export default function App() {
           onModeChange={setMapMode}
           map={mapInstance}
           onPanelToggle={setBasemapPanelOpen}
-          sidebarOpen={effectiveSidebarOpen}
+          sidebarOpen={sidebarOpen}
         />}
       </main>
 
@@ -466,6 +492,7 @@ export default function App() {
       <ConfirmDialog />
       <Toast />
       <AriaLiveRegion />
+      <TooltipProvider />
     </div>
   )
 }

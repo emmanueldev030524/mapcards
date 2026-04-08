@@ -3,8 +3,20 @@ import type maplibregl from 'maplibre-gl'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
-import { X } from 'lucide-react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import {
+  popupContainer,
+  popupHeader,
+  popupHeaderTitle,
+  popupHeaderSubtitle,
+  popupBody,
+  popupSection,
+  popupSectionLabel,
+  popupSectionHelp,
+  popupInput,
+  popupTileBase,
+} from '../lib/popupStyles'
+import PopupCloseButton from './PopupCloseButton'
 
 /**
  * Renders the SVG icon from a PinCategory at the given size.
@@ -65,101 +77,81 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     }
   }, [selectedId, removeHouse, setSelected])
 
-  // Determine if popup should be top or bottom based on house screen position
-  const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('bottom')
   const [floatingLayout, setFloatingLayout] = useState<{ left: number; top: number }>({ left: 16, top: 88 })
-  useEffect(() => {
-    if (!house || !map) return
-
-    const updatePosition = () => {
-      const coords = house.geometry.coordinates as [number, number]
-      const screenPt = map.project(coords)
-      // Use clientHeight (CSS pixels) — canvas.height is device pixels (2-3× on retina)
-      const cssHeight = map.getCanvas().clientHeight
-      // If house is in the bottom 45% of the viewport, show popup at top
-      setPopupPosition(screenPt.y > cssHeight * 0.55 ? 'top' : 'bottom')
-    }
-
-    updatePosition()
-    // Re-check when map moves (pan/zoom could shift the house)
-    map.on('moveend', updatePosition)
-    return () => { map.off('moveend', updatePosition) }
-  }, [house, map])
 
   const updateFloatingLayout = useCallback(() => {
     if (isPhone || !house || !map || !popupRef.current) return
 
     const mapContainer = map.getContainer()
+    const containerRect = mapContainer.getBoundingClientRect()
     const popupRect = popupRef.current.getBoundingClientRect()
     const point = map.project(house.geometry.coordinates as [number, number])
     const viewportWidth = mapContainer.clientWidth
     const viewportHeight = mapContainer.clientHeight
     const popupWidth = popupRect.width
     const popupHeight = popupRect.height
+    const viewportPadding = Math.max(12, Math.min(24, Math.round(Math.min(viewportWidth, viewportHeight) * 0.02)))
+    const toolbarGap = Math.max(8, Math.min(16, Math.round(viewportPadding * 0.75)))
+    const horizontalOffset = Math.max(16, Math.min(28, Math.round(viewportWidth * 0.02)))
+    const preferredLeft = point.x + horizontalOffset
+    const markerVisualCenterY = point.y - Math.max(10, Math.min(16, Math.round(viewportHeight * 0.018)))
+    const preferredTop = markerVisualCenterY - popupHeight / 2
+    const topSafeElements = Array.from(document.querySelectorAll<HTMLElement>('[data-popup-safe-top="true"]'))
+    const highestBlockingBottom = topSafeElements.reduce((maxBottom, el) => {
+      if (popupRef.current?.contains(el)) return maxBottom
+      const rect = el.getBoundingClientRect()
+      const overlapsMapHorizontally = rect.right > containerRect.left && rect.left < containerRect.right
+      if (!overlapsMapHorizontally) return maxBottom
+      const bottomInMap = rect.bottom - containerRect.top
+      return Math.max(maxBottom, bottomInMap)
+    }, viewportPadding)
+    const topSafeZone = Math.max(viewportPadding, highestBlockingBottom + toolbarGap)
+    const bottomSafeZone = viewportPadding
+    const maxTop = Math.max(topSafeZone, viewportHeight - bottomSafeZone - popupHeight)
+    const maxLeft = Math.max(viewportPadding, viewportWidth - viewportPadding - popupWidth)
+    const clampedLeft = Math.min(maxLeft, Math.max(viewportPadding, preferredLeft))
+    const clampedTop = Math.min(maxTop, Math.max(topSafeZone, preferredTop))
 
-    const margin = 16
-    const topSafe = 88
-    const bottomSafe = 112
-    const leftCol = margin
-    const rightCol = Math.max(margin, viewportWidth - popupWidth - margin)
-    const bottomRow = Math.max(topSafe, viewportHeight - popupHeight - bottomSafe)
+    const controlsGap = Math.max(8, Math.min(18, Math.round(viewportPadding)))
+    const controlsContainer = mapContainer.querySelector<HTMLElement>('.maplibregl-ctrl-bottom-right')
+    let adjustedTop = clampedTop
 
-    const candidates = [
-      { left: leftCol, top: topSafe },
-      { left: rightCol, top: topSafe },
-      { left: leftCol, top: bottomRow },
-      { left: rightCol, top: bottomRow },
-    ]
-
-    const reservedZones = [
-      {
-        left: Math.max(0, viewportWidth - 184),
-        top: Math.max(0, viewportHeight - 116),
-        right: viewportWidth,
-        bottom: viewportHeight,
-      },
-      {
-        left: 0,
-        top: Math.max(0, viewportHeight - 124),
-        right: 124,
-        bottom: viewportHeight,
-      },
-    ]
-
-    const best = candidates.reduce((bestCandidate, candidate) => {
-      const centerX = candidate.left + popupWidth / 2
-      const centerY = candidate.top + popupHeight / 2
-      let score = Math.hypot(centerX - point.x, centerY - point.y)
-      const candidateRect = {
-        left: candidate.left,
-        top: candidate.top,
-        right: candidate.left + popupWidth,
-        bottom: candidate.top + popupHeight,
+    if (controlsContainer) {
+      const controlsRect = controlsContainer.getBoundingClientRect()
+      const protectedRect = {
+        left: controlsRect.left - containerRect.left - controlsGap,
+        top: controlsRect.top - containerRect.top - controlsGap,
+        right: controlsRect.right - containerRect.left + controlsGap,
+        bottom: controlsRect.bottom - containerRect.top + controlsGap,
       }
-
-      const overlapPadding = 28
-      const overlapsX = point.x >= candidate.left - overlapPadding && point.x <= candidate.left + popupWidth + overlapPadding
-      const overlapsY = point.y >= candidate.top - overlapPadding && point.y <= candidate.top + popupHeight + overlapPadding
-      if (overlapsX && overlapsY) score -= 10000
-
-      const overlapsReservedZone = reservedZones.some((zone) => (
-        candidateRect.left < zone.right &&
-        candidateRect.right > zone.left &&
-        candidateRect.top < zone.bottom &&
-        candidateRect.bottom > zone.top
-      ))
-      if (overlapsReservedZone) score -= 20000
-
-      if (score > bestCandidate.score) {
-        return { score, candidate }
+      const popupBounds = {
+        left: clampedLeft,
+        top: clampedTop,
+        right: clampedLeft + popupWidth,
+        bottom: clampedTop + popupHeight,
       }
-      return bestCandidate
-    }, { score: Number.NEGATIVE_INFINITY, candidate: candidates[0] })
+      const overlapsControls = (
+        popupBounds.left < protectedRect.right &&
+        popupBounds.right > protectedRect.left &&
+        popupBounds.top < protectedRect.bottom &&
+        popupBounds.bottom > protectedRect.top
+      )
+
+      if (overlapsControls) {
+        const liftedTop = protectedRect.top - popupHeight - controlsGap
+        adjustedTop = Math.min(maxTop, Math.max(topSafeZone, liftedTop))
+      }
+    }
+
+    const nextLayout = {
+      left: clampedLeft,
+      top: adjustedTop,
+    }
 
     setFloatingLayout((current) => (
-      Math.abs(current.left - best.candidate.left) < 1 && Math.abs(current.top - best.candidate.top) < 1
+      Math.abs(current.left - nextLayout.left) < 1 && Math.abs(current.top - nextLayout.top) < 1
         ? current
-        : best.candidate
+        : nextLayout
     ))
   }, [house, isPhone, map])
 
@@ -185,10 +177,10 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const tags = house.properties.tags || []
   const placeCats = PIN_CATEGORIES
 
-  const showAtTop = keyboardOpen ? true : isPhone ? popupPosition === 'top' : false
   const mobileTopInset = 'max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))'
   const mobileControlClearance = 'calc(var(--map-control-size) + var(--map-control-edge-offset-y) + env(safe-area-inset-bottom, 0px) + 3rem)'
-  const mobileMaxHeight = `calc(100dvh - ${mobileTopInset} - ${mobileControlClearance})`
+  const mobileKeyboardInset = keyboardOpen ? 'max(0px, calc(100dvh - 100svh))' : '0px'
+  const mobileMaxHeight = `calc(100dvh - ${mobileTopInset} - ${mobileControlClearance} - ${mobileKeyboardInset})`
 
   return (
     <div
@@ -197,14 +189,14 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
         : 'absolute z-10 transition-[left,top] duration-200 ease-out'}
       style={isPhone
         ? {
-            top: showAtTop ? mobileTopInset : 'auto',
-            bottom: showAtTop ? 'auto' : mobileControlClearance,
+            top: 'auto',
+            bottom: mobileControlClearance,
           }
         : floatingLayout}
     >
       <div
         ref={popupRef}
-        className="hover-lift w-full rounded-2xl border border-slate-200/85 bg-white/97 shadow-[0_20px_44px_rgba(15,23,42,0.18),0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-md sm:w-88"
+        className={`${popupContainer} hover-lift w-full sm:w-88`}
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY
           setSwiping(true)
@@ -231,45 +223,39 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
       >
         {/* Drag handle — swipe down to dismiss */}
         <div className="flex justify-center pt-2 pb-0.5">
-          <div className="h-1 w-8 rounded-full bg-slate-300" />
+          <div className="h-1 w-9 rounded-full bg-slate-300/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.55)]" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200/75 bg-slate-50/78 px-3.5 py-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-2xl bg-brand text-[11px] font-bold text-white shadow-[0_4px_12px_rgba(75,108,167,0.22)]">
+        <div className={popupHeader}>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-[11px] font-bold text-white shadow-[0_6px_14px_rgba(75,108,167,0.26)] ring-1 ring-white/30">
               {houseIndex}
             </span>
-            <div>
-              <p className="text-[12px] font-semibold text-heading">House #{houseIndex}</p>
-              <p className="text-[11px] text-body/78">Selected map marker</p>
+            <div className="min-w-0">
+              <p className={popupHeaderTitle}>House #{houseIndex}</p>
+              <p className={popupHeaderSubtitle}>Selected map marker</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               onClick={handleDelete}
               aria-label="Delete house"
-              className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none"
+              className="btn-press rounded-full border border-rose-200/60 bg-rose-50/75 px-3 py-1.5 text-[11px] font-semibold text-rose-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-all duration-150 hover:border-rose-300/75 hover:bg-rose-100/85 hover:text-rose-700 focus-visible:ring-2 focus-visible:ring-rose-300/70 focus-visible:outline-none"
             >
               Delete
             </button>
-            <button
+            <PopupCloseButton
               onClick={() => setSelected(null)}
-              aria-label="Close"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
-            >
-              <X size={16} strokeWidth={2} />
-            </button>
+            />
           </div>
         </div>
 
         {/* Body */}
-        <div className="space-y-3.5 px-3.5 py-3">
+        <div className={popupBody}>
           {/* Label */}
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
-              Name
-            </label>
+          <div className={popupSection}>
+            <label className={popupSectionLabel}>Name</label>
             <input
               type="text"
               value={house.properties.label || ''}
@@ -278,19 +264,17 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
               onKeyDown={(e) => { if (e.key === 'Enter') setSelected(null) }}
               placeholder="e.g. Gallardo Family"
               autoFocus={!isTouch}
-              className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-heading placeholder:text-body/70 outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]"
+              className={popupInput}
             />
           </div>
 
           {/* Place type — icon tiles */}
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/72 p-3">
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-body/85">
-              Place Type
-            </label>
-            <p className="mb-2 text-[11px] leading-relaxed text-body/78">
+          <div className={popupSection}>
+            <label className={popupSectionLabel}>Place Type</label>
+            <p className={popupSectionHelp}>
               Choose one or more place types to tint the house icon and improve legend output.
             </p>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(3.9rem,1fr))] gap-1.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(3.9rem,1fr))] gap-2">
               {placeCats.map((cat) => {
                 const active = tags.includes(cat.id)
                 return (
@@ -300,17 +284,20 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     aria-pressed={active}
                     aria-label={`${active ? 'Remove' : 'Apply'} place type ${cat.label}`}
                     title={cat.label}
-                    className={`flex min-h-19 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-all duration-150 ${
+                    className={`${popupTileBase} min-h-20 ${
                       active
-                        ? 'shadow-[0_8px_18px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-white/18'
-                        : 'border border-slate-200/80 bg-white/96 hover:border-slate-300 hover:bg-white'
+                        ? '-translate-y-px border-white/20 shadow-[0_14px_26px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-inset ring-white/15'
+                        : ''
                     }`}
-                    style={active ? { backgroundColor: cat.color } : undefined}
+                    style={active ? {
+                      backgroundColor: cat.color,
+                      boxShadow: '0 14px 28px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.22)',
+                    } : undefined}
                   >
                     <span
-                      className="flex h-7 w-7 items-center justify-center rounded-lg"
+                      className="flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-150"
                       style={{
-                        backgroundColor: active ? 'rgba(255,255,255,0.2)' : cat.color + '15',
+                        backgroundColor: active ? 'rgba(255,255,255,0.18)' : cat.color + '15',
                       }}
                     >
                       <CategoryIcon
@@ -327,8 +314,8 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                         size={14}
                       />
                     </span>
-                    <span className={`flex min-h-[1.7rem] wrap-break-word items-center justify-center text-[8.5px] font-medium leading-[1.15] ${
-                      active ? 'text-white' : 'text-body/75'
+                    <span className={`flex min-h-[1.9rem] wrap-break-word items-center justify-center text-[8.5px] font-semibold leading-[1.15] ${
+                      active ? 'text-white' : 'text-body/80'
                     }`}>
                       {cat.label}
                     </span>

@@ -17,7 +17,7 @@ export default function SaveStatus({ saveState, lastSavedAt }: SaveStatusProps) 
 
   if (saveState === 'saving') {
     return (
-      <p className="flex items-center text-[10px] font-medium text-body/55">
+      <p className="flex items-center text-[10px] font-semibold tracking-[0.01em] text-body/58">
         <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" />
         Saving...
       </p>
@@ -26,7 +26,7 @@ export default function SaveStatus({ saveState, lastSavedAt }: SaveStatusProps) 
 
   if (saveState === 'dirty') {
     return (
-      <p className="flex items-center text-[10px] font-medium text-body/55">
+      <p className="flex items-center text-[10px] font-semibold tracking-[0.01em] text-body/58">
         <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-slate-400 align-middle" />
         Unsaved changes
       </p>
@@ -35,7 +35,7 @@ export default function SaveStatus({ saveState, lastSavedAt }: SaveStatusProps) 
 
   if (saveState === 'error') {
     return (
-      <p className="flex items-center text-[10px] font-medium text-red-500">
+      <p className="flex items-center text-[10px] font-semibold tracking-[0.01em] text-red-500">
         <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-red-400 align-middle" />
         Save failed
       </p>
@@ -44,7 +44,7 @@ export default function SaveStatus({ saveState, lastSavedAt }: SaveStatusProps) 
 
   if (saveState === 'saved' || lastSavedAt) {
     return (
-      <p className="flex items-center text-[10px] font-medium text-body/45">
+      <p className="flex items-center text-[10px] font-semibold tracking-[0.01em] text-body/48">
         <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 align-middle" />
         {savedTime ? `Saved ${savedTime}` : 'Saved'}
       </p>
@@ -52,7 +52,7 @@ export default function SaveStatus({ saveState, lastSavedAt }: SaveStatusProps) 
   }
 
   return (
-    <p className="flex items-center text-[10px] font-medium text-body/35">
+    <p className="flex items-center text-[10px] font-semibold tracking-[0.01em] text-body/38">
       <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-body/20 align-middle" />
       Ready
     </p>

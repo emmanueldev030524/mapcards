@@ -262,9 +262,6 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body/70">
-        <Search size={compact ? 13 : 14} strokeWidth={2} />
-      </div>
       <input
         ref={inputRef}
         type="text"
@@ -295,10 +292,13 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
         placeholder={compact ? 'Search location...' : 'Search...'}
         className={
           compact
-            ? 'h-9 w-full rounded-full border border-slate-300/80 bg-white/88 pl-8 pr-7 text-[12px] text-heading placeholder:text-slate-400 outline-none transition-all duration-150 hover:border-brand/25 hover:bg-white focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_2px_rgba(75,108,167,0.18)]'
+            ? 'peer h-9 w-full rounded-full border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] pl-8 pr-7 text-[12px] text-heading placeholder:text-slate-600 outline-none shadow-[inset_0_1px_2px_rgba(15,23,42,0.06),0_1px_0_rgba(255,255,255,0.75)] transition-all duration-150 hover:border-slate-300/85 hover:bg-white hover:shadow-[inset_0_1px_2px_rgba(15,23,42,0.05),0_4px_10px_rgba(15,23,42,0.06)] focus:border-brand/50 focus:bg-white focus:shadow-[0_0_0_3px_rgba(75,108,167,0.16),0_6px_18px_rgba(75,108,167,0.12),inset_0_1px_2px_rgba(15,23,42,0.03)]'
             : 'w-full rounded-lg border-0 bg-input-bg py-2 pl-9 pr-8 text-[13px] text-heading placeholder-body outline-none transition-shadow duration-150 focus:shadow-[0_0_0_2px_rgba(75,108,167,0.35)]'
         }
       />
+      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body/70 transition-colors duration-150 peer-hover:text-slate-600 peer-focus:text-brand">
+        <Search size={compact ? 13 : 14} strokeWidth={2.2} />
+      </div>
       {loading ? (
         <div className={`absolute top-1/2 -translate-y-1/2 ${compact ? 'right-2' : 'right-3'}`}>
           <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-divider border-t-brand" />
@@ -315,7 +315,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
             setLoading(false)
           }}
           aria-label="Clear search"
-          className={`absolute top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/60 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? 'right-1' : 'right-2'}`}
+          className={`absolute top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? 'right-1' : 'right-2'}`}
         >
           <X size={13} strokeWidth={2.5} />
         </button>

@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
-import { Flag, Trash2, X } from 'lucide-react'
+import { Flag, Trash2 } from 'lucide-react'
 import { useStore } from '../store'
 import { showConfirm } from './ConfirmDialog'
+import PopupCloseButton from './PopupCloseButton'
 
 export default function StartMarkerPopup() {
   const startMarker = useStore((s) => s.startMarker)
@@ -38,13 +39,9 @@ export default function StartMarkerPopup() {
               </div>
             </div>
           </div>
-          <button
+          <PopupCloseButton
             onClick={() => setSelected(false)}
-            aria-label="Close"
-            className="btn-press flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
-          >
-            <X size={16} strokeWidth={2} />
-          </button>
+          />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/72 px-3 py-2.5">

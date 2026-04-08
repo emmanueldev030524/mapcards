@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../store'
 import { showConfirm } from './ConfirmDialog'
+import PopupCloseButton from './PopupCloseButton'
 
 export default function RoadDeleteButton() {
   const selectedRoadId = useStore((s) => s.selectedRoadId)
@@ -20,13 +21,10 @@ export default function RoadDeleteButton() {
             <p className="text-[12px] font-semibold text-heading">Road #{roadIndex > 0 ? roadIndex : 'Selected'}</p>
             <p className="text-[11px] text-body/78">Selected custom road</p>
           </div>
-          <button
+          <PopupCloseButton
             onClick={() => setSelectedRoad(null)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-150 hover:bg-black/6 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
             aria-label="Close road actions"
-          >
-            <span className="text-base leading-none">×</span>
-          </button>
+          />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/72 px-3 py-2.5">

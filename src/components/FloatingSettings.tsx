@@ -1,11 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useIsTablet } from '../hooks/useMediaQuery'
 import { point } from '@turf/helpers'
 import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
 import type maplibregl from 'maplibre-gl'
 import Toolbar from './Toolbar'
 import { useStore } from '../store'
+import {
+  popupContainer,
+  popupHeader,
+  popupHeaderTitle,
+  popupHeaderSubtitle,
+} from '../lib/popupStyles'
+import PopupCloseButton from './PopupCloseButton'
 
 interface FloatingSettingsProps {
   map: maplibregl.Map | null
@@ -74,33 +81,28 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
   if (!open || !hasContent || hasSelection) return null
 
   return (
-    <div ref={panelRef} className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
-      <div className="w-[min(18rem,calc(100vw-1.5rem))] animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden rounded-2xl border border-divider/40 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+    <div ref={panelRef} data-popup-safe-top="true" className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
+      <div className={`${popupContainer} w-[min(18rem,calc(100vw-1.5rem))]`}>
         {/* Header */}
-        <div className="border-b border-divider/40 px-4 pb-2 pt-3.5">
-          <div className="mb-1 flex items-center justify-between">
+        <div className={popupHeader}>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal size={14} strokeWidth={2} className="text-brand" />
-              <h3 className="text-[13px] font-bold text-heading">Settings</h3>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15">
+                <SlidersHorizontal size={13} strokeWidth={2.2} />
+              </span>
+              <h3 className={popupHeaderTitle}>Settings</h3>
             </div>
-            <button
-              onClick={() => setDismissed(true)}
-              aria-label="Close"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition-all duration-150 hover:bg-slate-200 hover:text-slate-700 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
+            <p className={popupHeaderSubtitle}>Quick visual adjustments for the current territory.</p>
           </div>
-          <p className="pr-8 text-[11px] leading-relaxed text-body/65">
-            Quick visual adjustments for the current territory.
-          </p>
+          <PopupCloseButton
+            onClick={() => setDismissed(true)}
+            isTablet={isTablet}
+          />
         </div>
 
         {/* Content */}
-        <div className="max-h-[min(70vh,32rem)] overflow-y-auto px-4 pb-3 pt-3">
-          <div className="space-y-3">
-            <Toolbar />
-          </div>
+        <div className="max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain px-4 py-3.5">
+          <Toolbar />
         </div>
       </div>
     </div>

@@ -6,6 +6,11 @@ import { useStore } from '../store'
 import { showAlert, showConfirm } from './ConfirmDialog'
 import { useIsTablet } from '../hooks/useMediaQuery'
 
+const actionButtonClass =
+  'sidebar-icon-button group/tip relative flex h-8 w-8 items-center justify-center rounded-[12px] text-brand/72 hover:border-brand/24 hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:outline-none'
+const destructiveActionButtonClass =
+  `${actionButtonClass} sidebar-icon-button-danger`
+
 interface ProjectLibraryProps {
   refreshKey?: string | null
   flushPendingSave: () => Promise<void>
@@ -56,16 +61,16 @@ function ProjectCard({
   const meta = getProjectMeta(project)
 
   return (
-    <div className="rounded-lg border border-divider/50 bg-white px-2.5 py-2 transition-colors">
+    <div className="sidebar-card-surface-soft px-3 py-2.5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-px hover:border-white/70">
       <div className={`flex gap-2 ${isTablet ? 'flex-col' : 'items-start justify-between'}`}>
         <div className="min-w-0 flex-1">
-          <p className="wrap-break-word text-[11.5px] font-semibold leading-snug text-heading">
+          <p className="wrap-break-word text-[11.5px] font-semibold leading-snug tracking-[-0.01em] text-heading">
             {title}
           </p>
-          <p className="mt-0.5 wrap-break-word text-[10px] leading-relaxed text-body/60">
+          <p className="mt-0.5 wrap-break-word text-[10px] leading-relaxed text-body/66">
             {meta}
           </p>
-          <p className="mt-0.5 flex items-center gap-1 text-[9.5px] text-body/50">
+          <p className="mt-1 flex items-center gap-1 text-[9.5px] font-medium text-body/48">
             <RiTimeFill size={10} />
             {formatRelative(project.updatedAt)}
           </p>
@@ -74,7 +79,7 @@ function ProjectCard({
         <div className={`flex shrink-0 items-center gap-1 ${isTablet ? 'justify-end' : ''}`}>
           <button
             onClick={() => onOpen(project.id)}
-            className="group/tip relative flex h-7 w-7 items-center justify-center rounded-md border border-brand/20 bg-brand/5 text-brand/60 transition-colors hover:bg-brand/12 hover:text-brand"
+            className={actionButtonClass}
             aria-label={`Open ${title}`}
           >
             <RiFolderOpenFill size={13} />
@@ -82,7 +87,7 @@ function ProjectCard({
           </button>
           <button
             onClick={() => onDelete(project)}
-            className="group/tip relative flex h-7 w-7 items-center justify-center rounded-md border border-red-200/50 bg-red-50 text-red-400 transition-colors hover:bg-red-100 hover:text-red-500"
+            className={destructiveActionButtonClass}
             aria-label={`Delete ${title}`}
           >
             <RiDeleteBin5Fill size={13} />
@@ -156,24 +161,24 @@ export default function ProjectLibrary({ refreshKey, flushPendingSave }: Project
   }, [clearProject, loadProjectToStore, projectId, refreshProjects])
 
   return (
-    <div className="rounded-xl border border-divider/50 bg-white/75 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-      <div className="flex items-center justify-between gap-1.5 px-1.5 pb-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-body/60">Project Library</p>
-        <span className="text-[9.5px] font-medium text-body/45">{savedProjects.length} saved</span>
+    <div className="sidebar-card-surface p-2">
+      <div className="flex items-center justify-between gap-1.5 px-2 pb-1.5">
+        <p className="sidebar-section-heading">Project Library</p>
+        <span className="text-[9.5px] font-semibold tracking-[0.03em] text-body/48">{savedProjects.length} saved</span>
       </div>
 
       {loading ? (
-        <p className="px-1.5 py-1 text-[10.5px] text-body/50">Loading...</p>
+        <p className="px-2 py-1 text-[10.5px] font-medium text-body/54">Loading...</p>
       ) : savedProjects.length === 0 ? (
-        <p className="px-1.5 py-0.5 text-[10.5px] text-body/45">No other saved projects.</p>
+        <p className="px-2 py-0.5 text-[10.5px] text-body/48">No other saved projects.</p>
       ) : (
-        <div className="rounded-lg border border-divider/40 bg-slate-50/60">
+        <div className="sidebar-card-surface-soft overflow-hidden">
           <button
             onClick={() => setSavedOpen((open) => !open)}
             aria-expanded={savedOpen}
-            className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left transition-colors hover:bg-slate-100/70"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-white/55"
           >
-            <p className="text-[10.5px] font-semibold text-slate-600">
+            <p className="text-[10.5px] font-semibold tracking-[0.01em] text-slate-600">
               Saved Projects ({savedProjects.length})
             </p>
             <ChevronDown
@@ -184,7 +189,7 @@ export default function ProjectLibrary({ refreshKey, flushPendingSave }: Project
           </button>
 
           {savedOpen && (
-            <div className="border-t border-divider/35 px-1.5 py-1.5">
+            <div className="border-t border-white/55 px-2 py-2">
               <div className="project-library-scroll max-h-58 space-y-1.5 overflow-y-auto pr-0.5">
                 {savedProjects.map((project) => (
                   <ProjectCard
