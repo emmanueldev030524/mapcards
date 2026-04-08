@@ -1,4 +1,3 @@
-import jsPDF from 'jspdf'
 import { exportToPng, type ExportOptions } from './exportPng'
 
 export async function exportToPdf(options: ExportOptions): Promise<Blob> {
@@ -9,6 +8,9 @@ export async function exportToPdf(options: ExportOptions): Promise<Blob> {
   const pngUrl = URL.createObjectURL(pngBlob)
 
   try {
+    // Lazy-load jsPDF at call time so the ~540KB raw chunk (jsPDF +
+    // core-js polyfills) is not downloaded until the first PDF export.
+    const { default: jsPDF } = await import('jspdf')
     const orientation = cardWidthInches > cardHeightInches ? 'landscape' : 'portrait'
     const pdf = new jsPDF({
       orientation,

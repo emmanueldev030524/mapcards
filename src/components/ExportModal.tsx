@@ -3,7 +3,6 @@ import { saveAs } from 'file-saver'
 import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
 import { exportToPng } from '../lib/exportPng'
-import { exportToPdf } from '../lib/exportPdf'
 import type maplibregl from 'maplibre-gl'
 
 interface ExportModalProps {
@@ -149,6 +148,10 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
     setState('generating')
     setProgressStage('Capturing map...')
     try {
+      // Lazy-load jsPDF (and its core-js polyfills) only on first PDF
+      // export so the ~540KB raw / ~179KB gzipped PDF chunk doesn't
+      // block initial app load for users who never export PDF.
+      const { exportToPdf } = await import('../lib/exportPdf')
       setProgressStage('Building legend...')
       const blob = await exportToPdf(getExportOptions())
       setProgressStage('Generating PDF...')

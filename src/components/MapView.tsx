@@ -55,6 +55,7 @@ const ROAD_SOURCE = 'custom-roads'
 const ROAD_CASING = 'custom-roads-casing'
 const ROAD_FILL = 'custom-roads-fill'
 const DEFAULT_CENTER: [number, number] = [124.955, 8.333]
+const MAP_TEXT_FONT = ['Noto Sans Bold']
 
 // World-extent polygon ring (covers the entire map)
 const WORLD_RING: [number, number][] = [
@@ -446,7 +447,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
                 'text-max-width': 8,
                 'text-allow-overlap': true,
                 'text-padding': 0,
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': MAP_TEXT_FONT,
                 'text-rotation-alignment': 'viewport',
                 'text-pitch-alignment': 'viewport',
               },
@@ -590,7 +591,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               layout: {
                 'text-field': ['get', 'label'],
                 'text-size': buildStartMarkerTextSizeExpression(),
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': MAP_TEXT_FONT,
                 'text-anchor': 'bottom',
                 'text-offset': [0, getStartMarkerLabelOffsetEm(map.getZoom(), useStore.getState().startMarkerSize)],
                 'text-padding': 2,

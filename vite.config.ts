@@ -13,7 +13,11 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('maplibre-gl')) return 'maplibre'
           if (id.includes('@turf')) return 'turf'
-          if (id.includes('jspdf') || id.includes('file-saver')) return 'pdf'
+          // jsPDF is intentionally NOT forced into a manual chunk so
+          // Rolldown treats it as a pure dynamic-import dependency of
+          // exportPdf.ts (which is itself dynamically imported on first
+          // PDF export). This keeps the ~540KB chunk out of the initial
+          // modulepreload set.
         },
       },
     },
