@@ -18,7 +18,7 @@ import {
   Eye,
 } from 'lucide-react'
 import BoundaryPolygonIcon from './icons/BoundaryPolygonIcon'
-import { tooltipAttrs } from '../lib/tooltips'
+import { tooltipAttrs, tooltipTargetAttrs } from '../lib/tooltips'
 
 interface MapToolbarProps {
   activeMode: DrawMode
@@ -38,6 +38,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(na
 const MOD = isMac ? '⌘' : 'Ctrl+'
 
 type ToolIcon = React.ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>
+type ToolBehavior = 'multi-step-drawing' | 'single-placement' | 'selection'
 const TOOLS: { mode: DrawMode; label: string; Icon: ToolIcon; desc: string; shortcut?: string }[] = [
   { mode: 'boundary', label: 'Boundary', Icon: BoundaryPolygonIcon, desc: 'Draw territory boundary' },
   { mode: 'road', label: 'Road', Icon: Road, desc: 'Draw custom road' },
@@ -76,16 +77,32 @@ function getActiveTool(mode: DrawMode) {
   return TOOLS.find((t) => t.mode === mode) || null
 }
 
+function getToolBehavior(mode: DrawMode): ToolBehavior | null {
+  switch (mode) {
+    case 'boundary':
+    case 'road':
+      return 'multi-step-drawing'
+    case 'house':
+    case 'tree':
+    case 'startMarker':
+      return 'single-placement'
+    case 'select':
+      return 'selection'
+    default:
+      return null
+  }
+}
+
 /* Shared button base — animation handled by .btn-press in CSS */
 const btnBase = 'group relative flex items-center justify-center rounded-full outline-none btn-press'
-// Subtle hover lift + soft inner bg. The lift is overridden by btn-press :active
-// (which scales down), so the two interactions compose cleanly.
 const btnShell = 'border border-white/34 bg-[linear-gradient(180deg,rgba(255,255,255,0.42),rgba(244,247,251,0.24))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]'
-const btnInteractive = 'hover:-translate-y-px hover:border-brand/20 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(239,244,252,0.52))] hover:text-brand hover:shadow-[0_10px_18px_-16px_rgba(75,108,167,0.24),0_4px_8px_-8px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.86)]'
+// Keep tooltip triggers on a stable box. Hover translate made the button move
+// after the tooltip had already measured, which read as a wobble in fast passes.
+const btnInteractive = 'hover:border-brand/20 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(239,244,252,0.52))] hover:text-brand hover:shadow-[0_10px_18px_-16px_rgba(75,108,167,0.24),0_4px_8px_-8px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.86)]'
 const btnFocusRing = 'focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-1'
 const btnDisabled = 'cursor-not-allowed border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(244,247,251,0.14))] text-slate-300/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.38)]'
 const btnActive = 'scale-[1.04] border-brand/24 bg-[linear-gradient(180deg,rgba(248,250,254,0.98),rgba(233,240,250,0.96))] text-brand ring-1 ring-inset ring-white/46 shadow-[0_14px_24px_-16px_rgba(75,108,167,0.34),0_6px_12px_-10px_rgba(75,108,167,0.2),inset_0_1px_0_rgba(255,255,255,0.94)]'
-const btnDanger = 'border border-rose-200/72 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,241,242,0.9))] text-rose-600 shadow-[0_10px_20px_-18px_rgba(244,63,94,0.3),0_4px_8px_-6px_rgba(15,23,42,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] hover:-translate-y-px hover:border-rose-300/80 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(255,228,230,0.94))] hover:text-rose-700 hover:shadow-[0_14px_24px_-16px_rgba(244,63,94,0.34),0_6px_10px_-8px_rgba(244,63,94,0.18),inset_0_1px_0_rgba(255,255,255,0.96)]'
+const btnDanger = 'border border-rose-200/72 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,241,242,0.9))] text-rose-600 shadow-[0_10px_20px_-18px_rgba(244,63,94,0.3),0_4px_8px_-6px_rgba(15,23,42,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] hover:border-rose-300/80 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(255,228,230,0.94))] hover:text-rose-700 hover:shadow-[0_14px_24px_-16px_rgba(244,63,94,0.34),0_6px_10px_-8px_rgba(244,63,94,0.18),inset_0_1px_0_rgba(255,255,255,0.96)]'
 // Secondary group container — history + review clusters. Thinner glass,
 // subordinate weight so the primary drawing-tools cluster reads as hero.
 const groupContainer = 'flex shrink-0 items-center gap-0.5 rounded-full border border-white/66 bg-[linear-gradient(180deg,rgba(255,255,255,0.74),rgba(244,247,252,0.58))] px-1 py-0.5 shadow-[0_10px_18px_-18px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.82),inset_0_-1px_0_rgba(255,255,255,0.16)] backdrop-blur-sm'
@@ -115,6 +132,9 @@ export default function MapToolbar({
   const canRedo = useStore((s) => s.canRedo)
   const undoAction = useStore((s) => s.undoAction)
   const redoAction = useStore((s) => s.redoAction)
+  const houseCount = useStore((s) => s.housePoints.length)
+  const treeCount = useStore((s) => s.treePoints.length)
+  const startMarker = useStore((s) => s.startMarker)
 
   // Poll vertex count while drawing so the Done button enables/disables reactively
   const [vertexCount, setVertexCount] = useState(0)
@@ -156,6 +176,58 @@ export default function MapToolbar({
 
   const hintMessage = getHintMessage(activeMode, displayedVertexCount)
   const activeTool = getActiveTool(activeMode)
+  const activeToolBehavior = getToolBehavior(activeMode)
+  const [singlePlacementBaseline, setSinglePlacementBaseline] = useState<{
+    mode: DrawMode
+    houseCount: number
+    treeCount: number
+    startMarker: ReturnType<typeof useStore.getState>['startMarker']
+  } | null>(null)
+
+  const placementCount =
+    activeToolBehavior !== 'single-placement' || !singlePlacementBaseline
+      ? 0
+      : activeMode === 'house'
+        ? Math.max(0, houseCount - singlePlacementBaseline.houseCount)
+        : activeMode === 'tree'
+          ? Math.max(0, treeCount - singlePlacementBaseline.treeCount)
+          : activeMode === 'startMarker'
+            ? (startMarker !== null && startMarker !== singlePlacementBaseline.startMarker ? 1 : 0)
+            : 0
+
+  const showDoneButton =
+    (activeToolBehavior === 'multi-step-drawing' && displayedVertexCount > 0) ||
+    (activeToolBehavior === 'single-placement' && placementCount > 0)
+  const doneAriaLabel = isDrawing
+    ? (canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points')
+    : 'Done placing'
+  const handleDone = useCallback(() => {
+    if (isDrawing) {
+      if (canFinish && onDrawFinish) onDrawFinish()
+      return
+    }
+    if (isPlacing) {
+      setSinglePlacementBaseline(null)
+      onModeChange(null)
+    }
+  }, [canFinish, isDrawing, isPlacing, onDrawFinish, onModeChange])
+
+  const handleToolToggle = useCallback((mode: DrawMode) => {
+    const nextMode = activeMode === mode ? null : mode
+    if (getToolBehavior(nextMode) === 'single-placement') {
+      // Capture the session baseline at activation time so Done only appears
+      // after a fresh placement, not because matching markers already existed.
+      setSinglePlacementBaseline({
+        mode: nextMode,
+        houseCount,
+        treeCount,
+        startMarker,
+      })
+    } else {
+      setSinglePlacementBaseline(null)
+    }
+    onModeChange(nextMode)
+  }, [activeMode, houseCount, onModeChange, startMarker, treeCount])
 
   return (
     <>
@@ -226,46 +298,6 @@ export default function MapToolbar({
           </button>
         </div>
 
-        {/* Done — finishes drawing or exits placement mode */}
-        {isDrawing && onDrawFinish && (
-          <button
-            onClick={onDrawFinish}
-            disabled={!canFinish}
-            aria-label={canFinish ? 'Finish drawing' : activeMode === 'boundary' ? 'Need at least 3 points' : 'Need at least 2 points'}
-            {...tooltipAttrs({ label: 'Finish drawing', shortcut: 'Enter' })}
-            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold ${
-              canFinish
-                ? 'bg-[linear-gradient(180deg,#34d399,#10b981)] text-white ring-1 ring-inset ring-white/30 shadow-[0_6px_18px_-4px_rgba(16,185,129,0.55),0_2px_6px_-1px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] hover:brightness-105 hover:-translate-y-px'
-                : 'cursor-not-allowed bg-slate-100 text-slate-400'
-            }`}
-          >
-            <span className="flex items-center gap-1">
-              <Check size={isTablet ? 16 : 14} strokeWidth={2.6} />
-              Done
-              {displayedVertexCount > 0 && (
-                <span className={`ml-0.5 rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
-                  canFinish ? 'bg-white/28 text-white' : 'bg-black/8'
-                }`}>
-                  {displayedVertexCount}
-                </span>
-              )}
-            </span>
-          </button>
-        )}
-        {isPlacing && (
-          <button
-            onClick={() => onModeChange(null)}
-            aria-label="Done placing"
-            {...tooltipAttrs({ label: 'Stop placing items', shortcut: 'Esc' })}
-            className={`${btnBase} ${btnFocusRing} shrink-0 rounded-full bg-[linear-gradient(180deg,#34d399,#10b981)] px-3.5 py-1.5 text-[12px] font-semibold text-white ring-1 ring-inset ring-white/30 shadow-[0_6px_18px_-4px_rgba(16,185,129,0.55),0_2px_6px_-1px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] hover:brightness-105 hover:-translate-y-px`}
-          >
-            <span className="flex items-center gap-1">
-              <Check size={isTablet ? 16 : 14} strokeWidth={2.6} />
-              Done
-            </span>
-          </button>
-        )}
-
         {/* ── Section divider (hairline) ── */}
         <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
 
@@ -281,10 +313,11 @@ export default function MapToolbar({
             return (
               <button
                 key={mode}
-                onClick={() => onModeChange(isActive ? null : mode)}
+                onClick={() => handleToolToggle(mode)}
                 disabled={isDisabledTool}
                 aria-label={label}
                 aria-pressed={isActive}
+                {...tooltipTargetAttrs(`toolbar-tool-${mode}`)}
                 {...tooltipAttrs({
                   label:
                     mode === 'boundary' ? 'Draw boundary' :
@@ -402,6 +435,27 @@ export default function MapToolbar({
               <p className="text-[13px] leading-relaxed text-slate-700">{hintMessage}</p>
             </div>
           </div>
+          {showDoneButton && (
+            <div className="border-t border-slate-200/75 px-4 pt-3 pb-4">
+              {/* Done belongs to the active tool card, not the canvas. Reusing the
+                  brand CTA keeps the action visually tied to the current flow. */}
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); handleDone() }}
+                disabled={isDrawing ? !canFinish : false}
+                aria-label={doneAriaLabel}
+                className="sidebar-primary-button flex min-h-11 w-full items-center justify-center gap-2.5 rounded-full px-3.5 py-2.5 text-[13px] font-semibold tracking-[0.01em] text-white disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:filter-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-1 focus-visible:outline-none"
+              >
+                <Check size={isTablet ? 16 : 14} strokeWidth={2.5} />
+                Done
+                {isDrawing && displayedVertexCount > 0 && (
+                  <span className="rounded-full bg-white/18 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
+                    {displayedVertexCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )}

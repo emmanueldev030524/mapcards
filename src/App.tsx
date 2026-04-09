@@ -3,7 +3,6 @@ import type { Feature, Polygon, LineString } from 'geojson'
 import maplibregl from 'maplibre-gl'
 // No lucide imports needed — sidebar tab uses custom SVG triangles
 import BoundaryPolygonIcon from './components/icons/BoundaryPolygonIcon'
-import { BRAND } from './lib/colors'
 import { useIsTablet } from './hooks/useMediaQuery'
 import MapView from './components/MapView'
 import MapToolbar from './components/MapToolbar'
@@ -33,7 +32,8 @@ import { tooltipAttrs } from './lib/tooltips'
 
 export default function App() {
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
-  const searchMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const [searchLocation, setSearchLocation] = useState<LocationSelection | null>(null)
+  const searchViewportTimeoutsRef = useRef<number[]>([])
 
   const { saveState, lastSavedAt, flushSave } = useAutoSave()
   useLoadOnStart()
@@ -187,10 +187,25 @@ export default function App() {
     (selection: LocationSelection) => {
       if (!mapInstance) return
 
-      // Remove previous search marker
-      if (searchMarkerRef.current) {
-        searchMarkerRef.current.remove()
-        searchMarkerRef.current = null
+      // Render the search pin as a map layer, not a DOM marker. On real tablets
+      // the DOM marker pane could settle against stale layout and drift to the
+      // map's top-left before the viewport resize cycle completed.
+      setSearchLocation(selection)
+      for (const timeoutId of searchViewportTimeoutsRef.current) window.clearTimeout(timeoutId)
+      searchViewportTimeoutsRef.current = []
+
+      const syncViewport = () => {
+        mapInstance.resize()
+        mapInstance.triggerRepaint()
+      }
+
+      syncViewport()
+      for (const delay of [120, 320]) {
+        const timeoutId = window.setTimeout(() => {
+          searchViewportTimeoutsRef.current = searchViewportTimeoutsRef.current.filter((id) => id !== timeoutId)
+          syncViewport()
+        }, delay)
+        searchViewportTimeoutsRef.current.push(timeoutId)
       }
 
       // Fly to location with smooth easing
@@ -201,23 +216,16 @@ export default function App() {
         essential: true,
         curve: 1.42,
       })
-
-      // Drop a marker pin with a popup showing the location name
-      const marker = new maplibregl.Marker({ color: BRAND })
-        .setLngLat([selection.lng, selection.lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 25, closeButton: false })
-            .setText(selection.name.split(',')[0])
-        )
-        .addTo(mapInstance)
-
-      // Show the popup immediately
-      marker.togglePopup()
-
-      searchMarkerRef.current = marker
     },
     [mapInstance],
   )
+
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of searchViewportTimeoutsRef.current) window.clearTimeout(timeoutId)
+      searchViewportTimeoutsRef.current = []
+    }
+  }, [])
 
   const handleReviewToggle = useCallback(() => {
     const next = !reviewMode
@@ -388,7 +396,11 @@ export default function App() {
         activeDrawMode === 'boundary' ? 'drawing-glow-boundary' :
         activeDrawMode === 'road' ? 'drawing-glow-road' : ''
       }`}>
-        <MapView onMapReady={handleMapReady} />
+        <MapView onMapReady={handleMapReady} searchLocation={searchLocation ? {
+          lng: searchLocation.lng,
+          lat: searchLocation.lat,
+          name: searchLocation.name,
+        } : null} />
 
         {/* Sidebar collapse/expand tab — Google Earth style edge handle */}
         {!reviewMode && !basemapPanelOpen && (

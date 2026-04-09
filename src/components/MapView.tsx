@@ -7,7 +7,7 @@ import type { MapViewMode } from '../lib/mapStyle'
 import { CompassControl } from '../lib/CompassControl'
 import { useStore } from '../store'
 import { snapToGrid as snapCoord, generateGridPoints, generateGridLines } from '../lib/grid'
-import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateStartMarkerSVG } from '../lib/mapPins'
+import { loadPinImages, ensureHouseIcons, allHouseIconsExist, resolveHouseIcon, generateSearchMarkerSVG, generateStartMarkerSVG } from '../lib/mapPins'
 import { buildHouseIconSizeExpression, buildTreeIconSizeExpression } from '../lib/mapMarkerSizing'
 import {
   buildStartMarkerIconSizeExpression,
@@ -17,11 +17,13 @@ import {
 import { BRAND } from '../lib/colors'
 import { applyTooltipAttrs } from '../lib/tooltips'
 import { showToast } from './Toast'
+import { ensureSvgMapImage, getMapImagePixelRatio, upsertSvgMapImage } from '../lib/mapImages'
 
 interface MapViewProps {
   center?: [number, number]
   zoom?: number
   onMapReady?: (map: maplibregl.Map) => void
+  searchLocation?: { lng: number; lat: number; name: string } | null
 }
 
 const HOUSE_SOURCE = 'house-points'
@@ -52,6 +54,11 @@ const START_MARKER_SOURCE = 'start-marker'
 const START_MARKER_LAYER = 'start-marker-pin'
 const START_MARKER_LABEL_LAYER = 'start-marker-label'
 const START_MARKER_IMAGE = 'start-marker-icon'
+const SEARCH_MARKER_SOURCE = 'search-location'
+const SEARCH_MARKER_LAYER = 'search-location-pin'
+const SEARCH_MARKER_IMAGE = 'search-location-icon'
+const SEARCH_MARKER_IMAGE_WIDTH = 240
+const SEARCH_MARKER_IMAGE_HEIGHT = 76
 const ROAD_SOURCE = 'custom-roads'
 const ROAD_CASING = 'custom-roads-casing'
 const ROAD_FILL = 'custom-roads-fill'
@@ -63,7 +70,7 @@ const WORLD_RING: [number, number][] = [
   [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90],
 ]
 
-export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady }: MapViewProps) {
+export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady, searchLocation = null }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const resizeFrameRef = useRef<number | null>(null)
@@ -528,13 +535,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
             // Load tree SVG icon
             const treeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L6 10h2.5L5 16h5v5h4v-5h5l-3.5-6H18L12 2z" fill="#2d8a4e" stroke="#1a6b35" stroke-width="0.8" stroke-linejoin="round"/><rect x="10.5" y="16" width="3" height="5" fill="#7a5230" stroke="#5c3d22" stroke-width="0.6" rx="0.5"/></svg>'
             try {
-              const treeImg = await new Promise<HTMLImageElement>((res, rej) => {
-                const img = new Image(24, 24)
-                img.onload = () => res(img)
-                img.onerror = rej
-                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(treeSvg)
-              })
-              if (!map.hasImage('tree-icon')) map.addImage('tree-icon', treeImg)
+              await ensureSvgMapImage(map, 'tree-icon', treeSvg, 24, 24)
             } catch { /* circle fallback below */ }
 
             map.addLayer(map.hasImage('tree-icon') ? {
@@ -565,16 +566,40 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
             })
 
             try {
-              const startMarkerImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new Image(40, 48)
-                img.onload = () => resolve(img)
-                img.onerror = reject
-                img.src = generateStartMarkerSVG()
-              })
-              if (!map.hasImage(START_MARKER_IMAGE)) map.addImage(START_MARKER_IMAGE, startMarkerImg)
+              await ensureSvgMapImage(map, START_MARKER_IMAGE, generateStartMarkerSVG(), 40, 48)
             } catch {
               void 0
             }
+
+            try {
+              await ensureSvgMapImage(
+                map,
+                SEARCH_MARKER_IMAGE,
+                generateSearchMarkerSVG(),
+                SEARCH_MARKER_IMAGE_WIDTH,
+                SEARCH_MARKER_IMAGE_HEIGHT,
+              )
+            } catch {
+              void 0
+            }
+
+            map.addSource(SEARCH_MARKER_SOURCE, {
+              type: 'geojson',
+              data: { type: 'FeatureCollection', features: [] },
+            })
+
+            map.addLayer({
+              id: SEARCH_MARKER_LAYER,
+              type: 'symbol',
+              source: SEARCH_MARKER_SOURCE,
+              layout: {
+                'icon-image': SEARCH_MARKER_IMAGE,
+                'icon-anchor': 'bottom',
+                'icon-size': 1,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              },
+            })
 
             map.addLayer(map.hasImage(START_MARKER_IMAGE) ? {
               id: START_MARKER_LAYER,
@@ -601,10 +626,10 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               },
             })
 
-            map.addLayer({
-              id: START_MARKER_LABEL_LAYER,
-              type: 'symbol',
-              source: START_MARKER_SOURCE,
+          map.addLayer({
+            id: START_MARKER_LABEL_LAYER,
+            type: 'symbol',
+            source: START_MARKER_SOURCE,
               layout: {
                 'text-field': ['get', 'label'],
                 'text-size': buildStartMarkerTextSizeExpression(),
@@ -638,6 +663,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
             setMapReady(true)
             onMapReadyRef.current?.(map)
           })
+
         })
 
         map.on('error', (e) => {
@@ -663,18 +689,40 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     }
   }, [])
 
-  // Keep MapLibre in sync with layout changes such as the desktop sidebar
-  // collapsing, otherwise the canvas gets visually stretched mid-transition.
+  // iPad Safari can settle `dvh`, visual viewport, and DPR a beat after the
+  // first layout pass. Forcing a delayed resize/pixel-ratio sync keeps the
+  // canvas and marker anchor math in the same coordinate space.
   useEffect(() => {
     const container = containerRef.current
     const map = mapRef.current
     if (!container || !mapReady || !map) return
 
+    const resizeTimeouts = new Set<number>()
+
+    const syncMapViewport = () => {
+      const currentMap = mapRef.current
+      if (!currentMap) return
+      const nextPixelRatio = getMapImagePixelRatio()
+      if (Math.abs(currentMap.getPixelRatio() - nextPixelRatio) > 0.01) {
+        currentMap.setPixelRatio(nextPixelRatio)
+      } else {
+        currentMap.resize()
+      }
+      currentMap.triggerRepaint()
+    }
+
     const queueResize = () => {
       if (resizeFrameRef.current !== null) cancelAnimationFrame(resizeFrameRef.current)
       resizeFrameRef.current = requestAnimationFrame(() => {
         resizeFrameRef.current = null
-        mapRef.current?.resize()
+        syncMapViewport()
+        for (const delay of [120, 320]) {
+          const timeoutId = window.setTimeout(() => {
+            resizeTimeouts.delete(timeoutId)
+            syncMapViewport()
+          }, delay)
+          resizeTimeouts.add(timeoutId)
+        }
       })
     }
 
@@ -688,13 +736,25 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     })
 
     observer.observe(container)
+    window.addEventListener('resize', queueResize)
+    window.addEventListener('orientationchange', queueResize)
+    window.addEventListener('pageshow', queueResize)
+    window.visualViewport?.addEventListener('resize', queueResize)
+    window.visualViewport?.addEventListener('scroll', queueResize)
 
     return () => {
       observer.disconnect()
+      window.removeEventListener('resize', queueResize)
+      window.removeEventListener('orientationchange', queueResize)
+      window.removeEventListener('pageshow', queueResize)
+      window.visualViewport?.removeEventListener('resize', queueResize)
+      window.visualViewport?.removeEventListener('scroll', queueResize)
       if (resizeFrameRef.current !== null) {
         cancelAnimationFrame(resizeFrameRef.current)
         resizeFrameRef.current = null
       }
+      for (const timeoutId of resizeTimeouts) window.clearTimeout(timeoutId)
+      resizeTimeouts.clear()
     }
   }, [mapReady])
 
@@ -740,6 +800,47 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       map.fitBounds(bounds, { padding: 40, duration: 1000 })
     }
   }, [boundary, mapReady])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    const source = map.getSource(SEARCH_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    if (searchLocation) {
+      // Render the search pin and callout as one map image so iPad/tablet
+      // relayout cannot split the DOM label bubble away from the marker.
+      void upsertSvgMapImage(
+        map,
+        SEARCH_MARKER_IMAGE,
+        generateSearchMarkerSVG(searchLocation.name.split(',')[0] || searchLocation.name),
+        SEARCH_MARKER_IMAGE_WIDTH,
+        SEARCH_MARKER_IMAGE_HEIGHT,
+      ).then(() => {
+        map.triggerRepaint()
+      }).catch(() => {
+        void 0
+      })
+    }
+
+    source.setData({
+      type: 'FeatureCollection',
+      features: searchLocation
+        ? [{
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [searchLocation.lng, searchLocation.lat],
+            },
+            properties: {
+              name: searchLocation.name,
+            },
+          }]
+        : [],
+    })
+
+    map.triggerRepaint()
+  }, [mapReady, searchLocation])
 
   // Sync grid lines + dots
   useEffect(() => {

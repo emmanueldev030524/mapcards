@@ -1,4 +1,5 @@
 /** Google Maps-style pin markers + dynamic house icon system */
+import { ensureSvgMapImage, type MapImageHost } from './mapImages'
 
 export interface PinCategory {
   id: string
@@ -57,13 +58,7 @@ export async function loadPinImages(map: MapImageHost): Promise<void> {
   for (const cat of PIN_CATEGORIES) {
     const imgName = `pin-${cat.id}`
     if (map.hasImage(imgName)) continue
-    const dataUrl = generatePinSVG(cat)
-    const img = new Image(32, 40)
-    await new Promise<void>((resolve) => {
-      img.onload = () => { if (!map.hasImage(imgName)) map.addImage(imgName, img); resolve() }
-      img.onerror = () => resolve()
-      img.src = dataUrl
-    })
+    await ensureSvgMapImage(map, imgName, generatePinSVG(cat), 32, 40).catch(() => void 0)
   }
 }
 
@@ -72,8 +67,6 @@ export async function loadPinImages(map: MapImageHost): Promise<void> {
 import { BRAND } from './colors'
 
 const HOUSE_DEFAULT_COLOR = BRAND
-
-type MapImageHost = { hasImage: (id: string) => boolean; addImage: (id: string, img: HTMLImageElement) => void }
 
 interface HouseIconSpec {
   bodyColor: string
@@ -144,13 +137,7 @@ export function resolveHouseIcon(tags: string[]): { key: string; spec: HouseIcon
  */
 async function ensureHouseIcon(map: MapImageHost, key: string, spec: HouseIconSpec): Promise<void> {
   if (map.hasImage(key)) return
-  const url = buildHouseSVG(spec)
-  return new Promise<void>((resolve) => {
-    const img = new Image(48, 48)
-    img.onload = () => { if (!map.hasImage(key)) map.addImage(key, img); resolve() }
-    img.onerror = () => resolve()
-    img.src = url
-  })
+  await ensureSvgMapImage(map, key, buildHouseSVG(spec), 48, 48)
 }
 
 /**
@@ -242,3 +229,62 @@ export function generateStartMarkerSVG(): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
 
+function escapeSvgText(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+}
+
+function clampSearchLabel(label: string): string {
+  const trimmed = label.trim()
+  if (trimmed.length <= 24) return trimmed
+  return `${trimmed.slice(0, 23).trimEnd()}...`
+}
+
+/** Search result pin + label bubble rendered as one map image. */
+export function generateSearchMarkerSVG(label = 'Search result'): string {
+  const displayLabel = escapeSvgText(clampSearchLabel(label || 'Search result'))
+  const canvasWidth = 240
+  const canvasHeight = 76
+  const bubbleWidth = Math.max(72, Math.min(188, displayLabel.length * 7.2 + 28))
+  const bubbleX = (canvasWidth - bubbleWidth) / 2
+  const bubbleY = 2
+  const bubbleHeight = 28
+  const tailTop = bubbleY + bubbleHeight
+  const pinX = (canvasWidth - 32) / 2
+  const pinY = 34
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
+    <defs>
+      <linearGradient id="search-body" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#6b8fd9"/>
+        <stop offset="100%" stop-color="${BRAND}"/>
+      </linearGradient>
+      <filter id="search-shadow" x="-20%" y="-10%" width="140%" height="135%">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#1e3a6f" flood-opacity="0.28"/>
+      </filter>
+      <filter id="search-bubble-shadow" x="-20%" y="-30%" width="140%" height="170%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.16"/>
+      </filter>
+    </defs>
+    <g filter="url(#search-bubble-shadow)">
+      <rect x="${bubbleX}" y="${bubbleY}" width="${bubbleWidth}" height="${bubbleHeight}" rx="14"
+        fill="rgba(255,255,255,0.97)" stroke="rgba(148,163,184,0.34)" stroke-width="1"/>
+      <path d="M${canvasWidth / 2 - 6} ${tailTop}h12l-6 7z" fill="rgba(255,255,255,0.97)" stroke="rgba(148,163,184,0.24)" stroke-width="1" stroke-linejoin="round"/>
+    </g>
+    <text x="${canvasWidth / 2}" y="${bubbleY + 18}" text-anchor="middle"
+      font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+      font-size="13" font-weight="700" fill="#1e293b">${displayLabel}</text>
+    <path d="M${canvasWidth / 2} 34v4" stroke="rgba(59,130,246,0.42)" stroke-width="1.6" stroke-linecap="round"/>
+    <g transform="translate(${pinX},${pinY})">
+    <path d="M16 38c0 0-12-15-12-22a12 12 0 0124 0c0 7-12 22-12 22z"
+      fill="url(#search-body)" stroke="#345a9f" stroke-width="1.1" filter="url(#search-shadow)"/>
+    <circle cx="16" cy="15" r="8.5" fill="#ffffff" opacity="0.98"/>
+    <circle cx="16" cy="15" r="3.25" fill="${BRAND}" opacity="0.9"/>
+    </g>
+  </svg>`
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+}

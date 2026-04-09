@@ -302,6 +302,9 @@ const DYNAMIC_LAYER_PREFIXES = [
   'house-',
   'tree-',
   'start-marker',
+  // Search result pin is rendered as a map symbol layer while its label bubble
+  // is a Popup; if we don't exempt this prefix, mode toggles hide only the pin.
+  'search-location',
   'snap-grid',
   'selected-',
 ]
