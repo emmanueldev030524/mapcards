@@ -81,14 +81,14 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
   if (!open || !hasContent || hasSelection) return null
 
   return (
-    <div ref={panelRef} data-popup-safe-top="true" className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
-      <div className={`${popupContainer} w-[min(18rem,calc(100vw-1.5rem))]`}>
+    <div ref={panelRef} data-popup-safe-top="true" data-right-popup="true" className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
+      <div className={`${popupContainer} ${isTablet ? 'w-[min(16rem,calc(100vw-1.5rem))]' : 'w-[min(18rem,calc(100vw-1.5rem))]'}`}>
         {/* Header */}
-        <div className={popupHeader}>
+        <div className={isTablet ? popupHeader.replace('px-4 py-3.5', 'px-3.5 py-3') : popupHeader}>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15">
-                <SlidersHorizontal size={13} strokeWidth={2.2} />
+              <span className={`flex shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ${isTablet ? 'h-6 w-6' : 'h-7 w-7'}`}>
+                <SlidersHorizontal size={isTablet ? 12 : 13} strokeWidth={2.2} />
               </span>
               <h3 className={popupHeaderTitle}>Settings</h3>
             </div>
@@ -101,7 +101,7 @@ export default function FloatingSettings({ map }: FloatingSettingsProps) {
         </div>
 
         {/* Content */}
-        <div className="max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain px-4 py-3.5">
+        <div className={`overflow-y-auto overscroll-contain ${isTablet ? 'max-h-[min(55vh,24rem)] px-3.5 py-3' : 'max-h-[min(70vh,32rem)] px-4 py-3.5'}`}>
           <Toolbar />
         </div>
       </div>

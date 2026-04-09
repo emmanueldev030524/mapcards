@@ -85,6 +85,12 @@
     -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
 
+  /* Tablet density — tighter radii + spacing on cards within sidebar */
+  .sidebar-tablet {
+    --sidebar-radius-card: 16px;
+    --sidebar-radius-control: 12px;
+  }
+
   .sidebar-header-surface {
     position: relative;
     overflow: hidden;
@@ -552,6 +558,15 @@
     gap: var(--map-control-gap);
     margin-bottom: var(--map-control-edge-offset-y) !important;
     margin-right: var(--map-control-edge-offset-x) !important;
+    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* When a right-side popup is open on tablet, nudge map controls left
+     so they stay visible and tappable beneath the narrower popup. */
+  @media (max-width: 1279px) {
+    main:has([data-right-popup]) .maplibregl-ctrl-bottom-right {
+      transform: translateX(calc(-1 * min(16rem, 50vw)));
+    }
   }
 
   /* ── Touch zoom lock ── */
@@ -611,6 +626,15 @@
   .review-mode .maplibregl-ctrl-attrib {
     opacity: 0;
     pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  /* ── Export mode (desktop) — suppress map controls + compass panel ── */
+  .export-open .maplibregl-ctrl-bottom-right,
+  .export-open .maplibregl-ctrl-attrib,
+  .export-open [data-compass-panel] {
+    opacity: 0 !important;
+    pointer-events: none !important;
     transition: opacity 180ms ease;
   }
 

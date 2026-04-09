@@ -3,7 +3,7 @@ import type maplibregl from 'maplibre-gl'
 import { useStore } from '../store'
 import { PIN_CATEGORIES } from '../lib/mapPins'
 import type { PinCategory } from '../lib/mapPins'
-import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useMediaQuery, useIsTablet } from '../hooks/useMediaQuery'
 import {
   popupContainer,
   popupHeader,
@@ -52,6 +52,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
   const touchStartY = useRef(0)
   const popupRef = useRef<HTMLDivElement>(null)
   const isPhone = useMediaQuery('(max-width: 767px)')
+  const isTablet = useIsTablet()
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window
 
   // Track keyboard visibility via visualViewport API (iOS Safari)
@@ -184,6 +185,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
 
   return (
     <div
+      data-right-popup="true"
       className={isPhone
         ? 'absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200'
         : 'absolute z-10 transition-[left,top] duration-200 ease-out'}
@@ -196,7 +198,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     >
       <div
         ref={popupRef}
-        className={`${popupContainer} hover-lift w-full sm:w-88`}
+        className={`${popupContainer} hover-lift ${isTablet ? 'w-full sm:w-72' : 'w-full sm:w-88'}`}
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY
           setSwiping(true)
@@ -213,23 +215,28 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
           setSwiping(false)
         }}
         style={{
-          maxHeight: isPhone ? mobileMaxHeight : undefined,
-          overflowY: isPhone ? 'auto' : undefined,
-          overscrollBehavior: isPhone ? 'contain' : undefined,
+          maxHeight: isPhone ? mobileMaxHeight : isTablet ? 'min(70vh, 32rem)' : undefined,
+          overflowY: isPhone || isTablet ? 'auto' : undefined,
+          overscrollBehavior: isPhone || isTablet ? 'contain' : undefined,
           transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
           opacity: swipeY > 0 ? Math.max(0.3, 1 - swipeY / 150) : undefined,
           transition: swiping ? 'none' : 'transform 250ms ease, opacity 250ms ease',
         }}
       >
-        {/* Drag handle — swipe down to dismiss */}
-        <div className="flex justify-center pt-2 pb-0.5">
-          <div className="h-1 w-9 rounded-full bg-slate-300/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.55)]" />
-        </div>
+        {/* Drag handle — on tablet it's removed to eliminate the seam between
+             the card edge and header background; swipe-to-dismiss still works
+             anywhere on the card. On desktop/phone the handle gives a visual
+             affordance above the header. */}
+        {!isTablet && (
+          <div className="flex justify-center pt-2 pb-0.5">
+            <div className="h-1 w-9 rounded-full bg-slate-300/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.55)]" />
+          </div>
+        )}
 
         {/* Header */}
-        <div className={popupHeader}>
+        <div className={isTablet ? popupHeader.replace('px-4 py-3.5', 'px-3.5 py-3') : popupHeader}>
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-[11px] font-bold text-white shadow-[0_6px_14px_rgba(75,108,167,0.26)] ring-1 ring-white/30">
+            <span className={`flex shrink-0 items-center justify-center rounded-xl bg-brand text-[11px] font-bold text-white shadow-[0_6px_14px_rgba(75,108,167,0.26)] ring-1 ring-white/30 ${isTablet ? 'h-7 w-7' : 'h-8 w-8'}`}>
               {houseIndex}
             </span>
             <div className="min-w-0">
@@ -252,9 +259,9 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
         </div>
 
         {/* Body */}
-        <div className={popupBody}>
+        <div className={isTablet ? 'space-y-2.5 px-3.5 py-2.5' : popupBody}>
           {/* Label */}
-          <div className={popupSection}>
+          <div className={isTablet ? popupSection.replace('p-3.5', 'p-3') : popupSection}>
             <label className={popupSectionLabel}>Name</label>
             <input
               type="text"
@@ -269,12 +276,14 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
           </div>
 
           {/* Place type — icon tiles */}
-          <div className={popupSection}>
+          <div className={isTablet ? popupSection.replace('p-3.5', 'p-2.5') : popupSection}>
             <label className={popupSectionLabel}>Place Type</label>
-            <p className={popupSectionHelp}>
-              Choose one or more place types to tint the house icon and improve legend output.
-            </p>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(3.9rem,1fr))] gap-2">
+            {!isTablet && (
+              <p className={popupSectionHelp}>
+                Choose one or more place types to tint the house icon and improve legend output.
+              </p>
+            )}
+            <div className={`grid ${isTablet ? 'grid-cols-4 gap-1.5' : 'grid-cols-[repeat(auto-fit,minmax(3.9rem,1fr))] gap-2'}`}>
               {placeCats.map((cat) => {
                 const active = tags.includes(cat.id)
                 return (
@@ -284,7 +293,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     aria-pressed={active}
                     aria-label={`${active ? 'Remove' : 'Apply'} place type ${cat.label}`}
                     title={cat.label}
-                    className={`${popupTileBase} min-h-20 ${
+                    className={`${popupTileBase} ${isTablet ? 'gap-1 overflow-hidden rounded-xl px-1 py-1.5' : 'min-h-20'} ${
                       active
                         ? '-translate-y-px border-white/20 shadow-[0_14px_26px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-inset ring-white/15'
                         : ''
@@ -295,7 +304,7 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                     } : undefined}
                   >
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-150"
+                      className={`flex items-center justify-center transition-all duration-150 ${isTablet ? 'h-6 w-6 rounded-lg' : 'h-8 w-8 rounded-xl'}`}
                       style={{
                         backgroundColor: active ? 'rgba(255,255,255,0.18)' : cat.color + '15',
                       }}
@@ -303,7 +312,6 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                       <CategoryIcon
                         cat={{
                           ...cat,
-                          // Recolor icon strokes/fills for inactive state
                           iconPaths: active
                             ? cat.iconPaths
                             : cat.iconPaths
@@ -311,12 +319,14 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
                                 .replace(/fill="#fff"/g, `fill="${cat.color}"`)
                                 .replace(/fill="rgba\(255,255,255,0\.9\)"/g, `fill="${cat.color}"`)
                         }}
-                        size={14}
+                        size={isTablet ? 12 : 14}
                       />
                     </span>
-                    <span className={`flex min-h-[1.9rem] wrap-break-word items-center justify-center text-[8.5px] font-semibold leading-[1.15] ${
-                      active ? 'text-white' : 'text-body/80'
-                    }`}>
+                    <span className={`flex items-center justify-center text-center font-semibold ${
+                      isTablet ? 'w-full text-[7.5px] leading-[1.2]' : 'min-h-[1.9rem] wrap-break-word text-[8.5px] leading-[1.15]'
+                    } ${active ? 'text-white' : 'text-body/80'}`}
+                      style={isTablet ? { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : undefined}
+                    >
                       {cat.label}
                     </span>
                   </button>

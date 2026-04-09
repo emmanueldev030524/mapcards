@@ -1,4 +1,5 @@
-import { Download, FileCheck2, MapPinned, PencilLine } from 'lucide-react'
+import { Download, PencilLine } from 'lucide-react'
+import { useIsTablet } from '../hooks/useMediaQuery'
 
 interface ReviewOverlayProps {
   territoryName: string
@@ -17,53 +18,52 @@ export default function ReviewOverlay({
   onExport,
   onExitReview,
 }: ReviewOverlayProps) {
+  const isTablet = useIsTablet()
+
   const heading = territoryNumber
     ? `Territory ${territoryNumber}`
     : territoryName || 'Territory Review'
 
+  const subtitle = territoryName && territoryNumber
+    ? territoryName
+    : `${cardWidthInches} × ${cardHeightInches} in`
+
   return (
-    <>
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-linear-to-b from-black/28 via-black/10 to-transparent" />
-
-      <div className="absolute left-3 top-3 z-20 w-[min(24rem,calc(100vw-5.5rem))] rounded-2xl border border-white/15 bg-slate-950/52 px-4 py-3 text-white shadow-[0_16px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">Review Mode</p>
-            <h2 className="mt-1 truncate text-base font-bold tracking-tight text-white">{heading}</h2>
-            <p className="mt-1 text-[12px] text-white/72">
-              {territoryName && territoryNumber ? territoryName : territoryName || 'Inspect your card without editing chrome.'}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={onExitReview}
-              className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-white/16"
-            >
-              <PencilLine size={14} strokeWidth={2.2} />
-              Back to Edit
-            </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
-              <MapPinned size={18} strokeWidth={2} className="text-white/90" />
-            </div>
-          </div>
+    <div className={`absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 bg-slate-900/72 backdrop-blur-xl ${
+      isTablet ? 'px-4 py-3' : 'px-5 py-2.5'
+    }`}>
+      {/* Left: mode label + territory info */}
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="shrink-0 rounded-full bg-white/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70">
+          Review
+        </span>
+        <div className="min-w-0">
+          <p className={`truncate font-bold tracking-tight text-white ${isTablet ? 'text-[14px]' : 'text-[15px]'}`}>{heading}</p>
+          <p className="truncate text-[11px] text-white/55">{subtitle}</p>
         </div>
+      </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/72">
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1">
-            <FileCheck2 size={12} strokeWidth={2} />
-            {cardWidthInches} x {cardHeightInches} in
-          </span>
-          <span className="rounded-full bg-white/10 px-2.5 py-1">Presentation view</span>
-        </div>
-
+      {/* Right: actions */}
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={onExitReview}
+          className={`inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 font-semibold text-white transition-colors hover:bg-white/18 ${
+            isTablet ? 'px-3.5 py-2 text-[12px]' : 'px-3 py-1.5 text-[12px]'
+          }`}
+        >
+          <PencilLine size={13} strokeWidth={2.2} />
+          Edit
+        </button>
         <button
           onClick={onExport}
-          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-[12px] font-semibold text-slate-900 transition-colors hover:bg-white/92"
+          className={`inline-flex items-center gap-1.5 rounded-full bg-white font-semibold text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-colors hover:bg-white/92 ${
+            isTablet ? 'px-3.5 py-2 text-[12px]' : 'px-3 py-1.5 text-[12px]'
+          }`}
         >
-          <Download size={14} strokeWidth={2.2} />
-          Export Card
+          <Download size={13} strokeWidth={2.2} />
+          Export
         </button>
       </div>
-    </>
+    </div>
   )
 }

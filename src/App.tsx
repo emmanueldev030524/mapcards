@@ -258,7 +258,7 @@ export default function App() {
         data-tooltip-exclusion="sidebar-panel"
         className={
           isTablet
-            ? `sidebar-panel-surface fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1.5rem))] shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            ? `sidebar-panel-surface sidebar-tablet fixed inset-y-0 left-0 z-40 flex w-[min(19.5rem,calc(100vw-1.5rem))] shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
             : `sidebar-panel-surface absolute inset-y-0 left-0 z-20 flex w-68 shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
@@ -267,11 +267,11 @@ export default function App() {
         }
       >
         {/* Header */}
-        <div className="sidebar-header-surface px-4 pb-5 pt-5 sm:px-5">
+        <div className={`sidebar-header-surface ${isTablet ? 'px-4 pb-3.5 pt-3.5' : 'px-4 pb-5 pt-5 sm:px-5'}`}>
           <div className="relative flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-base font-bold tracking-[-0.02em] text-white sm:text-[17px]">MapCards</h1>
-              <p className="mt-1 text-[11px] font-medium tracking-[0.015em] text-white/72 sm:text-[11.5px]">Territory Card Maker</p>
+              <h1 className={`font-bold tracking-[-0.02em] text-white ${isTablet ? 'text-[15px]' : 'text-base sm:text-[17px]'}`}>MapCards</h1>
+              <p className={`mt-0.5 font-medium tracking-[0.015em] text-white/72 ${isTablet ? 'text-[10.5px]' : 'text-[11px] sm:text-[11.5px]'}`}>Territory Card Maker</p>
             </div>
             <span className="rounded-full border border-white/18 bg-white/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-md">
               STUDIO
@@ -281,34 +281,34 @@ export default function App() {
 
         <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {/* Project */}
-          <div className="px-3.5 pt-3 pb-2.5">
+          <div className={isTablet ? 'px-3 pt-2.5 pb-2' : 'px-3.5 pt-3 pb-2.5'}>
             <ProjectManager
               refreshKey={lastSavedAt}
               flushPendingSave={flushSave}
             />
           </div>
 
-          <div className="mx-4 border-t border-white/55" />
+          <div className={`border-t border-white/55 ${isTablet ? 'mx-3' : 'mx-4'}`} />
 
           {/* Card Settings */}
-          <div className="px-3.5 py-2">
+          <div className={isTablet ? 'px-3 py-1.5' : 'px-3.5 py-2'}>
             <SidebarSection title="Card Settings">
               <CardSettings />
             </SidebarSection>
           </div>
 
-          <div className="mx-4 border-t border-white/55" />
+          <div className={`border-t border-white/55 ${isTablet ? 'mx-3' : 'mx-4'}`} />
 
           {/* Export */}
-          <div className="px-3.5 py-2">
+          <div className={isTablet ? 'px-3 py-1.5' : 'px-3.5 py-2'}>
             <SidebarSection title="Export">
               <ExportPanel onExport={() => setExportOpen(true)} />
             </SidebarSection>
           </div>
 
           {/* Workflow progress dots */}
-          <div className="sidebar-card-surface mx-3.5 mt-2 px-4 py-3.5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className={`sidebar-card-surface ${isTablet ? 'mx-3 mt-1.5 px-3 py-2.5' : 'mx-3.5 mt-2 px-4 py-3.5'}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-2 ${isTablet ? 'mb-2' : 'mb-3'}`}>
               <p className="sidebar-section-heading">Progress</p>
               <p className="text-[11px] font-semibold tracking-[0.01em] text-body/58">
                 {[boundary !== null, customRoads.length > 0, housePoints.length > 0].filter(Boolean).length}/3 complete
@@ -338,25 +338,25 @@ export default function App() {
 
           {/* Contextual guidance */}
           {!boundary && (
-            <div className="sidebar-card-surface mx-3.5 mt-3 border-brand/10 bg-[linear-gradient(180deg,rgba(95,129,191,0.08),rgba(255,255,255,0.88))] px-4 py-4 text-center">
-              <div className="mx-auto mb-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-brand/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-                <BoundaryPolygonIcon size={16} strokeWidth={2} className="text-brand" />
+            <div className={`sidebar-card-surface border-brand/10 bg-[linear-gradient(180deg,rgba(95,129,191,0.08),rgba(255,255,255,0.88))] text-center ${isTablet ? 'mx-3 mt-2 px-3 py-3' : 'mx-3.5 mt-3 px-4 py-4'}`}>
+              <div className={`mx-auto flex items-center justify-center rounded-full bg-brand/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] ${isTablet ? 'mb-2 h-7 w-7' : 'mb-2.5 h-8 w-8'}`}>
+                <BoundaryPolygonIcon size={isTablet ? 14 : 16} strokeWidth={2} className="text-brand" />
               </div>
-              <p className="text-[12px] font-semibold tracking-[-0.01em] text-heading">Draw a boundary</p>
+              <p className={`font-semibold tracking-[-0.01em] text-heading ${isTablet ? 'text-[11.5px]' : 'text-[12px]'}`}>Draw a boundary</p>
               <p className="mt-1 text-[10px] leading-relaxed text-body/66">
                 Define your territory on the map to get started.
               </p>
             </div>
           )}
           {boundary && customRoads.length === 0 && (
-            <div className="sidebar-card-surface-soft mx-3.5 mt-3 px-3.5 py-3 text-center">
+            <div className={`sidebar-card-surface-soft text-center ${isTablet ? 'mx-3 mt-2 px-3 py-2.5' : 'mx-3.5 mt-3 px-3.5 py-3'}`}>
               <p className="text-[11px] text-body/64">
                 <span className="font-medium text-body/80">Next:</span> Add roads to help navigate
               </p>
             </div>
           )}
           {boundary && customRoads.length > 0 && housePoints.length === 0 && (
-            <div className="sidebar-card-surface-soft mx-3.5 mt-3 px-3.5 py-3 text-center">
+            <div className={`sidebar-card-surface-soft text-center ${isTablet ? 'mx-3 mt-2 px-3 py-2.5' : 'mx-3.5 mt-3 px-3.5 py-3'}`}>
               <p className="text-[11px] text-body/64">
                 <span className="font-medium text-body/80">Next:</span> Place houses in your territory
               </p>
@@ -365,8 +365,8 @@ export default function App() {
 
           {/* Stats — compact inline */}
           {(boundary || customRoads.length > 0 || housePoints.length > 0) && (
-            <div className="px-3.5 pb-4 pt-3">
-              <div className="sidebar-card-surface flex flex-wrap items-center gap-2.5 px-3.5 py-3 text-[12.5px]">
+            <div className={isTablet ? 'px-3 pb-3 pt-2' : 'px-3.5 pb-4 pt-3'}>
+              <div className={`sidebar-card-surface flex flex-wrap items-center gap-2.5 text-[12.5px] ${isTablet ? 'px-3 py-2.5' : 'px-3.5 py-3'}`}>
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold tracking-[0.01em] ${boundary ? 'bg-emerald-50/90 text-emerald-text' : 'bg-slate-100/80 text-body/45'}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${boundary ? 'bg-emerald-500' : 'bg-body/20'}`} />
                   Boundary
@@ -383,7 +383,7 @@ export default function App() {
         </div>
 
         {/* Auto-save indicator */}
-        <div className="shrink-0 border-t border-white/55 bg-white/45 px-4 py-2.5 backdrop-blur-md">
+        <div className={`shrink-0 border-t border-white/55 bg-white/45 backdrop-blur-md ${isTablet ? 'px-3 py-2' : 'px-4 py-2.5'}`}>
           <SaveStatus saveState={saveState} lastSavedAt={lastSavedAt} />
         </div>
       </aside>
@@ -392,6 +392,8 @@ export default function App() {
       {/* Map */}
       <main className={`review-shell relative min-w-0 flex-1 ${
         reviewMode ? 'review-mode' : ''
+      } ${
+        exportOpen && !isTablet ? 'export-open' : ''
       } ${
         activeDrawMode === 'boundary' ? 'drawing-glow-boundary' :
         activeDrawMode === 'road' ? 'drawing-glow-road' : ''
@@ -476,10 +478,12 @@ export default function App() {
           onLocationSelect={handleLocationSelect}
         />
         )}
-        {!reviewMode && <HouseEditPopup map={mapInstance} />}
-        {!reviewMode && <TreeActionPopup />}
-        {!reviewMode && <RoadDeleteButton />}
-        {!reviewMode && <StartMarkerPopup />}
+        {/* Object-edit popups are suppressed while a draw tool is active —
+             the Tool Helper owns the contextual-panel slot during draw modes. */}
+        {!reviewMode && (!activeDrawMode || activeDrawMode === 'select') && <HouseEditPopup map={mapInstance} />}
+        {!reviewMode && (!activeDrawMode || activeDrawMode === 'select') && <TreeActionPopup />}
+        {!reviewMode && (!activeDrawMode || activeDrawMode === 'select') && <RoadDeleteButton />}
+        {!reviewMode && (!activeDrawMode || activeDrawMode === 'select') && <StartMarkerPopup />}
         {!reviewMode && <MapModeThumbnail
           currentMode={mapMode === 'auto' ? (boundary === null ? 'satellite' : 'street') : mapMode}
           onModeChange={setMapMode}

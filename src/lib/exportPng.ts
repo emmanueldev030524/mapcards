@@ -3,13 +3,15 @@ import { bbox as turfBbox } from '@turf/bbox'
 import type { Feature, Point, Polygon } from 'geojson'
 import { BRAND } from './colors'
 import { useStore } from '../store'
-import { generateStartMarkerSVG } from './mapPins'
-import { resolveHouseIconSize, resolveTreeIconSize } from './mapMarkerSizing'
+import { buildHouseIconSizeExpression, buildTreeIconSizeExpression } from './mapMarkerSizing'
 import {
   buildStartMarkerIconSizeExpression,
-  getStartMarkerExportGapPx,
-  getStartMarkerRenderedHeightPx,
 } from './startMarkerLayout'
+
+// Module-level flag to prevent MapView's ResizeObserver from interfering
+// with the export pipeline (e.g. resetting pixelRatio mid-capture on iPad).
+let _exporting = false
+export function isExporting(): boolean { return _exporting }
 
 export interface ExportOptions {
   map: maplibregl.Map
@@ -27,11 +29,13 @@ const START_MARKER_LABEL_LAYER = 'start-marker-label'
 const BOUNDARY_FILL = 'territory-boundary-fill'
 const MASK_LAYER = 'territory-mask-fill'
 
+// Raw slider values from the store — NOT pre-resolved at a specific zoom.
+// syncCurrentVisualState applies these as zoom *expressions* so MapLibre
+// automatically adapts icon sizes when the export zoom changes (fitBounds).
 interface ExportVisualSnapshot {
   houseIconSize: number
   badgeIconSize: number
-  treeSymbolIconSize: number
-  treeCircleRadius: number
+  treeIconSize: number
   startMarkerSize: number
   boundaryOpacity: number
   maskOpacity: number
@@ -41,40 +45,43 @@ function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
-function syncCurrentVisualState(map: maplibregl.Map, visualSnapshot: ExportVisualSnapshot) {
+function syncCurrentVisualState(map: maplibregl.Map, vs: ExportVisualSnapshot) {
+  // Use zoom EXPRESSIONS — same as the live editor (MapView syncMarkerSize).
+  // This ensures icons scale correctly at whatever zoom fitBounds lands on,
+  // producing true WYSIWYG output across all screen sizes and DPRs.
   try {
-    map.setLayoutProperty(HOUSE_LAYER, 'icon-size', visualSnapshot.houseIconSize)
+    map.setLayoutProperty(HOUSE_LAYER, 'icon-size', buildHouseIconSizeExpression(vs.houseIconSize))
   } catch { void 0 }
 
-  try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', visualSnapshot.badgeIconSize) } catch { void 0 }
+  try { map.setLayoutProperty(BADGE_LAYER, 'icon-size', vs.badgeIconSize) } catch { void 0 }
   try {
     const treeLayer = map.getLayer(TREE_LAYER) as { type?: string } | undefined
     if (treeLayer?.type === 'symbol') {
-      map.setLayoutProperty(TREE_LAYER, 'icon-size', visualSnapshot.treeSymbolIconSize)
+      map.setLayoutProperty(TREE_LAYER, 'icon-size', buildTreeIconSizeExpression(vs.treeIconSize))
     } else {
-      map.setPaintProperty(TREE_LAYER, 'circle-radius', visualSnapshot.treeCircleRadius)
+      map.setPaintProperty(TREE_LAYER, 'circle-radius', 6 * vs.treeIconSize)
     }
   } catch { void 0 }
   try {
     const startLayer = map.getLayer(START_MARKER_LAYER) as { type?: string } | undefined
     if (startLayer?.type === 'symbol') {
-      map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', buildStartMarkerIconSizeExpression(visualSnapshot.startMarkerSize))
+      map.setLayoutProperty(START_MARKER_LAYER, 'icon-size', buildStartMarkerIconSizeExpression(vs.startMarkerSize))
     } else {
       map.setPaintProperty(START_MARKER_LAYER, 'circle-radius', [
         'interpolate', ['linear'], ['zoom'],
-        13, 6 * visualSnapshot.startMarkerSize,
-        16, 8.5 * visualSnapshot.startMarkerSize,
-        19, 10.5 * visualSnapshot.startMarkerSize,
+        13, 6 * vs.startMarkerSize,
+        16, 8.5 * vs.startMarkerSize,
+        19, 10.5 * vs.startMarkerSize,
       ])
     }
   } catch { void 0 }
-  try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', visualSnapshot.boundaryOpacity) } catch { void 0 }
-  try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', visualSnapshot.maskOpacity) } catch { void 0 }
+  try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', vs.boundaryOpacity) } catch { void 0 }
+  try { map.setPaintProperty(MASK_LAYER, 'fill-opacity', vs.maskOpacity) } catch { void 0 }
 
   map.triggerRepaint()
 }
 
-function captureExportVisualSnapshot(map: maplibregl.Map): ExportVisualSnapshot {
+function captureExportVisualSnapshot(_map: maplibregl.Map): ExportVisualSnapshot {
   const {
     houseIconSize,
     badgeIconSize,
@@ -83,13 +90,11 @@ function captureExportVisualSnapshot(map: maplibregl.Map): ExportVisualSnapshot 
     boundaryOpacity,
     maskOpacity,
   } = useStore.getState()
-  const liveZoom = map.getZoom()
 
   return {
-    houseIconSize: resolveHouseIconSize(liveZoom, houseIconSize),
+    houseIconSize,
     badgeIconSize,
-    treeSymbolIconSize: resolveTreeIconSize(liveZoom, treeIconSize),
-    treeCircleRadius: 6 * treeIconSize,
+    treeIconSize,
     startMarkerSize,
     boundaryOpacity,
     maskOpacity,
@@ -108,15 +113,6 @@ function waitForIdle(map: maplibregl.Map, timeout: number): Promise<void> {
     map.on('idle', done)
     setTimeout(done, timeout)
     map.triggerRepaint()
-  })
-}
-
-function loadImage(src: string, width: number, height: number): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image(width, height)
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
   })
 }
 
@@ -336,80 +332,6 @@ function drawAnnotationEntry(
   ctx.stroke()
 }
 
-function drawStartMarkerLabel(
-  ctx: CanvasRenderingContext2D,
-  map: maplibregl.Map,
-  startMarker: Feature<Point>,
-  startMarkerSize: number,
-  layout: ExportLayoutMetrics,
-) {
-  const [lng, lat] = startMarker.geometry.coordinates
-  const point = map.project([lng, lat])
-  const label = 'Start Here'
-  const scale = Math.max(0.82, Math.min(1.25, startMarkerSize * layout.typographyScale))
-  const fontSize = Math.round(22 * scale)
-  const padX = Math.round(14 * scale)
-  const padY = Math.round(9 * scale)
-  const radius = Math.round(15 * scale)
-  const zoom = map.getZoom()
-
-  ctx.save()
-  ctx.font = `700 ${fontSize}px "Inter", system-ui, sans-serif`
-  const textWidth = ctx.measureText(label).width
-  const boxWidth = textWidth + padX * 2 + Math.round(14 * scale)
-  const boxHeight = fontSize + padY * 2
-
-  // Anchor from the marker's actual rendered height at the current export zoom
-  // so the pill remains visually attached as the marker scales.
-  const renderedMarkerHeight = getStartMarkerRenderedHeightPx(zoom, startMarkerSize)
-  const gapAbovePin = getStartMarkerExportGapPx(zoom, startMarkerSize)
-  const boxX = Math.round(point.x - boxWidth / 2)
-  const boxY = Math.round(point.y - renderedMarkerHeight - gapAbovePin - boxHeight)
-
-  ctx.shadowColor = 'rgba(15, 23, 42, 0.12)'
-  ctx.shadowBlur = 12
-  ctx.shadowOffsetY = 4
-  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, radius)
-  ctx.fillStyle = 'rgba(255, 252, 247, 0.97)'
-  ctx.fill()
-  ctx.shadowColor = 'transparent'
-
-  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, radius)
-  ctx.strokeStyle = 'rgba(199, 157, 70, 0.42)'
-  ctx.lineWidth = 1.6
-  ctx.stroke()
-
-  ctx.fillStyle = '#9a6700'
-  ctx.beginPath()
-  ctx.arc(boxX + padX, boxY + boxHeight / 2, 4.2 * scale, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#14532d'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(label, boxX + padX + Math.round(11 * scale), boxY + boxHeight / 2)
-  ctx.restore()
-}
-
-async function drawStartMarkerPin(
-  ctx: CanvasRenderingContext2D,
-  map: maplibregl.Map,
-  startMarker: Feature<Point>,
-  startMarkerSize: number,
-) {
-  const [lng, lat] = startMarker.geometry.coordinates
-  const point = map.project([lng, lat])
-  const markerHeight = getStartMarkerRenderedHeightPx(map.getZoom(), startMarkerSize)
-  const markerWidth = markerHeight * (40 / 48)
-  const img = await loadImage(generateStartMarkerSVG(), Math.round(markerWidth), Math.round(markerHeight))
-  ctx.drawImage(
-    img,
-    Math.round(point.x - markerWidth / 2),
-    Math.round(point.y - markerHeight),
-    Math.round(markerWidth),
-    Math.round(markerHeight),
-  )
-}
-
 export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const { map, boundary, cardWidthInches, cardHeightInches } = options
 
@@ -425,6 +347,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   const origCenter = map.getCenter()
   const origZoom = map.getZoom()
   const origBearing = map.getBearing()
+  const origPixelRatio = map.getPixelRatio()
   const startMarkerVisibility = map.getLayer(START_MARKER_LAYER)
     ? (map.getLayoutProperty(START_MARKER_LAYER, 'visibility') as 'visible' | 'none' | undefined)
     : undefined
@@ -435,6 +358,11 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   // Use the user's current bearing exactly
   const exportBearing = map.getBearing()
 
+  // Signal MapView's ResizeObserver to stand down — its delayed
+  // syncMapViewport callbacks must not reset pixelRatio or trigger
+  // repaints while we are mid-capture.
+  _exporting = true
+
   // All map mutations are wrapped in try/finally so the working canvas
   // is always restored — even if an await or canvas step throws.
   try {
@@ -444,6 +372,13 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     if (map.getLayer(START_MARKER_LABEL_LAYER)) {
       map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', 'none')
     }
+
+    // Force pixelRatio to 1 so the WebGL canvas matches the output
+    // dimensions exactly (totalWidth × totalHeight device pixels).
+    // On high-DPR devices (iPad DPR 2) MapLibre would otherwise create
+    // a 2× canvas, causing drawImage scaling mismatches, different
+    // symbol collision results, and ResizeObserver fights.
+    map.setPixelRatio(1)
 
     // Export can start immediately after a slider change, before MapLibre has
     // fully painted the latest layout mutation. Force the current visual state
@@ -596,14 +531,86 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       drawLegendBar(ctx, totalWidth, totalHeight, layout)
     }
 
-    // --- 6. Release rounded-corner clip so the Start Here marker and label can overlap boundary freely ---
-    ctx.restore()
-
+    // --- 6. Re-render start marker natively via MapLibre ---
+    // The base map was captured with start marker layers hidden so they
+    // weren't clipped to the boundary polygon. Now we show only the marker
+    // layers, hide all other content, and capture to a temp canvas so we get
+    // just the pin+label on a transparent background. Compositing this onto
+    // the card avoids both boundary clipping and the dark-rect artifact from
+    // drawing opaque map tiles outside the boundary.
     const { startMarker, startMarkerSize } = useStore.getState()
-    if (startMarker) {
-      await drawStartMarkerPin(ctx, map, startMarker, startMarkerSize)
-      drawStartMarkerLabel(ctx, map, startMarker, startMarkerSize, layout)
+    if (startMarker && map.getLayer(START_MARKER_LAYER)) {
+      // Collect all currently visible style layers so we can hide them
+      const styleLayers = (map.getStyle()?.layers ?? [])
+      const hiddenLayers: string[] = []
+      for (const layer of styleLayers) {
+        if (layer.id === START_MARKER_LAYER || layer.id === START_MARKER_LABEL_LAYER) continue
+        try {
+          const vis = map.getLayoutProperty(layer.id, 'visibility')
+          if (vis !== 'none') {
+            map.setLayoutProperty(layer.id, 'visibility', 'none')
+            hiddenLayers.push(layer.id)
+          }
+        } catch { /* skip non-standard layers */ }
+      }
+
+      // Show start marker layers
+      map.setLayoutProperty(START_MARKER_LAYER, 'visibility', 'visible')
+      if (map.getLayer(START_MARKER_LABEL_LAYER)) {
+        map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', 'visible')
+      }
+      syncCurrentVisualState(map, visualSnapshot)
+      await waitForIdle(map, 2000)
+
+      // Capture to a temp canvas — map background is opaque, but all content
+      // layers except start marker are hidden, so most pixels are just the
+      // map's background fill. We'll extract only the marker/label pixels.
+      const smCanvas = map.getCanvas()
+      const smTemp = document.createElement('canvas')
+      smTemp.width = totalWidth
+      smTemp.height = totalHeight
+      const smCtx = smTemp.getContext('2d')!
+
+      // Draw map canvas, then punch out the background color so only marker
+      // pixels remain. The map background at this point is the style's
+      // background layer — sample it from a corner pixel.
+      smCtx.drawImage(smCanvas, 0, 0, totalWidth, totalHeight)
+
+      // Use the top-left pixel as the background key color and remove it
+      const sampleData = smCtx.getImageData(0, 0, 1, 1).data
+      const bgR = sampleData[0], bgG = sampleData[1], bgB = sampleData[2]
+
+      // Scan and make background pixels transparent (±tolerance for anti-aliasing)
+      const imgData = smCtx.getImageData(0, 0, smTemp.width, smTemp.height)
+      const d = imgData.data
+      const tolerance = 18
+      for (let i = 0; i < d.length; i += 4) {
+        if (
+          Math.abs(d[i] - bgR) <= tolerance &&
+          Math.abs(d[i + 1] - bgG) <= tolerance &&
+          Math.abs(d[i + 2] - bgB) <= tolerance
+        ) {
+          d[i + 3] = 0 // transparent
+        }
+      }
+      smCtx.putImageData(imgData, 0, 0)
+
+      // Composite the isolated marker onto the export card
+      ctx.drawImage(smTemp, 0, 0)
+
+      // Restore all hidden layers
+      for (const layerId of hiddenLayers) {
+        try { map.setLayoutProperty(layerId, 'visibility', 'visible') } catch { void 0 }
+      }
+      // Re-hide start marker for the final restore step
+      map.setLayoutProperty(START_MARKER_LAYER, 'visibility', 'none')
+      if (map.getLayer(START_MARKER_LABEL_LAYER)) {
+        map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', 'none')
+      }
     }
+
+    // Release rounded-corner clip
+    ctx.restore()
 
     // --- 7. Thin hairline border around card ---
     roundRect(ctx, borderInset, borderInset, totalWidth - borderInset * 2, totalHeight - borderInset * 2, cornerRadius)
@@ -623,6 +630,8 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     })
   } finally {
     // Always restore the working map, even if export fails
+    _exporting = false
+    map.setPixelRatio(origPixelRatio)
     container.style.width = origWidth
     container.style.height = origHeight
     map.jumpTo({

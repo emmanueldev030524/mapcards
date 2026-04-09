@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    allowedHosts: ['.trycloudflare.com'],
+  },
   build: {
     rollupOptions: {
       // jsPDF bundles html2canvas + dompurify for its .html() method.

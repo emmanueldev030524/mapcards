@@ -1,18 +1,24 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  findTooltipTargetById,
+  getTooltipTargetId,
   readTooltipAttrs,
   TOOLTIP_TIMING,
   TOOLTIP_SELECTOR,
+  TOOLTIP_MODAL_ATTR,
   type TooltipContent,
 } from '../lib/tooltips'
 
 interface TooltipState extends TooltipContent {
   anchorLeft: number
   arrowOffset: number
+  instanceKey: number
+  isPositioned: boolean
   left: number
   top: number
   placement: 'top' | 'bottom'
+  targetId: string | null
 }
 
 const TOOLTIP_ID = 'app-helper-tooltip'
@@ -25,7 +31,14 @@ function clamp(value: number, min: number, max: number) {
 function resolveTooltipTarget(node: EventTarget | null): HTMLElement | null {
   if (!(node instanceof Element)) return null
   const target = node.closest<HTMLElement>(TOOLTIP_SELECTOR)
-  return target instanceof HTMLElement ? target : null
+  if (!(target instanceof HTMLElement)) return null
+
+  // When a modal tooltip surface is open (e.g. basemap panel), only allow
+  // tooltip targets that live inside it — suppress all background tooltips.
+  const modalScope = document.querySelector<HTMLElement>(`[${TOOLTIP_MODAL_ATTR}]`)
+  if (modalScope && !modalScope.contains(target)) return null
+
+  return target
 }
 
 function getSafeMargin() {
@@ -144,10 +157,57 @@ export default function TooltipProvider() {
   const tooltipRef = useRef<TooltipState | null>(null)
   const tooltipElRef = useRef<HTMLDivElement>(null)
   const activeTargetRef = useRef<HTMLElement | null>(null)
+  const activeTargetIdRef = useRef<string | null>(null)
   const describedByRef = useRef<string | null>(null)
   const hoverTimerRef = useRef<number | null>(null)
   const hideTimerRef = useRef<number | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
+  const repositionFrameRef = useRef<number | null>(null)
+  const tooltipInstanceRef = useRef(0)
+
+  const clearQueuedReposition = useCallback(() => {
+    if (repositionFrameRef.current !== null) {
+      window.cancelAnimationFrame(repositionFrameRef.current)
+      repositionFrameRef.current = null
+    }
+  }, [])
+
+  const resolveActiveTarget = useCallback(() => {
+    if (activeTargetRef.current?.isConnected) return activeTargetRef.current
+    if (!activeTargetIdRef.current) return null
+    const nextTarget = findTooltipTargetById(activeTargetIdRef.current)
+    activeTargetRef.current = nextTarget
+    return nextTarget
+  }, [])
+
+  const syncTooltipPosition = useCallback(() => {
+    const target = resolveActiveTarget()
+    const tooltipEl = tooltipElRef.current
+    const currentTooltip = tooltipRef.current
+    if (!target || !tooltipEl || !currentTooltip) return
+
+    const nextPosition = computeTooltipPosition(target, tooltipEl)
+    if (
+      currentTooltip.anchorLeft !== nextPosition.anchorLeft ||
+      currentTooltip.arrowOffset !== nextPosition.arrowOffset ||
+      !currentTooltip.isPositioned ||
+      currentTooltip.left !== nextPosition.left ||
+      currentTooltip.top !== nextPosition.top ||
+      currentTooltip.placement !== nextPosition.placement
+    ) {
+      const nextTooltip = { ...currentTooltip, ...nextPosition, isPositioned: true }
+      tooltipRef.current = nextTooltip
+      setTooltip(nextTooltip)
+    }
+  }, [resolveActiveTarget])
+
+  const queueTooltipPositionSync = useCallback(() => {
+    if (repositionFrameRef.current !== null) window.cancelAnimationFrame(repositionFrameRef.current)
+    repositionFrameRef.current = window.requestAnimationFrame(() => {
+      repositionFrameRef.current = null
+      syncTooltipPosition()
+    })
+  }, [syncTooltipPosition])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -174,7 +234,7 @@ export default function TooltipProvider() {
     }
 
     const restoreDescribedBy = () => {
-      const activeTarget = activeTargetRef.current
+      const activeTarget = resolveActiveTarget()
       if (!activeTarget) return
 
       const previous = describedByRef.current
@@ -182,6 +242,7 @@ export default function TooltipProvider() {
       else activeTarget.removeAttribute('aria-describedby')
 
       activeTargetRef.current = null
+      activeTargetIdRef.current = null
       describedByRef.current = null
     }
 
@@ -189,6 +250,7 @@ export default function TooltipProvider() {
       clearHoverTimer()
       clearLongPressTimer()
       clearHideTimer()
+      clearQueuedReposition()
       restoreDescribedBy()
       tooltipRef.current = null
       setTooltip(null)
@@ -201,16 +263,43 @@ export default function TooltipProvider() {
       }, TOOLTIP_TIMING.hideDelayMs)
     }
 
+    const scheduleTooltipShow = (target: HTMLElement, immediate = false) => {
+      clearHoverTimer()
+      clearHideTimer()
+
+      if (immediate) {
+        showTooltip(target)
+        return
+      }
+
+      hoverTimerRef.current = window.setTimeout(() => {
+        showTooltip(target)
+      }, TOOLTIP_TIMING.showDelayMs)
+    }
+
     const showTooltip = (target: HTMLElement) => {
       clearHoverTimer()
       clearHideTimer()
       clearLongPressTimer()
+
+      // Re-check modal scope: the target may have been resolved before a
+      // modal surface appeared (e.g. during the show-delay timer).
+      const modalScope = document.querySelector<HTMLElement>(`[${TOOLTIP_MODAL_ATTR}]`)
+      if (modalScope && !modalScope.contains(target)) {
+        hideTooltip()
+        return
+      }
 
       const content = readTooltipAttrs(target)
       if (!content) {
         hideTooltip()
         return
       }
+
+      const nextTargetId = getTooltipTargetId(target)
+      const targetChanged =
+        activeTargetRef.current !== target ||
+        tooltipRef.current?.targetId !== nextTargetId
 
       if (activeTargetRef.current !== target) {
         restoreDescribedBy()
@@ -219,6 +308,13 @@ export default function TooltipProvider() {
         if (!describedBy) target.setAttribute('aria-describedby', TOOLTIP_ID)
         else if (!describedBy.split(/\s+/).includes(TOOLTIP_ID)) target.setAttribute('aria-describedby', `${describedBy} ${TOOLTIP_ID}`)
         activeTargetRef.current = target
+      }
+
+      activeTargetIdRef.current = nextTargetId
+
+      if (targetChanged) {
+        clearQueuedReposition()
+        tooltipInstanceRef.current += 1
       }
 
       const initialPosition = {
@@ -235,6 +331,9 @@ export default function TooltipProvider() {
       const nextTooltip = {
         ...content,
         ...initialPosition,
+        instanceKey: tooltipInstanceRef.current,
+        isPositioned: false,
+        targetId: activeTargetIdRef.current,
       }
       tooltipRef.current = nextTooltip
       setTooltip(nextTooltip)
@@ -244,11 +343,7 @@ export default function TooltipProvider() {
       const target = resolveTooltipTarget(event.target)
       if (!target) return
       if (target === activeTargetRef.current && tooltipRef.current) return
-
-      clearHoverTimer()
-      hoverTimerRef.current = window.setTimeout(() => {
-        showTooltip(target)
-      }, TOOLTIP_TIMING.showDelayMs)
+      scheduleTooltipShow(target, tooltipRef.current !== null)
     }
 
     const onMouseOut = (event: MouseEvent) => {
@@ -256,6 +351,12 @@ export default function TooltipProvider() {
       if (!leaving) return
       const entering = resolveTooltipTarget(event.relatedTarget)
       if (leaving === entering) return
+      if (entering) {
+        // Switching directly between toolbar triggers should rebind immediately;
+        // the old hide/show timers made the tooltip visibly wobble between items.
+        scheduleTooltipShow(entering, tooltipRef.current !== null)
+        return
+      }
       hideTooltipSoon()
     }
 
@@ -292,10 +393,6 @@ export default function TooltipProvider() {
       if (tooltipRef.current) hideTooltipSoon()
     }
 
-    const onViewportChange = () => {
-      hideTooltip()
-    }
-
     document.addEventListener('mouseover', onMouseOver, true)
     document.addEventListener('mouseout', onMouseOut, true)
     document.addEventListener('focusin', onFocusIn)
@@ -304,14 +401,36 @@ export default function TooltipProvider() {
     document.addEventListener('pointermove', onPointerMove, true)
     document.addEventListener('pointerup', onPointerRelease, true)
     document.addEventListener('pointercancel', onPointerRelease, true)
-    document.addEventListener('scroll', onViewportChange, true)
-    window.addEventListener('resize', onViewportChange)
+
+    // When a modal tooltip scope appears (React mount or imperative attribute
+    // toggle), immediately dismiss any active tooltip whose target is outside
+    // the new scope. Without this, a tooltip already visible on a background
+    // control would linger until the next mouseout.
+    const modalObserver = new MutationObserver(() => {
+      const modalScope = document.querySelector<HTMLElement>(`[${TOOLTIP_MODAL_ATTR}]`)
+      if (!modalScope) return
+      const target = resolveActiveTarget()
+      // Dismiss if the target is outside the modal scope, OR if the target
+      // is gone (disconnected/unmounted) — an orphaned tooltip with no
+      // target should not linger over the new modal surface.
+      if (!target || !modalScope.contains(target)) {
+        hideTooltip()
+      }
+    })
+    modalObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [TOOLTIP_MODAL_ATTR],
+    })
 
     return () => {
       clearHoverTimer()
       clearHideTimer()
       clearLongPressTimer()
+      clearQueuedReposition()
       restoreDescribedBy()
+      modalObserver.disconnect()
       document.removeEventListener('mouseover', onMouseOver, true)
       document.removeEventListener('mouseout', onMouseOut, true)
       document.removeEventListener('focusin', onFocusIn)
@@ -320,40 +439,66 @@ export default function TooltipProvider() {
       document.removeEventListener('pointermove', onPointerMove, true)
       document.removeEventListener('pointerup', onPointerRelease, true)
       document.removeEventListener('pointercancel', onPointerRelease, true)
-      document.removeEventListener('scroll', onViewportChange, true)
-      window.removeEventListener('resize', onViewportChange)
     }
-  }, [])
+  }, [clearQueuedReposition, resolveActiveTarget])
 
+  const hasTooltip = tooltip !== null
+  const tooltipTargetId = tooltip?.targetId ?? null
   useLayoutEffect(() => {
-    if (!tooltip || !activeTargetRef.current || !tooltipElRef.current) return
+    if (!hasTooltip) return
 
-    const nextPosition = computeTooltipPosition(activeTargetRef.current, tooltipElRef.current)
-    if (
-      tooltip.anchorLeft !== nextPosition.anchorLeft ||
-      tooltip.arrowOffset !== nextPosition.arrowOffset ||
-      tooltip.left !== nextPosition.left ||
-      tooltip.top !== nextPosition.top ||
-      tooltip.placement !== nextPosition.placement
-    ) {
-      const nextTooltip = { ...tooltip, ...nextPosition }
-      tooltipRef.current = nextTooltip
-      setTooltip(nextTooltip)
+    // Measure immediately on mount/target switch so the arrow offset is final
+    // before paint; deferring this to rAF left a visible one-frame catch-up.
+    syncTooltipPosition()
+
+    const target = resolveActiveTarget()
+    const tooltipEl = tooltipElRef.current
+    if (!target || !tooltipEl) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      queueTooltipPositionSync()
+    })
+    resizeObserver.observe(tooltipEl)
+    resizeObserver.observe(target)
+
+    const toolbar = target.closest<HTMLElement>('[role="toolbar"]')
+    if (toolbar) resizeObserver.observe(toolbar)
+
+    const onLayoutChange = () => {
+      queueTooltipPositionSync()
     }
-  }, [tooltip])
+
+    document.addEventListener('scroll', onLayoutChange, true)
+    window.addEventListener('resize', onLayoutChange)
+    window.addEventListener('orientationchange', onLayoutChange)
+    window.visualViewport?.addEventListener('resize', onLayoutChange)
+    window.visualViewport?.addEventListener('scroll', onLayoutChange)
+
+    return () => {
+      resizeObserver.disconnect()
+      document.removeEventListener('scroll', onLayoutChange, true)
+      window.removeEventListener('resize', onLayoutChange)
+      window.removeEventListener('orientationchange', onLayoutChange)
+      window.visualViewport?.removeEventListener('resize', onLayoutChange)
+      window.visualViewport?.removeEventListener('scroll', onLayoutChange)
+      clearQueuedReposition()
+    }
+  }, [clearQueuedReposition, hasTooltip, queueTooltipPositionSync, resolveActiveTarget, syncTooltipPosition, tooltipTargetId])
 
   if (!tooltip) return null
 
   return createPortal(
     <div
+      key={tooltip.instanceKey}
       ref={tooltipElRef}
       className={`pointer-events-none fixed z-[120] -translate-x-1/2 ${
         tooltip.placement === 'top' ? '-translate-y-full' : ''
       }`}
       style={{
         left: tooltip.left,
+        opacity: tooltip.isPositioned ? 1 : 0,
         top: tooltip.top,
-        transitionProperty: 'left, top, opacity, transform',
+        transitionProperty: 'opacity',
         transitionDuration: `${TOOLTIP_TIMING.transitionDurationMs}ms`,
         transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
       }}

@@ -3,6 +3,7 @@ import type maplibregl from 'maplibre-gl'
 import { BRAND, BRAND_LIGHT } from './colors'
 import {
   applyTooltipAttrs,
+  TOOLTIP_MODAL_ATTR,
 } from './tooltips'
 import { createPopupCloseSvg, getPopupCloseIconSize } from './popupClose'
 import {
@@ -148,6 +149,7 @@ export class CompassControl implements maplibregl.IControl {
       transform: 'translateY(4px) scale(0.97)',
       transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     })
+    this.panel.setAttribute('data-compass-panel', '')
     this.panel.addEventListener('mousedown', (e) => e.stopPropagation())
     this.panel.addEventListener('click', (e) => e.stopPropagation())
 
@@ -377,6 +379,7 @@ export class CompassControl implements maplibregl.IControl {
 
   private openPanel() {
     this.panelOpen = true
+    this.panel.setAttribute(TOOLTIP_MODAL_ATTR, '')
     this.positionPanel()
     this.panel.style.display = 'flex'
     // Trigger enter animation on next frame
@@ -404,6 +407,7 @@ export class CompassControl implements maplibregl.IControl {
 
   private closePanel() {
     this.panelOpen = false
+    this.panel.removeAttribute(TOOLTIP_MODAL_ATTR)
     this.panel.style.opacity = '0'
     this.panel.style.transform = 'translateY(4px) scale(0.97)'
     // Hide after transition completes

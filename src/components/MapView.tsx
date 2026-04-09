@@ -18,6 +18,7 @@ import { BRAND } from '../lib/colors'
 import { applyTooltipAttrs } from '../lib/tooltips'
 import { showToast } from './Toast'
 import { ensureSvgMapImage, getMapImagePixelRatio, upsertSvgMapImage } from '../lib/mapImages'
+import { isExporting } from '../lib/exportPng'
 
 interface MapViewProps {
   center?: [number, number]
@@ -567,9 +568,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
 
             try {
               await ensureSvgMapImage(map, START_MARKER_IMAGE, generateStartMarkerSVG(), 40, 48)
-            } catch {
-              void 0
-            }
+            } catch { /* falls back to circle layer below */ }
 
             try {
               await ensureSvgMapImage(
@@ -579,9 +578,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
                 SEARCH_MARKER_IMAGE_WIDTH,
                 SEARCH_MARKER_IMAGE_HEIGHT,
               )
-            } catch {
-              void 0
-            }
+            } catch { /* search pin simply won't render until first upsert */ }
 
             map.addSource(SEARCH_MARKER_SOURCE, {
               type: 'geojson',
@@ -626,10 +623,10 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
               },
             })
 
-          map.addLayer({
-            id: START_MARKER_LABEL_LAYER,
-            type: 'symbol',
-            source: START_MARKER_SOURCE,
+            map.addLayer({
+              id: START_MARKER_LABEL_LAYER,
+              type: 'symbol',
+              source: START_MARKER_SOURCE,
               layout: {
                 'text-field': ['get', 'label'],
                 'text-size': buildStartMarkerTextSizeExpression(),
@@ -653,7 +650,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
             setLoading(false)
             mapRef.current = map
             setMapReady(true)
-          onMapReadyRef.current?.(map)
+            onMapReadyRef.current?.(map)
           }
 
           setupHouseLayers().catch((err) => {
@@ -702,6 +699,9 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     const syncMapViewport = () => {
       const currentMap = mapRef.current
       if (!currentMap) return
+      // During export the pipeline owns the canvas dimensions and
+      // pixelRatio — stand down to avoid mid-capture interference.
+      if (isExporting()) return
       const nextPixelRatio = getMapImagePixelRatio()
       if (Math.abs(currentMap.getPixelRatio() - nextPixelRatio) > 0.01) {
         currentMap.setPixelRatio(nextPixelRatio)
@@ -818,8 +818,8 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         SEARCH_MARKER_IMAGE_HEIGHT,
       ).then(() => {
         map.triggerRepaint()
-      }).catch(() => {
-        void 0
+      }).catch((err) => {
+        if (import.meta.env.DEV) console.warn('Search marker image update failed:', err)
       })
     }
 
@@ -838,8 +838,6 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
           }]
         : [],
     })
-
-    map.triggerRepaint()
   }, [mapReady, searchLocation])
 
   // Sync grid lines + dots
@@ -1286,20 +1284,31 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     const canvas = map.getCanvas()
     const DRAGGABLE_LAYERS = [HOUSE_LAYER, TREE_LAYER, START_MARKER_LAYER]
 
-    /** Query both house and tree layers, return { id, type } or null */
-    const hitTest = (bbox: [maplibregl.PointLike, maplibregl.PointLike]) => {
+    /** Query draggable layers, pick the feature closest to tapPoint */
+    const hitTest = (bbox: [maplibregl.PointLike, maplibregl.PointLike], tapPoint: maplibregl.Point) => {
       for (const layer of DRAGGABLE_LAYERS) {
         if (!map.getLayer(layer)) continue
         const features = map.queryRenderedFeatures(bbox, { layers: [layer] })
-        if (features.length > 0) {
-          const id = features[0].properties?.id as string | undefined
-          if (id) {
-            const type =
-              layer === HOUSE_LAYER ? 'house' as const :
-              layer === TREE_LAYER ? 'tree' as const :
-              'start' as const
-            return { id, type }
-          }
+        if (features.length === 0) continue
+        // Find the feature whose projected position is closest to the tap
+        let best = features[0]
+        let bestDist = Infinity
+        for (const f of features) {
+          const geom = f.geometry as { type: string; coordinates: [number, number] }
+          if (geom.type !== 'Point') continue
+          const px = map.project(geom.coordinates)
+          const dx = px.x - tapPoint.x
+          const dy = px.y - tapPoint.y
+          const dist = dx * dx + dy * dy
+          if (dist < bestDist) { bestDist = dist; best = f }
+        }
+        const id = best.properties?.id as string | undefined
+        if (id) {
+          const type =
+            layer === HOUSE_LAYER ? 'house' as const :
+            layer === TREE_LAYER ? 'tree' as const :
+            'start' as const
+          return { id, type }
         }
       }
       return null
@@ -1320,7 +1329,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         [e.point.x - tolerance, e.point.y - tolerance],
         [e.point.x + tolerance, e.point.y + tolerance],
       ]
-      const hit = hitTest(bbox)
+      const hit = hitTest(bbox, e.point)
       if (!hit) return
 
       pendingId = hit.id
@@ -1421,7 +1430,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         [point.x - tolerance, point.y - tolerance],
         [point.x + tolerance, point.y + tolerance],
       ]
-      const hit = hitTest(bbox)
+      const hit = hitTest(bbox, point)
       if (!hit) return
 
       pendingId = hit.id
@@ -1514,6 +1523,31 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     const removeRoad = useStore.getState().removeCustomRoad
     const setStartMarker = useStore.getState().setStartMarker
 
+    // When multiple point features fall inside the tap bbox,
+    // pick the one whose geographic position projects closest
+    // to the actual tap point — not the one MapLibre renders on top.
+    const nearestPointFeature = (
+      features: maplibregl.MapGeoJSONFeature[],
+      tapPoint: maplibregl.Point,
+    ): maplibregl.MapGeoJSONFeature => {
+      if (features.length === 1) return features[0]
+      let best = features[0]
+      let bestDist = Infinity
+      for (const f of features) {
+        const geom = f.geometry as { type: string; coordinates: [number, number] }
+        if (geom.type !== 'Point') continue
+        const px = map.project(geom.coordinates)
+        const dx = px.x - tapPoint.x
+        const dy = px.y - tapPoint.y
+        const dist = dx * dx + dy * dy
+        if (dist < bestDist) {
+          bestDist = dist
+          best = f
+        }
+      }
+      return best
+    }
+
     const onClick = (e: maplibregl.MapMouseEvent) => {
       // Skip if this click follows a drag (house/tree was moved, not tapped)
       if (justDraggedRef.current) return
@@ -1526,10 +1560,11 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         [e.point.x + tolerance, e.point.y + tolerance],
       ]
 
-      // Check houses first
+      // Check houses first — pick the one closest to tap, not render-order first
       const houseFeatures = map.queryRenderedFeatures(bbox, { layers: [HOUSE_LAYER] })
       if (houseFeatures.length > 0) {
-        const id = houseFeatures[0].properties?.id as string | undefined
+        const closest = nearestPointFeature(houseFeatures, e.point)
+        const id = closest.properties?.id as string | undefined
         if (id) {
           selectHouse(id)
           selectTree(null)
@@ -1539,11 +1574,12 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
         }
       }
 
-      // Check trees
+      // Check trees — same nearest-point logic
       if (map.getLayer(TREE_LAYER)) {
         const treeFeatures = map.queryRenderedFeatures(bbox, { layers: [TREE_LAYER] })
         if (treeFeatures.length > 0) {
-          const id = treeFeatures[0].properties?.id as string | undefined
+          const closest = nearestPointFeature(treeFeatures, e.point)
+          const id = closest.properties?.id as string | undefined
           if (id) {
             selectTree(id)
             selectHouse(null)

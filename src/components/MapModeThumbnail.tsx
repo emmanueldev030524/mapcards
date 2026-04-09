@@ -132,8 +132,12 @@ export default function MapModeThumbnail({
   const panelRef = useRef<HTMLDivElement>(null)
   const isTablet = useIsTablet()
   const dockLeft = isTablet
-    ? (sidebarOpen ? 'calc(min(22rem, 100vw - 1.5rem) + 0.75rem)' : '0.75rem')
+    ? (sidebarOpen ? 'calc(min(19.5rem, 100vw - 1.5rem) + 0.75rem)' : '0.75rem')
     : (sidebarOpen ? 'calc(17rem + 0.75rem)' : '0.75rem')
+  const tabletPanelLeft = '0.75rem'
+  const tabletPanelTop = 'calc(env(safe-area-inset-top, 0px) + 5.5rem)'
+  const tabletPanelWidth = 'min(18rem, calc(100vw - 1.5rem))'
+  const tabletPanelMaxHeight = 'calc(100dvh - env(safe-area-inset-top, 0px) - 7rem)'
 
   const visibleLayers = useStore((s) => s.visibleLayers)
   const toggleLayer = useStore((s) => s.toggleLayer)
@@ -203,33 +207,40 @@ export default function MapModeThumbnail({
       className="absolute z-10 transition-[left] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
       style={{ left: dockLeft, bottom: 'var(--map-control-edge-offset-y)' }}
     >
-      {/* Thumbnail button */}
-      <button
-        onClick={() => setPanelOpen((v) => !v)}
-        aria-label="Basemap settings"
-        {...tooltipAttrs({
-          label: 'Change map style',
-          description: 'Switch between street and satellite views.',
-        })}
-        className={`floating-control-trigger touch-active flex items-stretch rounded-[22px] p-0.5 text-left ${
-          isTablet ? 'h-21 w-21' : 'h-17 w-17'
-        } ${panelOpen ? 'border-white/85 ring-2 ring-brand/30 ring-offset-0' : ''}`}
-      >
-        <BasemapPreviewTile
-          mode={current.value}
-          className="relative flex h-full w-full overflow-hidden rounded-[19px] border border-white/45 bg-white/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-10px_18px_rgba(15,23,42,0.07)]"
-        />
-      </button>
+      {/* Thumbnail button — hidden while panel is open to avoid duplicate controls */}
+      {!panelOpen && (
+        <button
+          onClick={() => setPanelOpen(true)}
+          aria-label="Basemap settings"
+          {...(isTablet ? {} : tooltipAttrs({
+            label: 'Change map style',
+            description: 'Switch between street and satellite views.',
+          }))}
+          className={`floating-control-trigger touch-active flex items-stretch rounded-[22px] p-0.5 text-left ${
+            isTablet ? 'h-21 w-21' : 'h-17 w-17'
+          }`}
+        >
+          <BasemapPreviewTile
+            mode={current.value}
+            className="relative flex h-full w-full overflow-hidden rounded-[19px] border border-white/45 bg-white/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-10px_18px_rgba(15,23,42,0.07)]"
+          />
+        </button>
+      )}
 
       {/* Panel — Google Earth style basemap settings */}
       {panelOpen && (
         <div
+          data-tooltip-modal
           className={`${popupContainer} ${
-            isTablet ? 'fixed bottom-28 w-80' : 'absolute left-0 bottom-20 w-72'
+            isTablet
+              ? 'fixed left-3 top-[calc(env(safe-area-inset-top,0px)+5.5rem)] w-[min(18rem,calc(100vw-1.5rem))] rounded-[26px] border-white/72 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(246,249,253,0.82))] shadow-[0_28px_60px_-18px_rgba(15,23,42,0.26),0_14px_28px_-14px_rgba(15,23,42,0.14),0_4px_10px_-4px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.96)] backdrop-blur-[28px]'
+              : 'absolute left-0 bottom-0 w-72'
           } flex flex-col`}
           style={{
-            left: isTablet ? dockLeft : undefined,
-            maxHeight: isTablet ? 'calc(100vh - 8rem)' : 'calc(100vh - 6rem)',
+            left: isTablet ? tabletPanelLeft : undefined,
+            top: isTablet ? tabletPanelTop : undefined,
+            width: isTablet ? tabletPanelWidth : undefined,
+            maxHeight: isTablet ? tabletPanelMaxHeight : 'calc(100vh - 6rem)',
           }}
         >
           {/* Header — always visible */}
@@ -248,9 +259,9 @@ export default function MapModeThumbnail({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
           {/* ── Type section ── */}
-          <div className="px-4 pb-3 pt-3.5">
+          <div className={`px-4 pt-3.5 ${isTablet ? 'pb-4' : 'pb-3'}`}>
             <p className={popupSectionLabel}>Type</p>
-            <div className="flex gap-2">
+            <div className={`flex ${isTablet ? 'gap-2.5' : 'gap-2'}`}>
               {MAP_TYPES.map((mode) => {
                 const active = currentMode === mode.value
                 return (
@@ -280,10 +291,10 @@ export default function MapModeThumbnail({
             </div>
           </div>
 
-          <div className="mx-4 border-t border-slate-200/55" />
+          <div className={`mx-4 border-t border-slate-200/55 ${isTablet ? 'opacity-80' : ''}`} />
 
           {/* ── Details section (layer toggles) ── */}
-          <div className="px-4 pt-3 pb-2">
+          <div className={`px-4 pt-3 ${isTablet ? 'pb-3.5' : 'pb-2'}`}>
             <p className={popupSectionLabel}>Details</p>
             {layers.map((layer, i) => {
               const LayerIcon = DETAIL_ICONS[layer.id]

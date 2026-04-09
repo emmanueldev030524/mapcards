@@ -126,8 +126,12 @@ export default function MapToolbar({
   const isDrawing = activeMode === 'boundary' || activeMode === 'road'
   const isPlacing = activeMode === 'house' || activeMode === 'tree' || activeMode === 'startMarker'
   const isTablet = useIsTablet()
-  const btnSize = isTablet ? 'h-11 w-11' : 'h-9 w-9'
-  const iconSize = isTablet ? 20 : 17
+  // On tablet, the helper popup already explains each tool — tooltips are
+  // redundant and visually compete with the popup. Suppress by not emitting
+  // data-tooltip attributes. aria-label stays for accessibility.
+  const tip: typeof tooltipAttrs = isTablet ? () => ({}) : tooltipAttrs
+  const btnSize = isTablet ? 'h-10 w-10' : 'h-9 w-9'
+  const iconSize = isTablet ? 18 : 17
   const canUndo = useStore((s) => s.canUndo)
   const canRedo = useStore((s) => s.canRedo)
   const undoAction = useStore((s) => s.undoAction)
@@ -249,7 +253,7 @@ export default function MapToolbar({
       {/* Scrollable inner */}
       <div
         ref={scrollRef}
-        className="scrollbar-hide relative flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-visible py-1.5 pl-2.5 pr-2"
+        className={`scrollbar-hide relative flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-visible pl-2.5 pr-2 ${isTablet ? 'py-1' : 'py-1.5'}`}
       >
         {/* ── Search ── */}
         {onLocationSelect && (
@@ -258,7 +262,7 @@ export default function MapToolbar({
               <LocationSearch onLocationSelect={onLocationSelect} compact />
             </div>
             {/* Vertical divider */}
-            <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
+            <div className={`mx-1 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent ${isTablet ? 'h-5' : 'h-6'}`} />
           </>
         )}
 
@@ -271,7 +275,7 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canUndo}
             aria-label="Undo"
-            {...tooltipAttrs({ label: 'Go back one step', shortcut: `${MOD}Z` })}
+            {...tip({ label: 'Go back one step', shortcut: `${MOD}Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canUndo
                 ? `${btnShell} ${btnInteractive}`
@@ -287,7 +291,7 @@ export default function MapToolbar({
             }}
             disabled={!isDrawing && !canRedo}
             aria-label="Redo"
-            {...tooltipAttrs({ label: 'Redo the last step', shortcut: `${MOD}⇧Z` })}
+            {...tip({ label: 'Redo the last step', shortcut: `${MOD}⇧Z` })}
             className={`${btnBase} ${btnSize} ${btnFocusRing} ${
               isDrawing || canRedo
                 ? `${btnShell} ${btnInteractive}`
@@ -299,7 +303,7 @@ export default function MapToolbar({
         </div>
 
         {/* ── Section divider (hairline) ── */}
-        <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
+        <div className={`mx-1 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent ${isTablet ? 'h-5' : 'h-6'}`} />
 
         {/* ── Drawing tools group (primary / hero) ── */}
         <div className={primaryGroupContainer}>
@@ -308,7 +312,7 @@ export default function MapToolbar({
             const isDisabledTool =
               (mode === 'boundary' && hasBoundary) ||
               (mode === 'startMarker' && !hasBoundary)
-            const toolClass = isTablet ? 'h-11 w-11' : 'h-9 w-9'
+            const toolClass = isTablet ? 'h-10 w-10' : 'h-9 w-9'
 
             return (
               <button
@@ -317,8 +321,8 @@ export default function MapToolbar({
                 disabled={isDisabledTool}
                 aria-label={label}
                 aria-pressed={isActive}
-                {...tooltipTargetAttrs(`toolbar-tool-${mode}`)}
-                {...tooltipAttrs({
+                {...(isTablet ? {} : tooltipTargetAttrs(`toolbar-tool-${mode}`))}
+                {...tip({
                   label:
                     mode === 'boundary' ? 'Draw boundary' :
                     mode === 'road' ? 'Draw road' :
@@ -345,13 +349,13 @@ export default function MapToolbar({
 
         {(canReview || (hasBoundary && onClearBoundary)) && (
           <>
-            <div className="mx-1 h-6 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent" />
+            <div className={`mx-1 w-px shrink-0 bg-linear-to-b from-transparent via-slate-300/75 to-transparent ${isTablet ? 'h-5' : 'h-6'}`} />
             <div className={groupContainer}>
             {canReview && onReviewToggle && (
               <button
                 onClick={onReviewToggle}
                 aria-label="Review map"
-                {...tooltipAttrs({ label: 'Preview your card', description: 'See the territory without editing controls.' })}
+                {...tip({ label: 'Preview your card', description: 'See the territory without editing controls.' })}
                 className={`${btnBase} ${btnSize} ${btnFocusRing} ${btnShell} ${btnInteractive}`}
               >
                 <Eye size={iconSize} strokeWidth={2.2} />
@@ -362,7 +366,7 @@ export default function MapToolbar({
               <button
                 onClick={onClearBoundary}
                 aria-label="Clear boundary"
-                {...tooltipAttrs({ label: 'Clear the map', description: 'Remove the boundary and everything inside it.', shortcut: 'Del' })}
+                {...tip({ label: 'Clear the map', description: 'Remove the boundary and everything inside it.', shortcut: 'Del' })}
                 className={`${btnBase} ${btnSize} ${btnFocusRing} ${btnDanger}`}
               >
                 <Trash2 size={iconSize} strokeWidth={2.2} />
@@ -382,8 +386,8 @@ export default function MapToolbar({
 
     {/* Contextual helper card — top-right, replaces FloatingSettings during active mode */}
     {hintMessage && activeTool && (
-      <div data-popup-safe-top="true" className={`absolute right-3 z-10 ${isTablet ? 'top-22' : 'top-14'}`}>
-        <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
+      <div data-popup-safe-top="true" className={`absolute right-3 z-10 ${isTablet ? 'top-19' : 'top-14'}`}>
+        <div className={`animate-[dialog-in_200ms_cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/97 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl ${
           isTablet ? 'w-[min(18rem,calc(100vw-1.5rem))]' : 'w-64'
         }`}>
           {/* Header row: icon + title + actions */}
