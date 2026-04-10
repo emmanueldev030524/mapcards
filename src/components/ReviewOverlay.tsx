@@ -30,7 +30,7 @@ export default function ReviewOverlay({
 
   return (
     <div className={`absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 bg-slate-900/72 backdrop-blur-xl ${
-      isTablet ? 'px-4 py-3' : 'px-5 py-2.5'
+      isTablet ? 'px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))]' : 'px-5 py-2.5'
     }`}>
       {/* Left: mode label + territory info */}
       <div className="flex min-w-0 items-center gap-3">
@@ -48,7 +48,7 @@ export default function ReviewOverlay({
         <button
           onClick={onExitReview}
           className={`inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 font-semibold text-white transition-colors hover:bg-white/18 ${
-            isTablet ? 'px-3.5 py-2 text-[12px]' : 'px-3 py-1.5 text-[12px]'
+            isTablet ? 'min-h-[44px] px-3.5 py-2.5 text-[12px]' : 'px-3 py-1.5 text-[12px]'
           }`}
         >
           <PencilLine size={13} strokeWidth={2.2} />
@@ -57,7 +57,7 @@ export default function ReviewOverlay({
         <button
           onClick={onExport}
           className={`inline-flex items-center gap-1.5 rounded-full bg-white font-semibold text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-colors hover:bg-white/92 ${
-            isTablet ? 'px-3.5 py-2 text-[12px]' : 'px-3 py-1.5 text-[12px]'
+            isTablet ? 'min-h-[44px] px-3.5 py-2.5 text-[12px]' : 'px-3 py-1.5 text-[12px]'
           }`}
         >
           <Download size={13} strokeWidth={2.2} />

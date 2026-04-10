@@ -417,7 +417,10 @@ export default function TooltipProvider() {
         hideTooltip()
       }
     })
-    modalObserver.observe(document.body, {
+    // Scope observer to the React app root rather than document.body
+    // to avoid firing on MapLibre's internal tile DOM mutations.
+    const observeRoot = document.getElementById('root') || document.body
+    modalObserver.observe(observeRoot, {
       childList: true,
       subtree: true,
       attributes: true,

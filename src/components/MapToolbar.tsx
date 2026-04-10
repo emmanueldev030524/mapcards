@@ -219,14 +219,14 @@ export default function MapToolbar({
   const handleToolToggle = useCallback((mode: DrawMode) => {
     const nextMode = activeMode === mode ? null : mode
     if (getToolBehavior(nextMode) === 'single-placement') {
-      // Capture the session baseline at activation time so Done only appears
-      // after a fresh placement, not because matching markers already existed.
-      setSinglePlacementBaseline({
-        mode: nextMode,
-        houseCount,
-        treeCount,
-        startMarker,
-      })
+      // Only capture baseline if we don't already have one for this mode.
+      // Re-activating the same tool (toggle off → on) should keep the
+      // original baseline so the Done button stays visible after a placement.
+      setSinglePlacementBaseline((prev) =>
+        prev?.mode === nextMode
+          ? prev
+          : { mode: nextMode, houseCount, treeCount, startMarker },
+      )
     } else {
       setSinglePlacementBaseline(null)
     }
@@ -464,19 +464,6 @@ export default function MapToolbar({
       </div>
     )}
 
-    {/* Floating undo pill — tablet only, during drawing */}
-    {isTablet && isDrawing && displayedVertexCount > 0 && (
-      <div data-popup-safe-top="true" className="absolute right-3 z-10" style={{ top: isTablet ? 'calc(5.5rem + 8.5rem)' : 'calc(3.5rem + 7rem)' }}>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); if (onDrawUndo) onDrawUndo() }}
-          className="flex items-center gap-1.5 rounded-full border border-slate-200/85 bg-white/97 px-3.5 py-2 text-[12px] font-semibold text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-all duration-150 active:scale-90 active:bg-slate-50"
-        >
-          <Undo2 size={15} strokeWidth={2} />
-          Undo point
-        </button>
-      </div>
-    )}
     </>
   )
 }

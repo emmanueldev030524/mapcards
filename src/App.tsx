@@ -261,7 +261,7 @@ export default function App() {
             ? `sidebar-panel-surface sidebar-tablet fixed inset-y-0 left-0 z-40 flex w-[min(19.5rem,calc(100vw-1.5rem))] shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`
-            : `sidebar-panel-surface absolute inset-y-0 left-0 z-20 flex w-68 shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            : `sidebar-panel-surface absolute inset-y-0 left-0 z-20 flex w-[17rem] shrink-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full border-r-0'
               }`
         }
@@ -279,7 +279,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="sidebar-scroll min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[env(safe-area-inset-bottom,0px)]">
           {/* Project */}
           <div className={isTablet ? 'px-3 pt-2.5 pb-2' : 'px-3.5 pt-3 pb-2.5'}>
             <ProjectManager
@@ -410,14 +410,16 @@ export default function App() {
           onClick={() => setSidebarOpen((v) => !v)}
           aria-label={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
           data-tooltip-exclusion="sidebar-handle"
-          {...tooltipAttrs({
+          {...(isTablet ? {} : tooltipAttrs({
             label: sidebarOpen ? 'Hide side panel' : 'Show side panel',
             description: sidebarOpen ? 'Make more room for the map.' : 'Open the project controls.',
-          })}
-          className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center transition-all duration-200 active:scale-[0.96] ${
+          }))}
+          className={`absolute top-1/2 flex -translate-y-1/2 items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.94] ${
             isTablet
-              ? 'left-0 h-11 w-6 rounded-r-xl border-y border-r border-white/45 bg-white/84 text-slate-500 shadow-[2px_0_10px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-md hover:bg-white/94 hover:text-slate-700'
-              : `${sidebarOpen ? 'left-68' : 'left-0'} h-16 w-7 rounded-r-2xl border-y border-r border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,247,251,0.88))] text-slate-600 shadow-[0_14px_28px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md hover:bg-white hover:text-slate-800`
+              ? `z-[45] h-[46px] w-[28px] rounded-r-2xl border border-l-0 border-white/50 bg-white/90 text-slate-500 shadow-[3px_0_14px_rgba(15,23,42,0.10),0_2px_6px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl hover:bg-white hover:text-slate-700 hover:shadow-[3px_0_18px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] ${
+                  sidebarOpen ? 'left-[min(19.5rem,calc(100vw-1.5rem))]' : 'left-0'
+                }`
+              : `${sidebarOpen ? 'left-[17rem]' : 'left-0'} z-10 h-16 w-7 rounded-r-2xl border-y border-r border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,247,251,0.88))] text-slate-600 shadow-[0_14px_28px_rgba(15,23,42,0.16),0_2px_6px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md hover:bg-white hover:text-slate-800`
           }`}
         >
           {!isTablet && (
@@ -426,7 +428,7 @@ export default function App() {
               className="absolute left-0 top-1/2 h-7 w-0.75 -translate-y-1/2 rounded-r-full bg-brand/70 shadow-[0_0_10px_rgba(75,108,167,0.35)]"
             />
           )}
-          <svg width={isTablet ? 8 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
+          <svg width={isTablet ? 7 : 10} height={isTablet ? 12 : 14} viewBox="0 0 8 12" fill="currentColor">
             {sidebarOpen
               ? <path d="M6 0L0 6l6 6V0z" />
               : <path d="M2 0l6 6-6 6V0z" />

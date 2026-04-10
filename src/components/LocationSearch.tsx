@@ -227,7 +227,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
   const dropdown = open && dropdownPosition && (
     <ul
       ref={dropdownRef}
-      className="fixed z-80 max-h-64 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/98 py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+      className="fixed z-[80] max-h-64 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/98 py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18),0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-xl"
       style={{
         left: dropdownPosition.left,
         top: dropdownPosition.top,
@@ -315,7 +315,7 @@ export default function LocationSearch({ onLocationSelect, compact }: LocationSe
             setLoading(false)
           }}
           aria-label="Clear search"
-          className={`absolute top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? 'right-1' : 'right-2'}`}
+          className={`absolute top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full text-slate-500 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none ${compact ? '-right-2' : '-right-1'}`}
         >
           <X size={13} strokeWidth={2.5} />
         </button>

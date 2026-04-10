@@ -31,13 +31,6 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
   const housePoints = useStore((s) => s.housePoints)
   const treePoints = useStore((s) => s.treePoints)
   const customRoads = useStore((s) => s.customRoads)
-  const houseIconSize = useStore((s) => s.houseIconSize)
-  const badgeIconSize = useStore((s) => s.badgeIconSize)
-  const treeIconSize = useStore((s) => s.treeIconSize)
-  const startMarkerSize = useStore((s) => s.startMarkerSize)
-  const boundaryOpacity = useStore((s) => s.boundaryOpacity)
-  const maskOpacity = useStore((s) => s.maskOpacity)
-
   const getExportOptions = useCallback(() => ({
     map: map!,
     boundary: boundary!,
@@ -86,21 +79,18 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
       cancelled = true
       cancelAnimationFrame(frameId)
     }
+  // Only re-export when the modal opens or card dimensions change.
+  // Data arrays (housePoints, treePoints, customRoads) and visual settings
+  // (icon sizes, opacity) are intentionally excluded — the export captures
+  // the live map canvas, so it reads those values at capture time. Including
+  // them here caused re-exports on every marker placement/drag while the
+  // modal was open, thrashing the map with resize→capture→restore cycles.
   }, [
     open,
     map,
     boundary,
     cardWidthInches,
     cardHeightInches,
-    housePoints,
-    treePoints,
-    customRoads,
-    houseIconSize,
-    badgeIconSize,
-    treeIconSize,
-    startMarkerSize,
-    boundaryOpacity,
-    maskOpacity,
     getExportOptions,
   ])
 
@@ -234,7 +224,7 @@ export default function ExportModal({ open, onClose, map }: ExportModalProps) {
         </div>
 
         {/* Body — preview is the hero */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="bg-[linear-gradient(180deg,#f1f5f9,#e8ecf1)] px-5 py-4">
             {state === 'generating' && (
               <div className="flex flex-col items-center justify-center rounded-xl bg-white/80 py-20 shadow-[0_1px_3px_rgba(15,23,42,0.06)]" role="status" aria-live="polite">

@@ -6,6 +6,7 @@ import { useStore } from '../store'
 import { buildHouseIconSizeExpression, buildTreeIconSizeExpression } from './mapMarkerSizing'
 import {
   buildStartMarkerIconSizeExpression,
+  getStartMarkerLabelOffsetEm,
 } from './startMarkerLayout'
 
 // Module-level flag to prevent MapView's ResizeObserver from interfering
@@ -28,6 +29,22 @@ const START_MARKER_LAYER = 'start-marker-pin'
 const START_MARKER_LABEL_LAYER = 'start-marker-label'
 const BOUNDARY_FILL = 'territory-boundary-fill'
 const MASK_LAYER = 'territory-mask-fill'
+
+// Editor-only layers that must be hidden before export capture.
+// These are visual aids (selection rings, search pins, snap grid) that
+// should never appear on the printed card.
+const EDITOR_ONLY_LAYERS = [
+  'selected-house-ring',
+  'selected-house-ring-pulse',
+  'selected-tree-ring',
+  'selected-tree-ring-pulse',
+  'selected-road-highlight',
+  'selected-start-marker-ring',
+  'selected-start-marker-ring-pulse',
+  'search-location-pin',
+  'snap-grid-dots',
+  'snap-grid-lines-layer',
+]
 
 // Raw slider values from the store — NOT pre-resolved at a specific zoom.
 // syncCurrentVisualState applies these as zoom *expressions* so MapLibre
@@ -73,6 +90,13 @@ function syncCurrentVisualState(map: maplibregl.Map, vs: ExportVisualSnapshot) {
         16, 8.5 * vs.startMarkerSize,
         19, 10.5 * vs.startMarkerSize,
       ])
+    }
+  } catch { void 0 }
+  // Sync start marker label vertical offset for current zoom
+  try {
+    if (map.getLayer(START_MARKER_LABEL_LAYER)) {
+      const offsetEm = getStartMarkerLabelOffsetEm(map.getZoom(), vs.startMarkerSize)
+      map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'text-offset', [0, offsetEm])
     }
   } catch { void 0 }
   try { map.setPaintProperty(BOUNDARY_FILL, 'fill-opacity', vs.boundaryOpacity) } catch { void 0 }
@@ -363,6 +387,9 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
   // repaints while we are mid-capture.
   _exporting = true
 
+  // Track which editor-only layers were hidden so we can restore in finally
+  const hiddenEditorLayers: string[] = []
+
   // All map mutations are wrapped in try/finally so the working canvas
   // is always restored — even if an await or canvas step throws.
   try {
@@ -371,6 +398,17 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     }
     if (map.getLayer(START_MARKER_LABEL_LAYER)) {
       map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', 'none')
+    }
+
+    // Hide editor-only layers (selection rings, search pin, snap grid)
+    for (const layerId of EDITOR_ONLY_LAYERS) {
+      if (map.getLayer(layerId)) {
+        const vis = map.getLayoutProperty(layerId, 'visibility')
+        if (vis !== 'none') {
+          map.setLayoutProperty(layerId, 'visibility', 'none')
+          hiddenEditorLayers.push(layerId)
+        }
+      }
     }
 
     // Force pixelRatio to 1 so the WebGL canvas matches the output
@@ -527,7 +565,13 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     }
 
     // --- 5. Legend bar at bottom (fixed annotation template) ---
+    // Ensure Inter is loaded before drawing canvas text — prevents fallback
+    // to system-ui which has different metrics (shifts underline positions).
     if (legendHeight > 0) {
+      await Promise.all([
+        document.fonts.load(layout.legendLabelFont),
+        document.fonts.load(layout.legendExampleFont),
+      ]).catch(() => { /* proceed with fallback font if load fails */ })
       drawLegendBar(ctx, totalWidth, totalHeight, layout)
     }
 
@@ -598,6 +642,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
       // Composite the isolated marker onto the export card
       ctx.drawImage(smTemp, 0, 0)
 
+      // Release temp canvas GPU memory immediately (critical on iPad Safari)
+      smTemp.width = 0
+      smTemp.height = 0
+
       // Restore all hidden layers
       for (const layerId of hiddenLayers) {
         try { map.setLayoutProperty(layerId, 'visibility', 'visible') } catch { void 0 }
@@ -621,6 +669,9 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     return new Promise<Blob>((resolve, reject) => {
       output.toBlob(
         (blob) => {
+          // Release output canvas GPU memory immediately (critical on iPad Safari)
+          output.width = 0
+          output.height = 0
           if (blob) resolve(blob)
           else reject(new Error('Failed to create PNG blob'))
         },
@@ -645,6 +696,10 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     }
     if (map.getLayer(START_MARKER_LABEL_LAYER)) {
       map.setLayoutProperty(START_MARKER_LABEL_LAYER, 'visibility', startLabelVisibility ?? 'visible')
+    }
+    // Restore editor-only layers that were hidden for export
+    for (const layerId of hiddenEditorLayers) {
+      try { map.setLayoutProperty(layerId, 'visibility', 'visible') } catch { void 0 }
     }
     map.resize()
     syncCurrentVisualState(map, captureExportVisualSnapshot(map))

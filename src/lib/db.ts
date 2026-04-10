@@ -45,14 +45,30 @@ async function setProjectIndex(index: ProjectListItem[]): Promise<void> {
   await set(PROJECT_INDEX_KEY, sorted)
 }
 
+let migrationChecked = false
+
 async function ensureMigrated(): Promise<void> {
+  if (migrationChecked) return
   const legacyRaw = await get<string>(LEGACY_PROJECT_KEY)
-  if (!legacyRaw) return
+  if (!legacyRaw) { migrationChecked = true; return }
 
   const existingIndex = await getProjectIndex()
   if (existingIndex.length > 0) {
-    await del(LEGACY_PROJECT_KEY)
-    return
+    // Only skip migration if the legacy project is already in the index.
+    // Otherwise fall through to migrate it before deleting the legacy key.
+    try {
+      const data = JSON.parse(legacyRaw) as ProjectData
+      if (existingIndex.some((item) => item.id === data.id)) {
+        await del(LEGACY_PROJECT_KEY)
+        migrationChecked = true
+        return
+      }
+    } catch {
+      // Unparseable legacy data — safe to discard
+      await del(LEGACY_PROJECT_KEY)
+      migrationChecked = true
+      return
+    }
   }
 
   try {
@@ -64,6 +80,7 @@ async function ensureMigrated(): Promise<void> {
     // Ignore unreadable legacy payloads and clear them.
   } finally {
     await del(LEGACY_PROJECT_KEY)
+    migrationChecked = true
   }
 }
 

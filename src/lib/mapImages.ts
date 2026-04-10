@@ -45,6 +45,11 @@ async function renderSvgMapImageData(
   ctx.drawImage(image, 0, 0, width, height)
 
   const imageData = ctx.getImageData(0, 0, bitmapWidth, bitmapHeight)
+
+  // Release canvas GPU memory immediately (critical on iPad Safari)
+  canvas.width = 0
+  canvas.height = 0
+
   return { imageData, pixelRatio }
 }
 

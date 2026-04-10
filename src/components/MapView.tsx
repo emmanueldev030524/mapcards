@@ -79,6 +79,8 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
   const initialCenterRef = useRef(center)
   const initialZoomRef = useRef(zoom)
   const onMapReadyRef = useRef(onMapReady)
+  // Skip fitBounds on the first boundary sync (project load) — respect saved viewport
+  const isInitialBoundarySync = useRef(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
@@ -790,16 +792,41 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       }
     }
 
-    // Auto-fit map to boundary bounds
+    // Auto-fit map to boundary bounds — but skip on initial load so the
+    // user's saved mapCenter/mapZoom from the project is respected.
     if (boundary) {
-      const coords = boundary.geometry.coordinates[0] as [number, number][]
-      const bounds = coords.reduce(
-        (b, c) => b.extend(c as [number, number]),
-        new maplibregl.LngLatBounds(coords[0], coords[0]),
-      )
-      map.fitBounds(bounds, { padding: 40, duration: 1000 })
+      if (isInitialBoundarySync.current) {
+        isInitialBoundarySync.current = false
+      } else {
+        const coords = boundary.geometry.coordinates[0] as [number, number][]
+        const bounds = coords.reduce(
+          (b, c) => b.extend(c as [number, number]),
+          new maplibregl.LngLatBounds(coords[0], coords[0]),
+        )
+        map.fitBounds(bounds, { padding: 40, duration: 1000 })
+      }
     }
   }, [boundary, mapReady])
+
+  // Sync house number labels whenever the housenumbers toggle changes
+  // (including on project load when visibleLayers is restored).
+  const showHouseNumbers = useStore((s) => !!s.visibleLayers['housenumbers'])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady || !map.getLayer(HOUSE_LAYER)) return
+    try {
+      map.setLayoutProperty(HOUSE_LAYER, 'text-field', showHouseNumbers
+        ? [
+            'format',
+            ['get', 'num'], { 'font-scale': 1.0 },
+            ['case', ['!=', ['get', 'label'], ''],
+              ['concat', '\n', ['get', 'label']],
+              '',
+            ], { 'font-scale': 0.85 },
+          ]
+        : '')
+    } catch { void 0 }
+  }, [showHouseNumbers, mapReady])
 
   useEffect(() => {
     const map = mapRef.current
@@ -1218,12 +1245,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     let pulsePhase = 0
     let rafId = requestAnimationFrame(function animate() {
       pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
-      const scale = 1 + Math.sin(pulsePhase) * 0.3
-      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
-      try {
-        map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
-        map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
-      } catch { /* layer may not exist */ }
+      if (!isExporting()) {
+        const scale = 1 + Math.sin(pulsePhase) * 0.3
+        const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+        try {
+          map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-radius', 18 + scale * 6)
+          map.setPaintProperty(SELECTED_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+        } catch { /* layer may not exist */ }
+      }
       rafId = requestAnimationFrame(animate)
     })
 
@@ -1237,12 +1266,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     let pulsePhase = 0
     let rafId = requestAnimationFrame(function animate() {
       pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
-      const scale = 1 + Math.sin(pulsePhase) * 0.3
-      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
-      try {
-        map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-radius', 16 + scale * 5)
-        map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
-      } catch { void 0 }
+      if (!isExporting()) {
+        const scale = 1 + Math.sin(pulsePhase) * 0.3
+        const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+        try {
+          map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-radius', 16 + scale * 5)
+          map.setPaintProperty(SELECTED_TREE_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+        } catch { void 0 }
+      }
       rafId = requestAnimationFrame(animate)
     })
 
@@ -1256,12 +1287,14 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     let pulsePhase = 0
     let rafId = requestAnimationFrame(function animate() {
       pulsePhase = (pulsePhase + 0.03) % (Math.PI * 2)
-      const scale = 1 + Math.sin(pulsePhase) * 0.3
-      const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
-      try {
-        map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-radius', 18 + scale * 5.5)
-        map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
-      } catch { void 0 }
+      if (!isExporting()) {
+        const scale = 1 + Math.sin(pulsePhase) * 0.3
+        const opacity = 0.15 + Math.sin(pulsePhase) * 0.15
+        try {
+          map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-radius', 18 + scale * 5.5)
+          map.setPaintProperty(SELECTED_START_LAYER + '-pulse', 'circle-stroke-opacity', opacity)
+        } catch { void 0 }
+      }
       rafId = requestAnimationFrame(animate)
     })
 
@@ -1500,6 +1533,15 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
     map.on('touchmove', onTouchMove)
     map.on('touchend', onTouchEnd)
 
+    // Safety net: if the browser loses focus mid-drag (iPad notification,
+    // app switch, multitasking gesture), re-enable map panning so the user
+    // doesn't get stuck in a non-pannable state.
+    const onWindowBlur = () => {
+      if (pendingId || dragId) cancelTouchDrag()
+      else map.dragPan.enable()
+    }
+    window.addEventListener('blur', onWindowBlur)
+
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId)
       map.off('mousedown', onMouseDown)
@@ -1508,6 +1550,7 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       map.off('touchstart', onTouchStart)
       map.off('touchmove', onTouchMove)
       map.off('touchend', onTouchEnd)
+      window.removeEventListener('blur', onWindowBlur)
     }
   }, [activeDrawMode, moveHousePoint, moveTreePoint, moveStartMarker, mapReady])
 
@@ -1683,7 +1726,12 @@ export default function MapView({ center = DEFAULT_CENTER, zoom = 16, onMapReady
       return
     }
 
+    let lastCursorCheck = 0
     const onMouseMove = (e: maplibregl.MapMouseEvent) => {
+      // Throttle to ~16fps — cursor styling is cosmetic, no need for 60-120fps
+      const now = performance.now()
+      if (now - lastCursorCheck < 60) return
+      lastCursorCheck = now
       const pt = point([e.lngLat.lng, e.lngLat.lat])
       const inside = booleanPointInPolygon(pt, boundary)
       map.getCanvas().style.cursor = inside ? 'crosshair' : 'not-allowed'

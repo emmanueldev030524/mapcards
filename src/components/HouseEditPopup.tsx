@@ -161,13 +161,24 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
 
     updateFloatingLayout()
 
-    const handleMove = () => updateFloatingLayout()
+    // Throttle map-move layout updates to one per animation frame.
+    // updateFloatingLayout runs 4-6 getBoundingClientRect() calls which
+    // force style recalc — coalescing to rAF avoids redundant work.
+    let moveRaf: number | null = null
+    const handleMove = () => {
+      if (moveRaf !== null) return
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = null
+        updateFloatingLayout()
+      })
+    }
     const resizeObserver = new ResizeObserver(() => updateFloatingLayout())
     resizeObserver.observe(map.getContainer())
     resizeObserver.observe(popupRef.current)
     map.on('move', handleMove)
 
     return () => {
+      if (moveRaf !== null) cancelAnimationFrame(moveRaf)
       resizeObserver.disconnect()
       map.off('move', handleMove)
     }
@@ -187,8 +198,8 @@ export default function HouseEditPopup({ map }: HouseEditPopupProps) {
     <div
       data-right-popup="true"
       className={isPhone
-        ? 'absolute left-1/2 z-10 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200'
-        : 'absolute z-10 transition-[left,top] duration-200 ease-out'}
+        ? 'absolute left-1/2 z-[12] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 px-2 sm:w-auto sm:max-w-none sm:px-0 transition-[top,bottom] duration-200'
+        : 'absolute z-[12] transition-[left,top] duration-200 ease-out'}
       style={isPhone
         ? {
             top: 'auto',

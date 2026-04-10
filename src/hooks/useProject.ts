@@ -82,8 +82,38 @@ export function useAutoSave() {
     saveState === 'dirty' || saveState === 'saving' || saveState === 'error'
 
   useEffect(() => {
+    // Track previous references of persisted fields to avoid running
+    // JSON.stringify on every UI-only state change (selectedHouseId,
+    // activeDrawMode, etc.). Only when a persisted field changes by
+    // reference do we proceed to the expensive snapshot comparison.
+    let prevRefs: Record<string, unknown> = {}
+
     const unsub = useStore.subscribe(() => {
-      const snapshot = toComparableSnapshot(useStore.getState().getProjectData())
+      const s = useStore.getState()
+      const refs: Record<string, unknown> = {
+        projectName: s.projectName,
+        territoryName: s.territoryName,
+        territoryNumber: s.territoryNumber,
+        cardWidthInches: s.cardWidthInches,
+        cardHeightInches: s.cardHeightInches,
+        mapCenter: s.mapCenter,
+        mapZoom: s.mapZoom,
+        boundary: s.boundary,
+        customRoads: s.customRoads,
+        housePoints: s.housePoints,
+        treePoints: s.treePoints,
+        startMarker: s.startMarker,
+      }
+
+      // Cheap reference-equality check — skip stringify for UI-only changes
+      let changed = false
+      for (const key in refs) {
+        if (refs[key] !== prevRefs[key]) { changed = true; break }
+      }
+      if (!changed) return
+      prevRefs = refs
+
+      const snapshot = toComparableSnapshot(s.getProjectData())
       if (snapshot === lastPersistedProjectSnapshot) {
         updateSaveState(saveStateRef.current === 'dirty' ? 'saved' : saveStateRef.current)
         return

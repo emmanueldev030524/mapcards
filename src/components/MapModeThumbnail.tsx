@@ -198,8 +198,10 @@ export default function MapModeThumbnail({
     [map, visibleLayers, toggleLayer],
   )
 
-  // Thumbnail: show the current mode icon
-  const current = MAP_TYPES.find((m) => m.value === currentMode) || MAP_TYPES[1]
+  // Thumbnail: show the current mode icon.
+  // Clean mode shares the street vector base, so fall back to street thumbnail.
+  const previewMode = currentMode === 'clean' ? 'street' : currentMode
+  const current = MAP_TYPES.find((m) => m.value === previewMode) || MAP_TYPES[1]
 
   return (
     <div
