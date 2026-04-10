@@ -1,6 +1,6 @@
 import type maplibregl from 'maplibre-gl'
 import { bbox as turfBbox } from '@turf/bbox'
-import type { Feature, Point, Polygon } from 'geojson'
+import type { Feature, Polygon } from 'geojson'
 import { BRAND } from './colors'
 import { useStore } from '../store'
 import { buildHouseIconSizeExpression, buildTreeIconSizeExpression } from './mapMarkerSizing'
@@ -582,7 +582,7 @@ export async function exportToPng(options: ExportOptions): Promise<Blob> {
     // just the pin+label on a transparent background. Compositing this onto
     // the card avoids both boundary clipping and the dark-rect artifact from
     // drawing opaque map tiles outside the boundary.
-    const { startMarker, startMarkerSize } = useStore.getState()
+    const { startMarker } = useStore.getState()
     if (startMarker && map.getLayer(START_MARKER_LAYER)) {
       // Collect all currently visible style layers so we can hide them
       const styleLayers = (map.getStyle()?.layers ?? [])

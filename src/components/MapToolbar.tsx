@@ -129,7 +129,8 @@ export default function MapToolbar({
   // On tablet, the helper popup already explains each tool — tooltips are
   // redundant and visually compete with the popup. Suppress by not emitting
   // data-tooltip attributes. aria-label stays for accessibility.
-  const tip: typeof tooltipAttrs = isTablet ? () => ({}) : tooltipAttrs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tip: typeof tooltipAttrs = isTablet ? (() => ({})) as any : tooltipAttrs
   const btnSize = isTablet ? 'h-10 w-10' : 'h-9 w-9'
   const iconSize = isTablet ? 18 : 17
   const canUndo = useStore((s) => s.canUndo)
